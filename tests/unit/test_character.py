@@ -50,6 +50,25 @@ def make_move_event(*, actor: str = "ch_1", world_instance_id: WorldInstanceId =
     )
 
 
+def make_death_event(
+    *,
+    character_id: str = "ch_1",
+    cause_event_id: str = "ev_cause",
+    world_instance_id: WorldInstanceId = WORLD_ID,
+) -> Event:
+    return Event(
+        id=EventId("ev_death"),
+        world_instance_id=world_instance_id,
+        type=EventType.DEATH_EVENT,
+        created_at=NOW,
+        executed_at=NOW,
+        actor="system",
+        target=character_id,
+        cause=f"event:{cause_event_id}",
+        payload={"character_id": character_id, "cause_event_id": cause_event_id},
+    )
+
+
 def test_created_character_is_alive_and_active() -> None:
     character = make_character()
     assert character.lifecycle is CharacterLifecycle.ALIVE
@@ -97,3 +116,31 @@ def test_event_from_another_instance_is_rejected() -> None:
     with pytest.raises(DomainError) as exc_info:
         character.apply(make_move_event(world_instance_id=OTHER_WORLD_ID))
     assert exc_info.value.code is ErrorCode.NOT_ALLOWED
+
+
+def test_death_event_sets_dead_and_persists_both_event_references() -> None:
+    character = make_character()
+
+    character.apply(make_death_event())
+
+    assert character.lifecycle is CharacterLifecycle.DEAD
+    assert character.death_event_id == EventId("ev_death")
+    assert character.death_cause_event_id == EventId("ev_cause")
+    assert character.can_act() is False
+
+
+def test_death_event_without_cause_is_rejected() -> None:
+    character = make_character()
+    event = make_death_event(cause_event_id="")
+    event = Event(
+        id=event.id,
+        world_instance_id=event.world_instance_id,
+        type=event.type,
+        created_at=event.created_at,
+        target=event.target,
+        payload={"character_id": "ch_1"},
+    )
+
+    with pytest.raises(DomainError) as exc_info:
+        character.apply(event)
+    assert exc_info.value.code is ErrorCode.INVALID_ACTION

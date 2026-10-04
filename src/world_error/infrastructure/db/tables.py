@@ -108,10 +108,28 @@ characters = Table(
     Column("location_key", String(64), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+    Column("death_event_id", String(64), nullable=True),
+    Column("death_cause_event_id", String(64), nullable=True),
+    UniqueConstraint("world_instance_id", "id", name="uq_characters_instance_id"),
     ForeignKeyConstraint(
         ["world_instance_id", "location_key"],
         ["location_states.world_instance_id", "location_states.key"],
         name="fk_characters_location",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "death_event_id"],
+        ["events.world_instance_id", "events.id"],
+        name="fk_characters_death_event",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "death_cause_event_id"],
+        ["events.world_instance_id", "events.id"],
+        name="fk_characters_death_cause_event",
+    ),
+    CheckConstraint(
+        "(lifecycle = 'DEAD' AND death_event_id IS NOT NULL AND death_cause_event_id IS NOT NULL) OR "
+        "(lifecycle != 'DEAD' AND death_event_id IS NULL AND death_cause_event_id IS NULL)",
+        name="ck_characters_death_references",
     ),
     Index("ix_characters_instance_player", "world_instance_id", "player_id"),
 )
@@ -229,6 +247,50 @@ relationships = Table(
     ),
     Index("ix_relationships_holder", "world_instance_id", "holder_type", "holder_id"),
     Index("ix_relationships_subject", "world_instance_id", "subject_type", "subject_id"),
+)
+
+legacy_items = Table(
+    "legacy_items",
+    metadata,
+    Column("seq", Integer, primary_key=True, autoincrement=True),
+    Column("id", String(64), nullable=False),
+    Column("world_instance_id", String(64), nullable=False),
+    Column("document_key", String(64), nullable=False),
+    Column("location_key", String(64), nullable=False),
+    Column("created_by_character_id", String(64), nullable=False),
+    Column("death_event_id", String(64), nullable=False),
+    Column("created_event_id", String(64), nullable=False),
+    Column("content", String(2000), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_legacy_items_instance_id"),
+    UniqueConstraint("world_instance_id", "document_key", name="uq_legacy_items_instance_key"),
+    ForeignKeyConstraint(
+        ["world_instance_id"],
+        ["world_instances.id"],
+        name="fk_legacy_items_instance",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "location_key"],
+        ["location_states.world_instance_id", "location_states.key"],
+        name="fk_legacy_items_location",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "created_by_character_id"],
+        ["characters.world_instance_id", "characters.id"],
+        name="fk_legacy_items_creator",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "death_event_id"],
+        ["events.world_instance_id", "events.id"],
+        name="fk_legacy_items_death_event",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "created_event_id"],
+        ["events.world_instance_id", "events.id"],
+        name="fk_legacy_items_created_event",
+    ),
+    Index("ix_legacy_items_location", "world_instance_id", "location_key"),
 )
 
 consequences = Table(

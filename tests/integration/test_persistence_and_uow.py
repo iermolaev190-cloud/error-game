@@ -39,13 +39,17 @@ def test_alembic_upgrade_head_on_clean_database(
 
     db_engine = create_db_engine(url)
     try:
-        tables = set(inspect(db_engine).get_table_names())
+        inspector = inspect(db_engine)
+        tables = set(inspector.get_table_names())
+        character_columns = {column["name"] for column in inspector.get_columns("characters")}
+        character_checks = {check["name"] for check in inspector.get_check_constraints("characters")}
     finally:
         db_engine.dispose()
 
     assert {"world_instances", "events", "alembic_version"} <= tables
     # Миграция 0002 добавляет персонажей, локации, информацию и знание,
-    # 0003 — NPC, 0004 — отношения, 0005 — последствия и их причины.
+    # 0003 — NPC, 0004 — отношения, 0005 — последствия, 0006 — time,
+    # 0007 — death references and legacy documents.
     assert {
         "characters",
         "location_states",
@@ -56,7 +60,10 @@ def test_alembic_upgrade_head_on_clean_database(
         "scheduled_events",
         "consequences",
         "consequence_causes",
+        "legacy_items",
     } <= tables
+    assert {"death_event_id", "death_cause_event_id"} <= character_columns
+    assert "ck_characters_death_references" in character_checks
 
 
 def test_created_instance_is_loaded_from_new_session(

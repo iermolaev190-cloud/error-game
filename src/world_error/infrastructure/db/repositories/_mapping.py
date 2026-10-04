@@ -33,6 +33,7 @@ from world_error.domain.knowledge.knowledge import (
     SubjectType,
 )
 from world_error.domain.locations.location import LocationState
+from world_error.domain.legacy.legacy_document import LegacyDocument
 from world_error.domain.npcs.npc import Npc, NpcStatus
 from world_error.domain.relationships.relationship import (
     Relationship,
@@ -48,6 +49,7 @@ from world_error.domain.shared.kernel import (
     InformationId,
     KnowledgeId,
     LocationKey,
+    LegacyDocumentId,
     NpcId,
     RelationshipId,
     ScheduledEventId,
@@ -206,6 +208,34 @@ def scheduled_event_from_row(row: dict) -> ScheduledEvent:
     )
 
 
+def legacy_document_row(document: LegacyDocument) -> dict[str, object]:
+    return {
+        "id": str(document.id),
+        "world_instance_id": str(document.world_instance_id),
+        "document_key": document.document_key,
+        "location_key": str(document.location_key),
+        "created_by_character_id": str(document.created_by_character_id),
+        "death_event_id": str(document.death_event_id),
+        "created_event_id": str(document.created_event_id),
+        "content": document.content,
+        "created_at": document.created_at,
+    }
+
+
+def legacy_document_from_row(row: dict) -> LegacyDocument:
+    return LegacyDocument(
+        id=LegacyDocumentId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        document_key=row["document_key"],
+        location_key=LocationKey(row["location_key"]),
+        created_by_character_id=CharacterId(row["created_by_character_id"]),
+        death_event_id=EventId(row["death_event_id"]),
+        created_event_id=EventId(row["created_event_id"]),
+        content=row["content"],
+        created_at=as_utc(row["created_at"]),
+    )
+
+
 # --- character ------------------------------------------------------------
 
 
@@ -220,6 +250,10 @@ def character_row(character: Character) -> dict[str, object]:
         "location_key": str(character.location_key),
         "created_at": character.created_at,
         "updated_at": character.updated_at,
+        "death_event_id": None if character.death_event_id is None else str(character.death_event_id),
+        "death_cause_event_id": (
+            None if character.death_cause_event_id is None else str(character.death_cause_event_id)
+        ),
     }
 
 
@@ -234,6 +268,12 @@ def character_from_row(row: dict) -> Character:
         location_key=LocationKey(row["location_key"]),
         created_at=as_utc(row["created_at"]),
         updated_at=as_utc(row["updated_at"]),
+        death_event_id=(
+            None if row["death_event_id"] is None else EventId(row["death_event_id"])
+        ),
+        death_cause_event_id=(
+            None if row["death_cause_event_id"] is None else EventId(row["death_cause_event_id"])
+        ),
     )
 
 

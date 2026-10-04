@@ -6,10 +6,15 @@ from dataclasses import dataclass
 from typing import Callable
 
 from world_error.application.ports.repositories import UnitOfWorkFactory
+from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.shared.kernel import (
+    CharacterId,
     Clock,
+    DomainError,
+    ErrorCode,
     EventId,
+    LocationKey,
     ScheduledEventId,
     WorldInstanceId,
     new_event_id,
@@ -26,16 +31,17 @@ from world_error.domain.world.instance import InstanceLifecycle
 @dataclass(frozen=True, slots=True)
 class ScheduledPumpOutcome:
     applied: tuple[ScheduledEventId, ...] = ()
+    failed: tuple[ScheduledEventId, ...] = ()
     event_ids: tuple[EventId, ...] = ()
     limit_reached: bool = False
 
     @property
     def steps(self) -> int:
-        return len(self.applied)
+        return len(self.applied) + len(self.failed)
 
     @property
     def changed(self) -> bool:
-        return bool(self.applied)
+        return bool(self.applied or self.failed)
 
 
 class ScheduledEventEngine:
@@ -43,10 +49,12 @@ class ScheduledEventEngine:
         self,
         *,
         uow_factory: UnitOfWorkFactory,
+        catalog: ContentCatalog,
         clock: Clock,
         new_event_id_factory: Callable[[], EventId] = new_event_id,
     ) -> None:
         self._uow_factory = uow_factory
+        self._catalog = catalog
         self._clock = clock
         self._new_event_id = new_event_id_factory
 
@@ -54,17 +62,22 @@ class ScheduledEventEngine:
         self, world_instance_id: WorldInstanceId, *, max_steps: int
     ) -> ScheduledPumpOutcome:
         applied: list[ScheduledEventId] = []
+        failed: list[ScheduledEventId] = []
         event_ids: list[EventId] = []
-        while len(applied) < max_steps:
+        while len(applied) + len(failed) < max_steps:
             outcome = self._apply_next_due(world_instance_id)
             if outcome is None:
                 break
-            scheduled_event_id, event_id = outcome
-            applied.append(scheduled_event_id)
+            scheduled_event_id, event_id, did_apply = outcome
+            (applied if did_apply else failed).append(scheduled_event_id)
             event_ids.append(event_id)
-        limit_reached = len(applied) >= max_steps and self.has_due(world_instance_id)
+        processed = len(applied) + len(failed)
+        limit_reached = processed >= max_steps and self.has_due(world_instance_id)
         return ScheduledPumpOutcome(
-            applied=tuple(applied), event_ids=tuple(event_ids), limit_reached=limit_reached
+            applied=tuple(applied),
+            failed=tuple(failed),
+            event_ids=tuple(event_ids),
+            limit_reached=limit_reached,
         )
 
     def has_due(self, world_instance_id: WorldInstanceId) -> bool:
@@ -95,7 +108,7 @@ class ScheduledEventEngine:
 
     def _apply_next_due(
         self, world_instance_id: WorldInstanceId
-    ) -> tuple[ScheduledEventId, EventId] | None:
+    ) -> tuple[ScheduledEventId, EventId, bool] | None:
         with self._uow_factory() as uow:
             instance = uow.world_instances.get(world_instance_id)
             if instance.lifecycle is not InstanceLifecycle.ACTIVE:
@@ -117,7 +130,7 @@ class ScheduledEventEngine:
 
     def _apply_one(
         self, world_instance_id: WorldInstanceId, scheduled_event_id: ScheduledEventId
-    ) -> tuple[ScheduledEventId, EventId] | None:
+    ) -> tuple[ScheduledEventId, EventId, bool] | None:
         with self._uow_factory() as uow:
             instance = uow.world_instances.get(world_instance_id)
             if instance.lifecycle is not InstanceLifecycle.ACTIVE:
@@ -151,10 +164,85 @@ class ScheduledEventEngine:
                     at=instance.world_time_at(now),
                 )
             )
-            scheduled.mark_applied(event_id=event_id, now=now)
+            arrival = None
+            if scheduled.event_key == "CHARACTER_ARRIVAL":
+                try:
+                    arrival = self._build_character_arrival(uow, instance, scheduled, now)
+                except DomainError as exc:
+                    failed_event = Event(
+                        id=event_id,
+                        world_instance_id=instance.id,
+                        type=EventType.SCHEDULED_EVENT_FAILED,
+                        created_at=now,
+                        executed_at=now,
+                        actor="system",
+                        target=str(scheduled.id),
+                        cause=f"scheduled:{scheduled.id}",
+                        payload={
+                            "scheduled_event_id": str(scheduled.id),
+                            "event_key": scheduled.event_key,
+                            "error_code": exc.code.value,
+                            "reason": exc.message,
+                        },
+                        result="failed",
+                    )
+                    scheduled.mark_failed(event_id=failed_event.id, now=now)
+                    instance.register_applied_event(failed_event)
+                    uow.events.append(failed_event)
+                    uow.scheduled_events.save(scheduled)
+                    uow.world_instances.save(instance, expected_state_version=expected_version)
+                    uow.commit()
+                    return scheduled.id, failed_event.id, False
+
+            event = event.with_time_point(
+                TimePoint(
+                    event_id=event.id,
+                    kind=TimePointKind.OCCURRED_AT,
+                    at=instance.world_time_at(now),
+                )
+            )
+            scheduled.mark_applied(event_id=event.id, now=now)
             instance.register_applied_event(event)
-            uow.world_instances.save(instance, expected_state_version=expected_version)
             uow.events.append(event)
+            if arrival is not None:
+                character, destination, movement = arrival
+                character.apply(movement)
+                destination.apply(movement)
+                instance.register_applied_event(movement)
+                uow.characters.save(character)
+                uow.locations.save(destination)
+                uow.events.append(movement)
             uow.scheduled_events.save(scheduled)
+            uow.world_instances.save(instance, expected_state_version=expected_version)
             uow.commit()
-            return scheduled.id, event.id
+            return scheduled.id, event.id, True
+
+    def _build_character_arrival(
+        self, uow, instance, scheduled: ScheduledEvent, now  # noqa: ANN001
+    ):
+        character_id = scheduled.payload.get("character_id")
+        target_key = scheduled.payload.get("to_location_key")
+        if not character_id or not target_key:
+            raise DomainError(ErrorCode.INVALID_ACTION, "CHARACTER_ARRIVAL requires character_id and to_location_key")
+        character = uow.characters.get(instance.id, CharacterId(str(character_id)))
+        character.ensure_can_act()
+        target = self._catalog.location(LocationKey(str(target_key)))
+        if not self._catalog.is_connected(character.location_key, target.key):
+            raise DomainError(
+                ErrorCode.INVALID_ACTION,
+                f"arrival target {target.key} is not connected to {character.location_key}",
+            )
+        destination = uow.locations.get(instance.id, target.key)
+        movement = Event(
+            id=self._new_event_id(),
+            world_instance_id=instance.id,
+            type=EventType.CHARACTER_MOVED,
+            created_at=now,
+            executed_at=now,
+            actor=str(character.id),
+            target=str(target.key),
+            cause=f"scheduled:{scheduled.id}",
+            payload={"from": str(character.location_key), "to": str(target.key)},
+            result="success",
+        )
+        return character, destination, movement

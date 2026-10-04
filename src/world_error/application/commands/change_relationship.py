@@ -11,7 +11,10 @@ from dataclasses import dataclass
 from typing import Callable
 
 from world_error.application.action_result import ActionResult
-from world_error.application.commands._subjects import resolve_subject
+from world_error.application.commands._subjects import (
+    ensure_relationship_subject_alive,
+    resolve_subject,
+)
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.relationships.relationship import (
@@ -68,6 +71,8 @@ class ChangeRelationshipHandler:
 
                 resolve_subject(uow, instance.id, command.holder)
                 resolve_subject(uow, instance.id, command.subject)
+                ensure_relationship_subject_alive(uow, instance.id, command.holder)
+                ensure_relationship_subject_alive(uow, instance.id, command.subject)
                 if command.holder == command.subject:
                     raise DomainError(
                         ErrorCode.INVALID_ACTION,

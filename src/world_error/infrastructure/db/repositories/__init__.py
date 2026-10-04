@@ -11,6 +11,7 @@ from world_error.infrastructure.db.repositories.consequence import SqlConsequenc
 from world_error.infrastructure.db.repositories.event_log import SqlEventLogRepository
 from world_error.infrastructure.db.repositories.information import SqlInformationRepository
 from world_error.infrastructure.db.repositories.knowledge import SqlKnowledgeRepository
+from world_error.infrastructure.db.repositories.legacy_document import SqlLegacyDocumentRepository
 from world_error.infrastructure.db.repositories.location import SqlLocationStateRepository
 from world_error.infrastructure.db.repositories.npc import SqlNpcRepository
 from world_error.infrastructure.db.repositories.relationship import SqlRelationshipRepository
@@ -23,6 +24,7 @@ __all__ = [
     "SqlEventLogRepository",
     "SqlInformationRepository",
     "SqlKnowledgeRepository",
+    "SqlLegacyDocumentRepository",
     "SqlLocationStateRepository",
     "SqlNpcRepository",
     "SqlRelationshipRepository",

@@ -28,9 +28,22 @@ from world_error.application.commands.apply_significant_action import (
     ApplySignificantActionCommand,
     ApplySignificantActionHandler,
 )
+from world_error.application.commands.begin_travel import BeginTravelCommand, BeginTravelHandler
 from world_error.application.commands.change_relationship import (
     ChangeRelationshipCommand,
     ChangeRelationshipHandler,
+)
+from world_error.application.commands.kill_character import (
+    KillCharacterCommand,
+    KillCharacterHandler,
+)
+from world_error.application.commands.leave_legacy_document import (
+    LeaveLegacyDocumentCommand,
+    LeaveLegacyDocumentHandler,
+)
+from world_error.application.commands.inspect_legacy_document import (
+    InspectLegacyDocumentCommand,
+    InspectLegacyDocumentHandler,
 )
 from world_error.application.commands.cancel_consequence import (
     CancelConsequenceCommand,
@@ -121,6 +134,7 @@ from world_error.domain.shared.kernel import (
     ErrorCode,
     EventId,
     LocationKey,
+    LegacyDocumentId,
     NpcId,
     ScheduledEventId,
     SystemClock,
@@ -130,6 +144,7 @@ from world_error.domain.shared.kernel import (
 from world_error.domain.world.instance import InstanceEnvironment, InstanceLifecycle, WorldInstance
 from world_error.domain.time.scheduled_event import ScheduledEvent, ScheduledTriggerKind
 from world_error.domain.time.time_point import TimePoint
+from world_error.domain.time.action_cost import CostTicks
 
 DEFAULT_SEED_BITS = 63
 
@@ -185,10 +200,31 @@ class WorldEngine:
             catalog=catalog,
             new_event_id_factory=self._new_event_id,
         )
+        self._kill_character = KillCharacterHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._leave_legacy_document = LeaveLegacyDocumentHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._inspect_legacy_document = InspectLegacyDocumentHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
         self._move_character = MoveCharacterHandler(
             uow_factory=uow_factory,
             clock=self._clock,
             catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._begin_travel = BeginTravelHandler(
+            uow_factory=uow_factory,
+            catalog=catalog,
+            clock=self._clock,
             new_event_id_factory=self._new_event_id,
         )
         self._inspect_information = InspectInformationHandler(
@@ -263,6 +299,7 @@ class WorldEngine:
         )
         self._scheduled_events = ScheduledEventEngine(
             uow_factory=uow_factory,
+            catalog=catalog,
             clock=self._clock,
             new_event_id_factory=self._new_event_id,
         )
@@ -277,6 +314,9 @@ class WorldEngine:
         # Каждое действие-команда после успеха прогоняет насос последствий: если
         # незакрытых последствий нет, поведение не меняется вообще.
         self._create_character = self._pumped(self._create_character)
+        self._kill_character = self._pumped(self._kill_character)
+        self._leave_legacy_document = self._pumped(self._leave_legacy_document)
+        self._inspect_legacy_document = self._pumped(self._inspect_legacy_document)
         self._move_character = self._pumped(self._move_character)
         self._inspect_information = self._pumped(self._inspect_information)
         self._share_knowledge = self._pumped(self._share_knowledge)
@@ -348,6 +388,7 @@ class WorldEngine:
         max_steps = self._consequences.max_cascade_steps
         steps = 0
         scheduled_ids: list[ScheduledEventId] = []
+        scheduled_failed_ids: list[ScheduledEventId] = []
         consequence_ids = []
         failed_ids = []
         scheduled_event_ids: list[EventId] = []
@@ -362,6 +403,7 @@ class WorldEngine:
                 world_instance_id, max_steps=max(0, remaining)
             )
             scheduled_ids.extend(scheduled.applied)
+            scheduled_failed_ids.extend(scheduled.failed)
             event_ids.extend(scheduled.event_ids)
             scheduled_event_ids.extend(scheduled.event_ids)
             steps += scheduled.steps
@@ -395,6 +437,7 @@ class WorldEngine:
         return WorldPumpOutcome(
             scheduled=ScheduledPumpOutcome(
                 applied=tuple(scheduled_ids),
+                failed=tuple(scheduled_failed_ids),
                 event_ids=tuple(scheduled_event_ids),
                 limit_reached=limit_reached,
             ),
@@ -516,12 +559,95 @@ class WorldEngine:
             )
         )
 
+    def spawn_new_character(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        player_id: str,
+        name: str,
+        location_key: LocationKey | None = None,
+    ) -> ActionResult:
+        """Spawn from the world's normal start rules; no predecessor is stored."""
+        return self.create_character(
+            world_instance_id,
+            player_id=player_id,
+            name=name,
+            location_key=location_key,
+        )
+
+    def kill_character(
+        self,
+        world_instance_id: WorldInstanceId,
+        character_id: CharacterId,
+        *,
+        cause_event_id: EventId,
+        death_event_id: EventId | None = None,
+        actor: str = "world",
+    ) -> ActionResult:
+        return self._kill_character.handle(
+            KillCharacterCommand(
+                world_instance_id=world_instance_id,
+                character_id=character_id,
+                cause_event_id=cause_event_id,
+                death_event_id=death_event_id,
+                actor=actor,
+            )
+        )
+
+    def die_character(
+        self,
+        world_instance_id: WorldInstanceId,
+        character_id: CharacterId,
+        *,
+        cause_event_id: EventId,
+        death_event_id: EventId | None = None,
+    ) -> ActionResult:
+        return self.kill_character(
+            world_instance_id,
+            character_id,
+            cause_event_id=cause_event_id,
+            death_event_id=death_event_id,
+        )
+
+    def leave_legacy_document(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        character_id: CharacterId,
+        document_key: str,
+        content: str,
+    ) -> ActionResult:
+        return self._leave_legacy_document.handle(
+            LeaveLegacyDocumentCommand(
+                world_instance_id=world_instance_id,
+                character_id=character_id,
+                document_key=document_key,
+                content=content,
+            )
+        )
+
+    def inspect_legacy_document(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        character_id: CharacterId,
+        document_id: LegacyDocumentId,
+    ) -> ActionResult:
+        return self._inspect_legacy_document.handle(
+            InspectLegacyDocumentCommand(
+                world_instance_id=world_instance_id,
+                character_id=character_id,
+                document_id=document_id,
+            )
+        )
+
     def move_character(
         self,
         world_instance_id: WorldInstanceId,
         *,
         character_id: CharacterId,
         to_location_key: LocationKey,
+        cost_ticks: CostTicks | int | None = None,
         cause: str = "move",
     ) -> ActionResult:
         return self._move_character.handle(
@@ -529,7 +655,28 @@ class WorldEngine:
                 world_instance_id=world_instance_id,
                 character_id=character_id,
                 to_location_key=to_location_key,
+                cost_ticks=cost_ticks,
                 cause=cause,
+            )
+        )
+
+    def begin_travel(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        character_id: CharacterId,
+        to_location_key: LocationKey,
+        cost_ticks: CostTicks,
+        idempotency_key: str,
+    ) -> ActionResult:
+        """Start a delayed, scheduled arrival; the character stays at origin until due."""
+        return self._begin_travel.handle(
+            BeginTravelCommand(
+                world_instance_id=world_instance_id,
+                character_id=character_id,
+                to_location_key=str(to_location_key),
+                cost_ticks=cost_ticks,
+                idempotency_key=idempotency_key,
             )
         )
 
@@ -539,6 +686,7 @@ class WorldEngine:
         *,
         character_id: CharacterId,
         target_key: str,
+        cost_ticks: CostTicks | int | None = None,
         cause: str = "inspect",
     ) -> ActionResult:
         return self._inspect_information.handle(
@@ -546,6 +694,7 @@ class WorldEngine:
                 world_instance_id=world_instance_id,
                 character_id=character_id,
                 target_key=target_key,
+                cost_ticks=cost_ticks,
                 cause=cause,
             )
         )

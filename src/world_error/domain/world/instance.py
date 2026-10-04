@@ -5,9 +5,11 @@
 ``WORLD_INSTANCE_CREATED`` фиксируется в журнале, но не является переходом
 существующего состояния.
 
-Учёт событий: ``state_version == world_tick == число событий, применённых после
-создания``. ``WORLD_INSTANCE_STATUS_CHANGED`` — административное событие, оно
-двигает только версию состояния (как в коммите 1).
+Учёт: ``state_version`` растёт на одно за каждое применённое state/event изменение;
+``world_tick`` растёт на единицу обычного события или на агрегированную стоимость
+действия. Поэтому после ``ACTION_COST_TICK_CONSUMED`` значения могут расходиться.
+``WORLD_INSTANCE_STATUS_CHANGED`` — административное событие, оно двигает только
+версию состояния (как в коммите 1).
 
 Разделение осей: жизненный цикл инстанса (``InstanceLifecycle``) и среда
 исполнения (``InstanceEnvironment``) — независимые вещи. ``content_version`` —
@@ -56,6 +58,10 @@ _LIFECYCLE_TRANSITIONS: dict[InstanceLifecycle, frozenset[InstanceLifecycle]] = 
 ACTION_EVENT_TYPES: frozenset[EventType] = frozenset(
     {
         EventType.CHARACTER_CREATED,
+        EventType.DEATH_EVENT,
+        EventType.TRAVEL_STARTED,
+        EventType.LEGACY_DOCUMENT_LEFT,
+        EventType.LEGACY_DOCUMENT_DISCOVERED,
         EventType.CHARACTER_MOVED,
         EventType.INFORMATION_DISCOVERED,
         EventType.KNOWLEDGE_SHARED,
@@ -70,6 +76,7 @@ ACTION_EVENT_TYPES: frozenset[EventType] = frozenset(
         EventType.TIME_POINT_RECORDED,
         EventType.SCHEDULED_EVENT_CREATED,
         EventType.SCHEDULED_EVENT_TRIGGERED,
+        EventType.SCHEDULED_EVENT_FAILED,
     }
 )
 
@@ -171,8 +178,9 @@ class WorldInstance:
     def register_applied_event(self, event: Event) -> None:
         """Учесть значимое изменение мира, вызванное событием-действием.
 
-        Мир двигается на один тик: ``world_tick`` и ``state_version`` растут
-        вместе. Само состояние сущностей меняют их собственные агрегаты.
+        Обычное событие двигает мир на один тик и state_version. Агрегированный
+        ACTION_COST_TICK_CONSUMED отдельно двигает только диапазон ticks.
+        Само состояние сущностей меняют их собственные агрегаты.
         """
         self._ensure_own_event(event)
         if event.type not in ACTION_EVENT_TYPES:
@@ -181,6 +189,21 @@ class WorldInstance:
                 f"event {event.type} is not an action event",
             )
         self.state.world_tick += 1
+        self.state.state_version += 1
+
+    def register_action_cost(self, event: Event, *, from_tick: int, cost_ticks: int) -> None:
+        self._ensure_own_event(event)
+        if event.type is not EventType.ACTION_COST_TICK_CONSUMED:
+            raise DomainError(ErrorCode.INVALID_ACTION, "expected ACTION_COST_TICK_CONSUMED")
+        if cost_ticks < 1 or from_tick + 1 != self.state.world_tick:
+            raise DomainError(ErrorCode.INVALID_ACTION, "action cost does not follow its action event")
+        if (
+            event.payload.get("from_tick") != from_tick
+            or event.payload.get("to_tick") != from_tick + cost_ticks
+            or event.payload.get("cost") != cost_ticks
+        ):
+            raise DomainError(ErrorCode.INVALID_ACTION, "action cost event has inconsistent tick range")
+        self.state.world_tick = from_tick + cost_ticks
         self.state.state_version += 1
 
     def _ensure_own_event(self, event: Event) -> None:

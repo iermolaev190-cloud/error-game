@@ -19,6 +19,7 @@ NpcId = NewType("NpcId", str)
 RelationshipId = NewType("RelationshipId", str)
 ConsequenceId = NewType("ConsequenceId", str)
 ScheduledEventId = NewType("ScheduledEventId", str)
+LegacyDocumentId = NewType("LegacyDocumentId", str)
 LocationKey = NewType("LocationKey", str)
 
 
@@ -65,6 +66,11 @@ def new_consequence_id() -> ConsequenceId:
 def new_scheduled_event_id() -> ScheduledEventId:
     """Новый идентификатор запланированного события."""
     return ScheduledEventId(f"sev_{uuid.uuid4().hex}")
+
+
+def new_legacy_document_id() -> LegacyDocumentId:
+    """Новый ID документа, оставленного персонажем в мире."""
+    return LegacyDocumentId(f"doc_{uuid.uuid4().hex}")
 
 
 class DiscoveryState(StrEnum):

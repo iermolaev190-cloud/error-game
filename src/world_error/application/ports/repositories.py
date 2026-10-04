@@ -15,6 +15,7 @@ from world_error.domain.events.log import EventLog
 from world_error.domain.information.information import Information
 from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
 from world_error.domain.locations.location import LocationState
+from world_error.domain.legacy.legacy_document import LegacyDocument
 from world_error.domain.npcs.npc import Npc
 from world_error.domain.relationships.relationship import (
     Relationship,
@@ -27,6 +28,7 @@ from world_error.domain.shared.kernel import (
     EventId,
     InformationId,
     LocationKey,
+    LegacyDocumentId,
     NpcId,
     ScheduledEventId,
     WorldInstanceId,
@@ -219,6 +221,16 @@ class ScheduledEventRepository(Protocol):
     def save(self, item: ScheduledEvent) -> None: ...
 
 
+class LegacyDocumentRepository(Protocol):
+    def add(self, document: LegacyDocument) -> None: ...
+
+    def get(self, world_instance_id: WorldInstanceId, document_id: LegacyDocumentId) -> LegacyDocument: ...
+
+    def list_at_location(
+        self, world_instance_id: WorldInstanceId, location_key: LocationKey
+    ) -> Sequence[LegacyDocument]: ...
+
+
 class UnitOfWork(Protocol):
     """Одна транзакция на один игровой запрос.
 
@@ -236,6 +248,7 @@ class UnitOfWork(Protocol):
     relationships: RelationshipRepository
     consequences: ConsequenceRepository
     scheduled_events: ScheduledEventRepository
+    legacy_documents: LegacyDocumentRepository
 
     def __enter__(self) -> "UnitOfWork": ...
 

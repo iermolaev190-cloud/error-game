@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from world_error.application.action_result import ActionResult
+from world_error.application.commands._action_cost import consume_action_cost
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
@@ -19,6 +20,7 @@ from world_error.domain.shared.kernel import (
     WorldInstanceId,
     new_event_id,
 )
+from world_error.domain.time.action_cost import CostTicks
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +28,7 @@ class MoveCharacterCommand:
     world_instance_id: WorldInstanceId
     character_id: CharacterId
     to_location_key: LocationKey
+    cost_ticks: CostTicks | int | None = None
     cause: str = "move"
 
 
@@ -89,22 +92,33 @@ class MoveCharacterHandler:
                 character.apply(event)
                 destination = uow.locations.get(instance.id, target.key)
                 destination.apply(event)
+                cost_event = consume_action_cost(
+                    instance,
+                    action=self.ACTION,
+                    action_event=event,
+                    cost=command.cost_ticks,
+                    now=now,
+                    new_event_id_factory=self._new_event_id,
+                )
 
                 uow.characters.save(character)
                 uow.locations.save(destination)
                 uow.world_instances.save(instance, expected_state_version=expected_version)
                 uow.events.append(event)
+                if cost_event is not None:
+                    uow.events.append(cost_event)
                 uow.commit()
 
             return ActionResult.success(
                 self.ACTION,
-                event_ids=(event.id,),
+                event_ids=(event.id,) + (() if cost_event is None else (cost_event.id,)),
                 payload={
                     "character_id": str(character.id),
                     "from": str(from_key),
                     "to": str(character.location_key),
                     "world_tick": instance.state.world_tick,
                     "state_version": instance.state.state_version,
+                    "cost_ticks": None if command.cost_ticks is None else int(command.cost_ticks),
                 },
             )
         except DomainError as exc:

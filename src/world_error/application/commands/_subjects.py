@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from world_error.domain.characters.character import CharacterLifecycle
 from world_error.domain.knowledge.knowledge import SubjectType
 from world_error.domain.relationships.relationship import (
     SubjectRef,
@@ -38,6 +39,17 @@ def resolve_subject(uow, world_instance_id: WorldInstanceId, subject: SubjectRef
         ErrorCode.INVALID_ACTION,
         f"unsupported relationship subject type: {subject.type}",
     )
+
+
+def ensure_relationship_subject_alive(uow, world_instance_id: WorldInstanceId, subject: SubjectRef) -> None:
+    """A dead character remains in history but cannot participate in new relations."""
+    if subject.type is SubjectType.CHARACTER:
+        character = uow.characters.get(world_instance_id, CharacterId(subject.id))
+        if character.lifecycle is CharacterLifecycle.DEAD:
+            raise DomainError(
+                ErrorCode.NOT_ALLOWED,
+                f"dead character {character.id} cannot participate in relationship changes",
+            )
 
 
 def subject_ref_from_id(subject_id: str) -> SubjectRef | None:

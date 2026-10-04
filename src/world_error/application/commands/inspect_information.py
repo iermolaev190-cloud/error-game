@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from world_error.application.action_result import ActionResult
+from world_error.application.commands._action_cost import consume_action_cost
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
@@ -27,6 +28,7 @@ from world_error.domain.shared.kernel import (
     new_event_id,
     new_knowledge_id,
 )
+from world_error.domain.time.action_cost import CostTicks
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +36,7 @@ class InspectInformationCommand:
     world_instance_id: WorldInstanceId
     character_id: CharacterId
     target_key: str
+    cost_ticks: CostTicks | int | None = None
     cause: str = "inspect"
 
 
@@ -131,16 +134,26 @@ class InspectInformationHandler:
                     definition=definition,
                     now=now,
                 )
+                cost_event = consume_action_cost(
+                    instance,
+                    action=self.ACTION,
+                    action_event=event,
+                    cost=command.cost_ticks,
+                    now=now,
+                    new_event_id_factory=self._new_event_id,
+                )
 
                 uow.information.save(information)
                 uow.knowledge.add(knowledge)
                 uow.world_instances.save(instance, expected_state_version=expected_version)
                 uow.events.append(event)
+                if cost_event is not None:
+                    uow.events.append(cost_event)
                 uow.commit()
 
             return ActionResult.success(
                 self.ACTION,
-                event_ids=(event.id,),
+                event_ids=(event.id,) + (() if cost_event is None else (cost_event.id,)),
                 payload={
                     "already_known": False,
                     "information_key": information.key,
@@ -155,6 +168,7 @@ class InspectInformationHandler:
                     ),
                     "world_tick": instance.state.world_tick,
                     "state_version": instance.state.state_version,
+                    "cost_ticks": None if command.cost_ticks is None else int(command.cost_ticks),
                 },
             )
         except DomainError as exc:

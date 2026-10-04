@@ -153,17 +153,12 @@ def test_location_view_unknown_location_is_not_found(world_engine: WorldEngine) 
     assert exc_info.value.code is ErrorCode.NOT_FOUND
 
 
-def test_location_view_rejects_dead_observer(
-    world_engine: WorldEngine, uow_factory: Callable[[], SqlAlchemyUnitOfWork]
-) -> None:
+def test_location_view_rejects_dead_observer(world_engine: WorldEngine) -> None:
     instance = make_world(world_engine)
     observer = make_character(world_engine, instance, "player-a")
-
-    with uow_factory() as uow:
-        character = uow.characters.get(instance.id, observer)
-        character.lifecycle = CharacterLifecycle.DEAD
-        uow.characters.save(character)
-        uow.commit()
+    cause_event_id = world_engine.get_events(instance.id)[-1].id
+    death = world_engine.kill_character(instance.id, observer, cause_event_id=cause_event_id)
+    assert death.ok is True, death.error
 
     with pytest.raises(DomainError) as exc_info:
         world_engine.view_location(instance.id, observer_id=observer, location_key=BASE)

@@ -25,6 +25,7 @@ from world_error.domain.shared.kernel import (
     CharacterId,
     DomainError,
     ErrorCode,
+    EventId,
     LocationKey,
     WorldInstanceId,
 )
@@ -53,6 +54,23 @@ class Character:
     location_key: LocationKey
     created_at: datetime
     updated_at: datetime
+    death_event_id: EventId | None = None
+    death_cause_event_id: EventId | None = None
+
+    def __post_init__(self) -> None:
+        has_death_references = self.death_event_id is not None and self.death_cause_event_id is not None
+        if self.lifecycle is CharacterLifecycle.DEAD and not has_death_references:
+            raise DomainError(
+                ErrorCode.INVALID_ACTION,
+                "DEAD character requires death_event_id and death_cause_event_id",
+            )
+        if self.lifecycle is CharacterLifecycle.ALIVE and (
+            self.death_event_id is not None or self.death_cause_event_id is not None
+        ):
+            raise DomainError(
+                ErrorCode.INVALID_ACTION,
+                "ALIVE character cannot have death event references",
+            )
 
     @classmethod
     def create(
@@ -106,5 +124,23 @@ class Character:
             return
         if event.type is EventType.CHARACTER_CREATED:
             # Персонаж создан фабрикой: событие фиксирует факт, состояние уже задано.
+            return
+        if event.type is EventType.DEATH_EVENT:
+            cause_event_id = event.payload.get("cause_event_id")
+            if event.target != str(self.id) or event.payload.get("character_id") != str(self.id):
+                raise DomainError(
+                    ErrorCode.NOT_ALLOWED,
+                    f"death event {event.id} targets another character",
+                )
+            if not cause_event_id:
+                raise DomainError(ErrorCode.INVALID_ACTION, "death event requires a cause event")
+            if event.id == EventId(str(cause_event_id)):
+                raise DomainError(ErrorCode.INVALID_ACTION, "death event cannot cause itself")
+            if self.lifecycle is CharacterLifecycle.DEAD:
+                raise DomainError(ErrorCode.ALREADY_PROCESSED, f"character {self.id} is already dead")
+            self.lifecycle = CharacterLifecycle.DEAD
+            self.death_event_id = event.id
+            self.death_cause_event_id = EventId(str(cause_event_id))
+            self.updated_at = event.executed_at or event.created_at
             return
         raise DomainError(ErrorCode.INVALID_ACTION, f"unsupported event type: {event.type}")

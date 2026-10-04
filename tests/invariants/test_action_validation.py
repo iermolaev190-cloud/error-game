@@ -9,13 +9,11 @@
 
 from __future__ import annotations
 
-from typing import Callable, Tuple
+from typing import Tuple
 
 from world_error.application.services.world_engine import WorldEngine
-from world_error.domain.characters.character import CharacterLifecycle
 from world_error.domain.shared.kernel import CharacterId, ErrorCode, LocationKey
 from world_error.domain.world.instance import WorldInstance
-from world_error.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 
 FOREST = LocationKey("forest")
 OLD_STATION = LocationKey("old_station")
@@ -56,18 +54,12 @@ def test_move_to_unconnected_location_is_invalid_action_and_rolls_back(
     assert len(world_engine.get_events(instance.id)) == events_before
 
 
-def test_dead_character_cannot_move_or_inspect(
-    world_engine: WorldEngine, uow_factory: Callable[[], SqlAlchemyUnitOfWork]
-) -> None:
+def test_dead_character_cannot_move_or_inspect(world_engine: WorldEngine) -> None:
     instance, character_id = make_world_with_character(world_engine)
+    cause_event_id = world_engine.get_events(instance.id)[-1].id
+    death = world_engine.kill_character(instance.id, character_id, cause_event_id=cause_event_id)
+    assert death.ok is True, death.error
     events_before = len(world_engine.get_events(instance.id))
-
-    # Смерть как механика появится позже; здесь состояние выставляется напрямую.
-    with uow_factory() as uow:
-        character = uow.characters.get(instance.id, character_id)
-        character.lifecycle = CharacterLifecycle.DEAD
-        uow.characters.save(character)
-        uow.commit()
 
     move_result = world_engine.move_character(
         instance.id, character_id=character_id, to_location_key=FOREST

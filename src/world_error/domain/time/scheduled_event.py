@@ -27,6 +27,7 @@ class ScheduledTriggerKind(StrEnum):
 class ScheduledEventStatus(StrEnum):
     PENDING = "PENDING"
     APPLIED = "APPLIED"
+    FAILED = "FAILED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +95,14 @@ class ScheduledEvent:
         if self.status is not ScheduledEventStatus.PENDING:
             return False
         self.status = ScheduledEventStatus.APPLIED
+        self.triggered_event_id = event_id
+        self.applied_at = now
+        return True
+
+    def mark_failed(self, *, event_id: EventId, now: datetime) -> bool:
+        if self.status is not ScheduledEventStatus.PENDING:
+            return False
+        self.status = ScheduledEventStatus.FAILED
         self.triggered_event_id = event_id
         self.applied_at = now
         return True
