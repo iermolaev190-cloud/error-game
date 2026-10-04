@@ -19,10 +19,8 @@ from world_error.domain.knowledge.knowledge import (
 from world_error.domain.shared.kernel import (
     CharacterId,
     ErrorCode,
-    InformationId,
     KnowledgeId,
     LocationKey,
-    WorldInstanceId,
 )
 from world_error.domain.world.instance import WorldInstance
 from world_error.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork

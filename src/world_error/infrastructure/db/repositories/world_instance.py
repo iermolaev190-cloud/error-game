@@ -33,11 +33,24 @@ class SqlWorldInstanceRepository:
             raise DomainError(ErrorCode.NOT_FOUND, f"world instance not found: {world_instance_id}")
         return instance_from_row(dict(row))
 
-    def save(self, instance: WorldInstance) -> None:
+    def save(self, instance: WorldInstance, *, expected_state_version: int) -> None:
+        """Оптимистичная запись: UPDATE ... WHERE state_version = expected.
+
+        Если строк обновлено 0, значит версия в БД изменилась (параллельный
+        запрос успел первым) — поднимаем ``CONFLICT``. Так исключаются
+        потерянные обновления: проигравшая транзакция откатывается целиком.
+        """
         result = self._session.execute(
             update(world_instances)
-            .where(world_instances.c.id == str(instance.id))
+            .where(
+                world_instances.c.id == str(instance.id),
+                world_instances.c.state_version == expected_state_version,
+            )
             .values(**instance_row(instance))
         )
         if result.rowcount == 0:
-            raise DomainError(ErrorCode.NOT_FOUND, f"world instance not found: {instance.id}")
+            raise DomainError(
+                ErrorCode.CONFLICT,
+                f"concurrent modification of world instance {instance.id}: "
+                f"expected state_version {expected_state_version}",
+            )

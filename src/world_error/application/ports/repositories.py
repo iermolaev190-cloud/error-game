@@ -30,7 +30,15 @@ class WorldInstanceRepository(Protocol):
         """Вернуть инстанс или поднять ``DomainError(NOT_FOUND)``."""
         ...
 
-    def save(self, instance: WorldInstance) -> None: ...
+    def save(self, instance: WorldInstance, *, expected_state_version: int) -> None:
+        """Сохранить состояние с проверкой версии (optimistic CAS).
+
+        ``expected_state_version`` — версия, прочитанная в начале транзакции.
+        Если в БД уже другая версия, значит параллельный запрос успел первым:
+        поднимается ``DomainError(CONFLICT)``, транзакция откатывается, и
+        потерянных обновлений не возникает (11_WORLD_STATE_V1 §50).
+        """
+        ...
 
 
 class CharacterRepository(Protocol):
@@ -44,6 +52,16 @@ class CharacterRepository(Protocol):
         self, world_instance_id: WorldInstanceId, player_id: str
     ) -> Character | None:
         """Живой персонаж игрока в этом мире (один аккаунт — один персонаж)."""
+        ...
+
+    def list_by_location(
+        self, world_instance_id: WorldInstanceId, location_key: LocationKey
+    ) -> Sequence[Character]:
+        """Персонажи указанного INSTANCE, физически находящиеся в локации.
+
+        Данные разных миров не смешиваются: запрос всегда ограничен своим
+        ``world_instance_id``.
+        """
         ...
 
     def save(self, character: Character) -> None: ...

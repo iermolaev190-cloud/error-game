@@ -95,6 +95,7 @@ python -m venv .venv
 .venv\Scripts\python -m world_error move --world-id <wi_id> --character-id <ch_id> --to old_station
 .venv\Scripts\python -m world_error inspect --world-id <wi_id> --character-id <ch_id> --target damaged_radio
 .venv\Scripts\python -m world_error share --world-id <wi_id> --character-id <ch_a> --to-character-id <ch_b> --information damaged_radio
+.venv\Scripts\python -m world_error show-location --world-id <wi_id> --character-id <ch_id> --location old_station
 .venv\Scripts\python -m world_error show-character --world-id <wi_id> --character-id <ch_id>
 .venv\Scripts\python -m world_error events <wi_id>
 ```

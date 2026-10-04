@@ -74,6 +74,7 @@ class ShareKnowledgeHandler:
         try:
             with self._uow_factory() as uow:
                 instance = uow.world_instances.get(command.world_instance_id)
+                expected_version = instance.state.state_version
 
                 sharer = uow.characters.get(instance.id, command.sharer_id)
                 sharer.ensure_can_act()
@@ -155,7 +156,7 @@ class ShareKnowledgeHandler:
                 )
 
                 uow.knowledge.add(knowledge)
-                uow.world_instances.save(instance)
+                uow.world_instances.save(instance, expected_state_version=expected_version)
                 uow.events.append(event)
                 uow.commit()
 

@@ -60,6 +60,7 @@ class MoveCharacterHandler:
         try:
             with self._uow_factory() as uow:
                 instance = uow.world_instances.get(command.world_instance_id)
+                expected_version = instance.state.state_version
                 character = uow.characters.get(instance.id, command.character_id)
                 character.ensure_can_act()
 
@@ -91,7 +92,7 @@ class MoveCharacterHandler:
 
                 uow.characters.save(character)
                 uow.locations.save(destination)
-                uow.world_instances.save(instance)
+                uow.world_instances.save(instance, expected_state_version=expected_version)
                 uow.events.append(event)
                 uow.commit()
 

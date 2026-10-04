@@ -43,6 +43,7 @@ from world_error.application.commands.share_knowledge import (
     ShareKnowledgeHandler,
 )
 from world_error.application.ports.repositories import UnitOfWorkFactory
+from world_error.application.queries.location_view import LocationView, LocationViewQuery
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
@@ -103,6 +104,7 @@ class WorldEngine:
             clock=self._clock,
             new_event_id_factory=self._new_event_id,
         )
+        self._location_view = LocationViewQuery(uow_factory=uow_factory, catalog=catalog)
 
     # --- команды коммита 1 (инстанс-события) -------------------------------
 
@@ -252,6 +254,22 @@ class WorldEngine:
 
     # --- запросы -----------------------------------------------------------
 
+    def view_location(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        observer_id: CharacterId,
+        location_key: LocationKey,
+    ) -> LocationView:
+        """Публичные факты локации для наблюдателя, который в ней находится.
+
+        Знание и truth в проекцию не попадают по построению
+        (см. application/queries/location_view.py).
+        """
+        return self._location_view.get(
+            world_instance_id, location_key, observer_id=observer_id
+        )
+
     def get_instance(self, world_instance_id: WorldInstanceId) -> WorldInstance:
         with self._uow_factory() as uow:
             return uow.world_instances.get(world_instance_id)
@@ -297,6 +315,7 @@ class WorldEngine:
     ) -> WorldInstance:
         with self._uow_factory() as uow:
             instance = uow.world_instances.get(world_instance_id)
+            expected_version = instance.state.state_version
             now = self._clock.now()
             event = Event(
                 id=self._new_event_id(),
@@ -317,6 +336,6 @@ class WorldEngine:
 
             instance.apply(event)          # правила domain; при ошибке — откат
             uow.events.append(event)       # идемпотентность и append-only
-            uow.world_instances.save(instance)
+            uow.world_instances.save(instance, expected_state_version=expected_version)
             uow.commit()
         return instance

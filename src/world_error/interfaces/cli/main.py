@@ -94,6 +94,11 @@ def build_parser() -> argparse.ArgumentParser:
     share.add_argument("--to-character-id", dest="to_character_id", required=True)
     share.add_argument("--information", dest="information", required=True)
 
+    show_location = subparsers.add_parser("show-location", help="публичные факты локации")
+    show_location.add_argument("--world-id", dest="world_id", required=True)
+    show_location.add_argument("--character-id", dest="character_id", required=True)
+    show_location.add_argument("--location", dest="location", required=True)
+
     show_character = subparsers.add_parser(
         "show-character", help="показать персонажа и его знание"
     )
@@ -202,6 +207,22 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
                 information_key=args.information,
             )
         )
+
+    if args.command == "show-location":
+        view = world_engine.view_location(
+            WorldInstanceId(args.world_id),
+            observer_id=CharacterId(args.character_id),
+            location_key=LocationKey(args.location),
+        )
+        print(f"world_instance_id={view.world_instance_id}")
+        print(f"location_key={view.location_key}")
+        print(f"name={view.name}")
+        print(f"type={view.type}")
+        print(f"discovery_state={view.discovery_state}")
+        print(f"characters_total={len(view.characters)}")
+        for presence in view.characters:
+            print(f"CHARACTER {presence.character_id} {presence.name} {presence.activity}")
+        return 0
 
     if args.command == "show-character":
         world_instance_id = WorldInstanceId(args.world_id)

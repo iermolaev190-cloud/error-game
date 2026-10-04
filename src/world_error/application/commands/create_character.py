@@ -55,6 +55,7 @@ class CreateCharacterHandler:
         try:
             with self._uow_factory() as uow:
                 instance = uow.world_instances.get(command.world_instance_id)
+                expected_version = instance.state.state_version
                 start_key = command.location_key or self._catalog.start_location
                 self._catalog.location(start_key)  # NOT_FOUND, если локация неизвестна
 
@@ -99,7 +100,7 @@ class CreateCharacterHandler:
 
                 uow.characters.add(character)
                 uow.locations.save(start_location)
-                uow.world_instances.save(instance)
+                uow.world_instances.save(instance, expected_state_version=expected_version)
                 uow.events.append(event)
                 uow.commit()
 

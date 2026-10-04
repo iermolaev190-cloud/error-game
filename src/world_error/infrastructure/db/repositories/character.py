@@ -52,6 +52,19 @@ class SqlCharacterRepository:
         )
         return None if row is None else character_from_row(dict(row))
 
+    def list_by_location(
+        self, world_instance_id: WorldInstanceId, location_key: LocationKey
+    ) -> list[Character]:
+        stmt = (
+            select(characters)
+            .where(
+                characters.c.world_instance_id == str(world_instance_id),
+                characters.c.location_key == str(location_key),
+            )
+            .order_by(characters.c.name, characters.c.id)
+        )
+        return [character_from_row(dict(row)) for row in self._session.execute(stmt).mappings().all()]
+
     def save(self, character: Character) -> None:
         result = self._session.execute(
             update(characters)
