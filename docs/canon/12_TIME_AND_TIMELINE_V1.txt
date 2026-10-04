@@ -2,6 +2,8 @@
 
 # WORLD//ERROR — TIME AND TIMELINE
 
+Status: Canonical
+
 ## 1. Назначение
 
 Время в WORLD//ERROR — не просто отметка даты.

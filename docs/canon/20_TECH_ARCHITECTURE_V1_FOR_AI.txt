@@ -1,5 +1,7 @@
 # 20_TECH_ARCHITECTURE.md
 
+Status: Canonical
+
 ## 1. Главный принцип
 
 WORLD//ERROR строится как:

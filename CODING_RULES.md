@@ -47,3 +47,22 @@ WORLD//ERROR CODING RULES
 19. Never allow AI to directly mutate canonical world state.
 
 20. If existing architecture conflicts with a new idea, stop and explain the conflict instead of silently bypassing the architecture.
+
+21. A game INSTANCE is created only by a group Telegram chat. A DM is not an INSTANCE but a personal
+    channel inside the active INSTANCE: world_instance_id is required for every game operation,
+    including DM. The active INSTANCE is determined by the session or the user's last group chat.
+
+## ПРАВИЛА КАНОНА / CANON RULES (must not be violated)
+
+Эти правила жёстче остальных: конфликт с любым из них — стоп-сигнал (см. правило 20).
+
+1. One group Telegram chat = one independent WORLD INSTANCE. A DM is not an INSTANCE.
+2. world_instance_id is required for every game operation, including DM.
+3. Never mix data between WORLD INSTANCES.
+4. AI never mutates canonical world state and is never the source of truth.
+5. Telegram contains no game logic.
+6. The database stores state and history; it is not the game engine.
+7. All significant state changes go through EVENTS.
+8. Player knowledge is not world truth.
+9. NPC knowledge is limited to its sources.
+10. No God Object / GameManager; architecture is not rewritten for one feature.

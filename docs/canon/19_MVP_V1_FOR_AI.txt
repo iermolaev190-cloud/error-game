@@ -1,5 +1,7 @@
 # 19_MVP.md
 
+Status: Canonical
+
 ## 1. Назначение
 
 MVP WORLD//ERROR — это не маленькая версия всей игры.

@@ -2,6 +2,8 @@
 
 # WORLD//ERROR — MULTIPLAYER
 
+Status: Canonical
+
 ## 1. Назначение
 
 Мультиплеер WORLD//ERROR — это не просто ситуация, когда несколько игроков находятся в одном Telegram-чате.

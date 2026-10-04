@@ -1,6 +1,6 @@
 # MASTER_SPEC.md — WORLD//ERROR
 
-**Статус:** Canonical
+**Status:** Canonical
 **Версия:** 1.0
 **Назначение:** Единая точка входа для разработки. Ссылается на канонические документы, не дублирует их.
 
@@ -57,19 +57,31 @@ PLAYER
 
 Приоритет чтения для coding AI:
 
-1. `AGENTS.md` — правила работы агента.
-2. `MASTER_SPEC.md` — этот файл.
-3. `CODING_RULES.md` — жёсткие правила кода.
+1. `AGENTS.md` — правила работы агента (корень репозитория).
+2. `MASTER_SPEC.md` — этот файл (корень репозитория).
+3. `CODING_RULES.md` — жёсткие правила кода (корень репозитория).
 4. `docs/canon/19_MVP_V1_FOR_AI.txt` — что доказываем в MVP.
 5. `docs/canon/20_TECH_ARCHITECTURE_V1_FOR_AI.txt` — как строим.
 6. `docs/canon/11_WORLD_STATE_V1.txt` — состояние мира.
 7. `docs/canon/12_TIME_AND_TIMELINE_V1.txt` — время.
 8. `docs/canon/14_MULTIPLAYER_V1.txt` — мультиплеер и инстансы.
-9. `docs/canon/15_ECONOMY_V1.txt` — экономика.
+9. `docs/canon/15_ECONOMY_V1.txt` — экономика: канон для **целевой** системы.
+   В MVP действует ограничение из §9: деньги + предметы + простая торговля;
+   производство, рынки, налоги и макроэкономика в MVP не входят.
 
-Остальные файлы в `docs/design/` — только для деталей, если в каноне чего-то нет.
+Фактическая раскладка документации:
 
-Если возникает конфликт — использовать V1 и этот файл.
+- корень: 3 входных документа (`AGENTS.md`, `MASTER_SPEC.md`, `CODING_RULES.md`) и `README.md`;
+- `docs/canon/` — 6 содержательных канонических документов (V1), перечислены в пп. 4–9;
+- `docs/design/` — 15 документов деталей: `00_VISION`, `01_WORLD_RULES`, `02_PLAYER`, `03_WORLD`,
+  `04_LOCATIONS`, `05_NPCS`, `06_FACTIONS`, `07_KNOWLEDGE`, `08_INFORMATION`,
+  `09_CLUES_AND_DOCUMENTS`, `10_EVENTS`, `13_CONSEQUENCES`, `16_AI_SYSTEM`, `17_ARG_LAYER`,
+  `21_ROADMAP`. Использовать только если в каноне чего-то нет;
+- `docs/archive/` — 6 устаревших версий (`11_WORLD_STATE`, `12_TIME_AND_TIMELINE`,
+  `14_MULTIPLAYER`, `15_ECONOMY`, `19_MVP`, `20_TECH_ARCHITECTURE`). Источником истины не являются
+  и при конфликтах не используются.
+
+Если возникает конфликт — использовать `docs/canon/*` (V1) и этот файл.
 
 ---
 
@@ -92,6 +104,7 @@ PLAYER
 13. **Не подключать AI раньше, чем World Engine работает сам.**
 14. **Не строить микросервисы на старте. Начинать с modular monolith.**
 15. **Если новое требование конфликтует с архитектурой — остановиться и объяснить конфликт, а не обходить.**
+16. **Игровой `INSTANCE` создаётся только групповым Telegram-чатом. DM — не `INSTANCE`, а персональный канал внутри активного `INSTANCE`; `world_instance_id` обязателен для любой игровой операции, включая DM. Активный `INSTANCE` определяется сессией или последним групповым чатом пользователя.**
 
 ---
 
@@ -292,6 +305,19 @@ INSTANCE A    X    INSTANCE B
 handle_intent(world_instance_id, actor_id, intent)
 ```
 
+### DM и INSTANCE
+
+```text
+GROUP CHAT  →  WORLD INSTANCE                      (создаёт мир)
+DM          →  персональный канал внутри INSTANCE  (мир не создаёт)
+```
+
+- Игровой `INSTANCE` создаётся **только** групповым Telegram-чатом.
+- DM — не `INSTANCE`: это персональный вид того же мира (личное знание, инвентарь, приватные действия).
+- `world_instance_id` обязателен для любой игровой операции, включая DM.
+- Активный `INSTANCE` для DM определяется сессией или последним групповым чатом пользователя.
+- `DM chat_id` не может быть единственным идентификатором мира.
+
 ---
 
 ## 8. Правило добавления новых систем
@@ -330,7 +356,7 @@ MVP доказывает **ядро**, а не масштаб.
 - `CONSEQUENCES` (в том числе отложенные).
 - `TIME` (event-driven).
 - Одно настоящее расследование.
-- Простая экономика (валюта, предметы, торговля).
+- Простая экономика: деньги, предметы, простая торговля (`15_ECONOMY_V1` — целевая система, не MVP).
 - `DEATH` и создание нового персонажа.
 - `LEGACY` (минимум одна механика).
 - `AI` как intent parser и NPC dialogue.
@@ -410,54 +436,41 @@ world-error/
 ├── MASTER_SPEC.md
 ├── CODING_RULES.md
 ├── README.md
+├── pyproject.toml
+├── alembic.ini
 ├── docs/
-│   ├── canon/
-│   ├── design/
-│   └── archive/
-├── src/
-│   ├── domain/
-│   │   ├── world/
-│   │   ├── characters/
-│   │   ├── locations/
-│   │   ├── npcs/
-│   │   ├── factions/
-│   │   ├── items/
-│   │   ├── economy/
-│   │   ├── knowledge/
-│   │   ├── information/
-│   │   ├── investigations/
-│   │   ├── events/
-│   │   ├── consequences/
-│   │   └── time/
-│   ├── application/
-│   │   ├── commands/
-│   │   ├── queries/
-│   │   ├── services/
-│   │   └── permissions/
-│   ├── infrastructure/
-│   │   ├── database/
-│   │   ├── telegram/
-│   │   ├── ai/
-│   │   ├── scheduler/
-│   │   └── queue/
-│   └── interfaces/
-│       └── telegram/
+│   ├── canon/              # 6 канонических V1-документов
+│   ├── design/             # 15 документов деталей
+│   └── archive/            # 6 устаревших версий
+├── content/                # контент мира: определения, не состояние
+│   ├── manifest.json
+│   ├── locations/
+│   └── information/
 ├── migrations/
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   ├── scenarios/
-│   └── invariants/
-└── content/
-    ├── locations/
-    ├── npcs/
-    ├── factions/
-    ├── items/
-    ├── clues/
-    └── investigations/
+│   ├── env.py
+│   └── versions/
+├── src/world_error/
+│   ├── domain/             # world, events, characters, locations,
+│   │                       # information, knowledge, content, shared
+│   ├── application/        # action_result.py, commands/, ports/, services/
+│   ├── infrastructure/     # db/{tables,engine,unit_of_work,repositories/}, content/
+│   ├── interfaces/         # cli/ (Telegram — отдельная фаза)
+│   └── bootstrap/          # config.py, container.py
+└── tests/
+    ├── conftest.py
+    ├── test_layering.py
+    ├── unit/
+    ├── integration/
+    ├── invariants/
+    └── scenarios/
 ```
 
-Правило: `domain/` не импортирует `telegram`, `aiogram`, `http`, `fastapi`.
+Появятся позже (не создавать заранее): `domain/{npcs,factions,items,economy,investigations,consequences,time}`,
+`infrastructure/{telegram,ai,scheduler,queue}`, `content/{npcs,factions,items,clues,investigations}`.
+
+Правило слоёв: `domain/` не импортирует `telegram`, `aiogram`, `http`, `fastapi`, `sqlalchemy`,
+`alembic`, `pydantic`, а также `infrastructure/`, `interfaces/`, `bootstrap/`.
+Проверяется автоматически: `tests/test_layering.py`.
 
 ---
 
