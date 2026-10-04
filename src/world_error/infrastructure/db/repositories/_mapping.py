@@ -9,6 +9,20 @@ from world_error.domain.characters.character import (
     CharacterActivity,
     CharacterLifecycle,
 )
+from world_error.domain.consequences.consequence import (
+    Consequence,
+    ConsequenceCause,
+    ConsequenceTrigger,
+)
+from world_error.domain.consequences.vocabulary import (
+    CauseOrigin,
+    ConsequenceEffect,
+    ConsequenceScale,
+    ConsequenceStatus,
+    ConsequenceType,
+    ConsequenceVisibility,
+    TriggerKind,
+)
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.information.information import Information
 from world_error.domain.knowledge.knowledge import (
@@ -28,6 +42,7 @@ from world_error.domain.relationships.relationship import (
 )
 from world_error.domain.shared.kernel import (
     CharacterId,
+    ConsequenceId,
     DiscoveryState,
     EventId,
     InformationId,
@@ -299,3 +314,83 @@ def relationship_from_row(row: dict) -> Relationship:
         created_at=as_utc(row["created_at"]),
         updated_at=as_utc(row["updated_at"]),
     )
+
+
+# --- consequence ----------------------------------------------------------
+
+
+def consequence_row(consequence: Consequence) -> dict[str, object]:
+    return {
+        "id": str(consequence.id),
+        "world_instance_id": str(consequence.world_instance_id),
+        "source_event_id": str(consequence.source_event_id),
+        "rule_key": consequence.rule_key,
+        "type": consequence.type.value,
+        "scale": consequence.scale.value,
+        "visibility": consequence.visibility.value,
+        "trigger_kind": consequence.trigger.kind.value,
+        "trigger_ticks": consequence.trigger.delay_ticks,
+        "trigger_event_type": (
+            consequence.trigger.event_type.value
+            if consequence.trigger.event_type is not None
+            else None
+        ),
+        "effect": consequence.effect.value,
+        "payload": dict(consequence.payload),
+        "status": consequence.status.value,
+        "due_tick": consequence.due_tick,
+        "created_at": consequence.created_at,
+        "applied_at": consequence.applied_at,
+        "applied_event_id": (
+            str(consequence.applied_event_id)
+            if consequence.applied_event_id is not None
+            else None
+        ),
+    }
+
+
+def consequence_cause_row(
+    consequence: Consequence, cause: ConsequenceCause, position: int
+) -> dict[str, object]:
+    return {
+        "world_instance_id": str(consequence.world_instance_id),
+        "consequence_id": str(consequence.id),
+        "event_id": str(cause.event_id),
+        "origin": cause.origin.value,
+        "position": position,
+    }
+
+
+def consequence_from_row(row: dict, causes: list[tuple[str, str]]) -> Consequence:
+    trigger = trigger_from_row(row)
+    return Consequence(
+        id=ConsequenceId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        causes=tuple(
+            ConsequenceCause(event_id=EventId(event_id), origin=CauseOrigin(origin))
+            for event_id, origin in causes
+        ),
+        type=ConsequenceType(row["type"]),
+        scale=ConsequenceScale(row["scale"]),
+        visibility=ConsequenceVisibility(row["visibility"]),
+        trigger=trigger,
+        effect=ConsequenceEffect(row["effect"]),
+        payload=dict(row["payload"] or {}),
+        due_tick=int(row["due_tick"]),
+        created_at=as_utc(row["created_at"]),
+        status=ConsequenceStatus(row["status"]),
+        rule_key=row["rule_key"],
+        applied_at=as_utc(row["applied_at"]) if row["applied_at"] is not None else None,
+        applied_event_id=(
+            EventId(row["applied_event_id"]) if row["applied_event_id"] is not None else None
+        ),
+    )
+
+
+def trigger_from_row(row: dict) -> ConsequenceTrigger:
+    kind = TriggerKind(row["trigger_kind"])
+    if kind is TriggerKind.AFTER_TICKS:
+        return ConsequenceTrigger.after_ticks(int(row["trigger_ticks"]))
+    if kind is TriggerKind.ON_EVENT_TYPE:
+        return ConsequenceTrigger.on_event_type(str(row["trigger_event_type"]))
+    return ConsequenceTrigger.immediate()

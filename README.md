@@ -104,6 +104,7 @@ python -m venv .venv
 .venv\Scripts\python -m world_error npc-status --world-id <wi_id> --npc-id <npc_id> --to MISSING
 .venv\Scripts\python -m world_error relationship-change --world-id <wi_id> --holder-type NPC --holder-id <npc_id> --subject-type CHARACTER --subject-id <ch_id> --kind TRUST --direction DECREASE
 .venv\Scripts\python -m world_error significant-action --world-id <wi_id> --actor-type CHARACTER --actor-id <ch_id> --holder-type NPC --holder-id <npc_id> --action BETRAYED
+.venv\Scripts\python -m world_error schedule-consequence --world-id <wi_id> --cause-event-id <ev_id> --type INFORMATIONAL --scale LOCAL --visibility HIDDEN --trigger AFTER_TICKS --delay-ticks 2 --effect INFORMATIONAL_LEARN --payload "{\"npc_id\": \"<npc_id>\", \"information_key\": \"damaged_radio\"}"
 .venv\Scripts\python -m world_error events <wi_id>
 ```
 
@@ -114,6 +115,10 @@ python -m venv .venv
 
 Отношения между субъектами (`TRUST`, `SUSPICION`) — внутреннее состояние мира: команды на изменение есть,
 читающих команд нет, и ни `show-location`, ни `show-npc`, ни `show-character` отношений не раскрывают.
+
+Последствия (`CONSEQUENCE_CREATED`, `CONSEQUENCE_FAILED`) ведёт `ConsequenceEngine`: он материализует правила из
+`content/consequences/*.json`, применяет созревшие последствия после каждой команды и на `advance-tick` и
+ограничивает каскад 16 шагами. Последствия тоже не выводятся игроку: читающих команд у них нет.
 
 ### Порядок работ
 

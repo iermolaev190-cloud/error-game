@@ -223,3 +223,82 @@ relationships = Table(
     Index("ix_relationships_holder", "world_instance_id", "holder_type", "holder_id"),
     Index("ix_relationships_subject", "world_instance_id", "subject_type", "subject_id"),
 )
+
+consequences = Table(
+    "consequences",
+    metadata,
+    # seq — порядок поступления (FIFO-детерминизм обработки), id — доменный ключ.
+    Column("seq", Integer, primary_key=True, autoincrement=True),
+    Column("id", String(64), nullable=False),
+    Column(
+        "world_instance_id",
+        String(64),
+        ForeignKey("world_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("source_event_id", String(64), nullable=False),
+    Column("rule_key", String(64), nullable=True),
+    Column("type", String(16), nullable=False),
+    Column("scale", String(16), nullable=False),
+    Column("visibility", String(16), nullable=False),
+    Column("trigger_kind", String(16), nullable=False),
+    Column("trigger_ticks", Integer, nullable=True),
+    Column("trigger_event_type", String(64), nullable=True),
+    Column("effect", String(32), nullable=False),
+    Column("payload", JSON, nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("due_tick", Integer, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("applied_at", DateTime(timezone=True), nullable=True),
+    Column("applied_event_id", String(64), nullable=True),
+    UniqueConstraint("world_instance_id", "id", name="uq_consequences_instance_id"),
+    # Одно правило не может сработать на одно и то же событие дважды:
+    # материализация правил идемпотентна на уровне схемы.
+    UniqueConstraint(
+        "world_instance_id",
+        "rule_key",
+        "source_event_id",
+        name="uq_consequences_rule_event",
+    ),
+    # Причина обязана существовать и принадлежать тому же INSTANCE (§14).
+    ForeignKeyConstraint(
+        ["world_instance_id", "source_event_id"],
+        ["events.world_instance_id", "events.id"],
+        name="fk_consequences_source_event",
+    ),
+    Index("ix_consequences_due", "world_instance_id", "status", "due_tick"),
+    Index(
+        "ix_consequences_trigger",
+        "world_instance_id",
+        "status",
+        "trigger_event_type",
+    ),
+)
+
+consequence_causes = Table(
+    "consequence_causes",
+    metadata,
+    Column("world_instance_id", String(64), nullable=False),
+    Column("consequence_id", String(64), nullable=False),
+    Column("event_id", String(64), nullable=False),
+    Column("origin", String(16), nullable=False),
+    Column("position", Integer, nullable=False),
+    # §26: причин может быть несколько — отсюда и отдельная таблица.
+    UniqueConstraint("consequence_id", "event_id", name="uq_consequence_causes_pair"),
+    ForeignKeyConstraint(
+        ["world_instance_id", "consequence_id"],
+        ["consequences.world_instance_id", "consequences.id"],
+        name="fk_consequence_causes_consequence",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "event_id"],
+        ["events.world_instance_id", "events.id"],
+        name="fk_consequence_causes_event",
+    ),
+    Index(
+        "ix_consequence_causes_event",
+        "world_instance_id",
+        "event_id",
+    ),
+)

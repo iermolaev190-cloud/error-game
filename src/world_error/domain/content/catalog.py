@@ -13,7 +13,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping
 
+from world_error.domain.consequences.rules import ConsequenceRule
+from world_error.domain.consequences.vocabulary import ConsequenceEffect
 from world_error.domain.information.information import InformationDefinition
+from world_error.domain.knowledge.knowledge import SubjectType
 from world_error.domain.locations.location import LocationDefinition
 from world_error.domain.npcs.npc import NpcDefinition
 from world_error.domain.shared.kernel import DomainError, ErrorCode, LocationKey
@@ -33,6 +36,7 @@ class ContentCatalog:
     locations: Mapping[LocationKey, LocationDefinition]
     information: Mapping[str, InformationDefinition]
     npcs: Mapping[str, NpcDefinition]
+    rules: Mapping[str, ConsequenceRule]
 
     @classmethod
     def build(
@@ -43,6 +47,7 @@ class ContentCatalog:
         locations: Mapping[LocationKey, LocationDefinition],
         information: Mapping[str, InformationDefinition],
         npcs: Mapping[str, NpcDefinition] | None = None,
+        rules: Mapping[str, ConsequenceRule] | None = None,
     ) -> "ContentCatalog":
         if not locations:
             raise ContentError("content has no locations")
@@ -69,12 +74,16 @@ class ContentCatalog:
                     f"npc {npc_definition.key!r} starts in unknown location "
                     f"{npc_definition.initial_location!r}"
                 )
+        rule_items = dict(rules or {})
+        for rule in rule_items.values():
+            _validate_rule(rule, npc_definitions, information, locations)
         return cls(
             version=version,
             start_location=start_location,
             locations=dict(locations),
             information=dict(information),
             npcs=npc_definitions,
+            rules=rule_items,
         )
 
     def has_location(self, key: LocationKey) -> bool:
@@ -103,3 +112,51 @@ class ContentCatalog:
         if definition is None:
             return False
         return target in definition.connections
+
+    def consequence_rule(self, key: str) -> ConsequenceRule:
+        try:
+            return self.rules[key]
+        except KeyError as exc:
+            raise DomainError(ErrorCode.NOT_FOUND, f"unknown consequence rule: {key}") from exc
+
+    def rules_for_event_type(self, event_type) -> tuple[ConsequenceRule, ...]:  # noqa: ANN001
+        return tuple(rule for rule in self.rules.values() if rule.on_event_type is event_type)
+
+
+def _validate_rule(
+    rule: ConsequenceRule,
+    npcs: Mapping[str, NpcDefinition],
+    information: Mapping[str, InformationDefinition],
+    locations: Mapping[LocationKey, LocationDefinition],
+) -> None:
+    """Правило обязано ссылаться только на существующий контент."""
+    keys = rule.effect_keys
+    if rule.effect is ConsequenceEffect.INFORMATIONAL_LEARN:
+        _require_content_key(npcs, str(keys["npc_key"]), "npc", rule)
+        _require_content_key(information, str(keys["information_key"]), "information", rule)
+        return
+    if rule.effect in (
+        ConsequenceEffect.PHYSICAL_STATUS_CHANGE,
+        ConsequenceEffect.PHYSICAL_RELOCATE,
+    ):
+        _require_content_key(npcs, str(keys["npc_key"]), "npc", rule)
+        if rule.effect is ConsequenceEffect.PHYSICAL_RELOCATE:
+            _require_content_key(
+                locations, LocationKey(str(keys["to_location_key"])), "location", rule
+            )
+        return
+    if rule.effect is ConsequenceEffect.RELATIONAL_SHIFT:
+        for prefix in ("holder", "subject"):
+            if str(keys[f"{prefix}_type"]) != SubjectType.NPC.value:
+                raise ContentError(
+                    f"consequence rule {rule.key!r} can reference only NPC subjects: "
+                    "characters have no content keys"
+                )
+            _require_content_key(npcs, str(keys[f"{prefix}_key"]), "npc", rule)
+
+
+def _require_content_key(collection: Mapping, key, kind: str, rule: ConsequenceRule) -> None:  # noqa: ANN001
+    if key not in collection:
+        raise ContentError(
+            f"consequence rule {rule.key!r} references unknown {kind}: {key!r}"
+        )

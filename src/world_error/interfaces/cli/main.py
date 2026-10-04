@@ -12,12 +12,21 @@ World Engine и форматирование результата.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from typing import Sequence
 
 from world_error.application.action_result import ActionResult
 from world_error.bootstrap.config import Settings
 from world_error.bootstrap.container import Container
+from world_error.domain.consequences.consequence import ConsequenceTrigger
+from world_error.domain.consequences.vocabulary import (
+    ConsequenceEffect,
+    ConsequenceScale,
+    ConsequenceType,
+    ConsequenceVisibility,
+    TriggerKind,
+)
 from world_error.domain.content.catalog import ContentError
 from world_error.domain.knowledge.knowledge import (
     ClaimType,
@@ -35,6 +44,7 @@ from world_error.domain.relationships.rules import SignificantAction
 from world_error.domain.shared.kernel import (
     CharacterId,
     DomainError,
+    EventId,
     LocationKey,
     NpcId,
     WorldInstanceId,
@@ -184,6 +194,43 @@ def build_parser() -> argparse.ArgumentParser:
         dest="action",
         choices=[action.value for action in SignificantAction],
         required=True,
+    )
+
+    schedule_consequence = subparsers.add_parser(
+        "schedule-consequence", help="запланировать последствие (причина обязательна)"
+    )
+    schedule_consequence.add_argument("--world-id", dest="world_id", required=True)
+    schedule_consequence.add_argument(
+        "--cause-event-id",
+        dest="cause_event_ids",
+        action="append",
+        required=True,
+        help="id события-причины; можно указать несколько раз (§26)",
+    )
+    schedule_consequence.add_argument(
+        "--type", dest="type", choices=[item.value for item in ConsequenceType], required=True
+    )
+    schedule_consequence.add_argument(
+        "--scale", dest="scale", choices=[item.value for item in ConsequenceScale], required=True
+    )
+    schedule_consequence.add_argument(
+        "--visibility",
+        dest="visibility",
+        choices=[item.value for item in ConsequenceVisibility],
+        required=True,
+    )
+    schedule_consequence.add_argument(
+        "--trigger", dest="trigger", choices=[item.value for item in TriggerKind], required=True
+    )
+    schedule_consequence.add_argument("--delay-ticks", dest="delay_ticks", type=int, default=None)
+    schedule_consequence.add_argument(
+        "--trigger-event-type", dest="trigger_event_type", default=None
+    )
+    schedule_consequence.add_argument(
+        "--effect", dest="effect", choices=[item.value for item in ConsequenceEffect], required=True
+    )
+    schedule_consequence.add_argument(
+        "--payload", dest="payload", default="{}", help="JSON с идентификаторами субъектов"
     )
 
     show_character = subparsers.add_parser(
@@ -384,6 +431,42 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
                 actor=SubjectRef(type=SubjectType(args.actor_type), id=args.actor_id),
                 holder=SubjectRef(type=SubjectType(args.holder_type), id=args.holder_id),
                 action=SignificantAction(args.action),
+            )
+        )
+
+    if args.command == "schedule-consequence":
+        try:
+            payload = json.loads(args.payload)
+        except json.JSONDecodeError as exc:
+            print(f"ERROR: INVALID_ACTION: --payload must be JSON: {exc}", file=sys.stderr)
+            return 2
+        if not isinstance(payload, dict):
+            print("ERROR: INVALID_ACTION: --payload must be a JSON object", file=sys.stderr)
+            return 2
+
+        try:
+            trigger_kind = TriggerKind(args.trigger)
+            if trigger_kind is TriggerKind.AFTER_TICKS:
+                trigger = ConsequenceTrigger.after_ticks(int(args.delay_ticks or 0))
+            elif trigger_kind is TriggerKind.ON_EVENT_TYPE:
+                trigger = ConsequenceTrigger.on_event_type(args.trigger_event_type or "")
+            else:
+                trigger = ConsequenceTrigger.immediate()
+        except (DomainError, ValueError) as exc:
+            message = exc.message if isinstance(exc, DomainError) else str(exc)
+            print(f"ERROR: INVALID_ACTION: {message}", file=sys.stderr)
+            return 2
+
+        return _print_action_result(
+            world_engine.schedule_consequence(
+                WorldInstanceId(args.world_id),
+                cause_event_ids=tuple(EventId(event_id) for event_id in args.cause_event_ids),
+                type=ConsequenceType(args.type),
+                scale=ConsequenceScale(args.scale),
+                visibility=ConsequenceVisibility(args.visibility),
+                trigger=trigger,
+                effect=ConsequenceEffect(args.effect),
+                payload=payload,
             )
         )
 

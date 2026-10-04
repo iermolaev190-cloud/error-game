@@ -56,12 +56,27 @@ from world_error.application.commands.npc_observe_information import (
     NpcObserveInformationCommand,
     NpcObserveInformationHandler,
 )
+from world_error.application.commands.schedule_consequence import (
+    ScheduleConsequenceCommand,
+    ScheduleConsequenceHandler,
+)
 from world_error.application.commands.share_knowledge import (
     ShareKnowledgeCommand,
     ShareKnowledgeHandler,
 )
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.application.queries.location_view import LocationView, LocationViewQuery
+from world_error.application.services.consequence_engine import (
+    ConsequenceEngine,
+    PumpOutcome,
+)
+from world_error.domain.consequences.consequence import Consequence, ConsequenceTrigger
+from world_error.domain.consequences.vocabulary import (
+    ConsequenceEffect,
+    ConsequenceScale,
+    ConsequenceType,
+    ConsequenceVisibility,
+)
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.knowledge.knowledge import (
@@ -82,6 +97,7 @@ from world_error.domain.relationships.rules import SignificantAction
 from world_error.domain.shared.kernel import (
     CharacterId,
     Clock,
+    ConsequenceId,
     DomainError,
     ErrorCode,
     EventId,
@@ -94,6 +110,20 @@ from world_error.domain.shared.kernel import (
 from world_error.domain.world.instance import InstanceEnvironment, InstanceLifecycle, WorldInstance
 
 DEFAULT_SEED_BITS = 63
+
+
+class _PumpedHandler:
+    """Прозрачная обёртка обработчика: после успешного действия идёт насос.
+
+    Обёртка нужна, чтобы не переписывать методы движка: все они вызывают
+    ``handler.handle(command)`` и не знают о последствиях.
+    """
+
+    def __init__(self, handle: Callable[[Any], ActionResult]) -> None:
+        self._handle = handle
+
+    def handle(self, command: Any) -> ActionResult:
+        return self._handle(command)
 
 
 class WorldEngine:
@@ -171,6 +201,72 @@ class WorldEngine:
             clock=self._clock,
             new_event_id_factory=self._new_event_id,
         )
+        self._schedule_consequence = ScheduleConsequenceHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._consequences = ConsequenceEngine(
+            uow_factory=uow_factory,
+            catalog=catalog,
+            schedule_handler=self._schedule_consequence,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+
+        # Каждое действие-команда после успеха прогоняет насос последствий: если
+        # незакрытых последствий нет, поведение не меняется вообще.
+        self._create_character = self._pumped(self._create_character)
+        self._move_character = self._pumped(self._move_character)
+        self._inspect_information = self._pumped(self._inspect_information)
+        self._share_knowledge = self._pumped(self._share_knowledge)
+        self._npc_move = self._pumped(self._npc_move)
+        self._npc_learn = self._pumped(self._npc_learn)
+        self._npc_observe = self._pumped(self._npc_observe)
+        self._npc_change_status = self._pumped(self._npc_change_status)
+        self._change_relationship = self._pumped(self._change_relationship)
+        self._apply_significant_action = self._pumped(self._apply_significant_action)
+        self._schedule_consequence = self._pumped(self._schedule_consequence)
+
+    # --- насос последствий --------------------------------------------------
+
+    def _pumped(self, handler: Any) -> "_PumpedHandler":
+        def handle(command: Any) -> ActionResult:
+            result = handler.handle(command)
+            if not result.ok:
+                return result
+            return self._pump_into_result(result, command.world_instance_id)
+
+        return _PumpedHandler(handle)
+
+    def _pump_into_result(
+        self, result: ActionResult, world_instance_id: WorldInstanceId
+    ) -> ActionResult:
+        outcome = self._consequences.pump(world_instance_id)
+        if outcome.limit_reached:
+            # M1: уже применённые последствия остаются применёнными, отката нет.
+            return ActionResult.failure(
+                result.action,
+                DomainError(
+                    ErrorCode.CASCADE_LIMIT,
+                    "consequence cascade limit reached "
+                    f"({self._consequences.max_cascade_steps} steps)",
+                ),
+            )
+        if not outcome.changed:
+            return result
+        payload = dict(result.payload)
+        if outcome.applied:
+            payload["consequences_applied"] = len(outcome.applied)
+        if outcome.failed:
+            payload["consequences_failed"] = len(outcome.failed)
+        if outcome.failed_rules:
+            payload["consequence_rules_failed"] = outcome.failed_rules
+        return ActionResult.success(
+            result.action,
+            event_ids=tuple(result.event_ids) + outcome.event_ids,
+            payload=payload,
+        )
 
     # --- команды коммита 1 (инстанс-события) -------------------------------
 
@@ -206,8 +302,13 @@ class WorldEngine:
         перезапуска процесса без игрового контента. Игровые действия коммита 2
         тик не через него двигают: ``MOVE`` и ``INSPECT`` увеличивают
         ``world_tick`` как часть обработки своего события.
+
+        После продвижения тика запускается насос последствий: отложенные
+        последствия, срок которых наступил, применяются. Если каскад упёрся в
+        лимит, поднимается ``CASCADE_LIMIT`` — уже применённые последствия при
+        этом остаются применёнными (отката нет).
         """
-        return self._apply(
+        instance = self._apply(
             world_instance_id,
             EventType.WORLD_TICK_ADVANCED,
             cause=cause,
@@ -217,6 +318,14 @@ class WorldEngine:
                 "to_tick": instance.state.world_tick + 1,
             },
         )
+        outcome = self._consequences.pump(world_instance_id)
+        if outcome.limit_reached:
+            raise DomainError(
+                ErrorCode.CASCADE_LIMIT,
+                "consequence cascade limit reached "
+                f"({self._consequences.max_cascade_steps} steps)",
+            )
+        return instance
 
     def change_status(
         self,
@@ -441,6 +550,72 @@ class WorldEngine:
                 action=action,
             )
         )
+
+    # --- последствия (коммит 6) --------------------------------------------
+
+    def schedule_consequence(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        cause_event_ids: Sequence[EventId],
+        type: ConsequenceType,
+        scale: ConsequenceScale,
+        visibility: ConsequenceVisibility,
+        trigger: ConsequenceTrigger,
+        effect: ConsequenceEffect,
+        payload: Mapping[str, Any] | None = None,
+        rule_key: str | None = None,
+    ) -> ActionResult:
+        """Запланировать последствие. Причина обязательна: последствий без причины нет."""
+        return self._schedule_consequence.handle(
+            ScheduleConsequenceCommand(
+                world_instance_id=world_instance_id,
+                cause_event_ids=tuple(cause_event_ids),
+                type=type,
+                scale=scale,
+                visibility=visibility,
+                trigger=trigger,
+                effect=effect,
+                payload=dict(payload or {}),
+                rule_key=rule_key,
+            )
+        )
+
+    def pump_consequences(self, world_instance_id: WorldInstanceId) -> PumpOutcome:
+        """Прогнать насос вручную (тесты, диагностика). Обычно он идёт сам."""
+        return self._consequences.pump(world_instance_id)
+
+    def get_consequence(
+        self, world_instance_id: WorldInstanceId, consequence_id: ConsequenceId
+    ) -> Consequence:
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return uow.consequences.get(world_instance_id, consequence_id)
+
+    def list_consequences(
+        self, world_instance_id: WorldInstanceId
+    ) -> Sequence[Consequence]:
+        """Внутренний запрос: игровому интерфейсу последствия не показываются."""
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return list(uow.consequences.list_for_instance(world_instance_id))
+
+    def list_consequences_caused_by(
+        self, world_instance_id: WorldInstanceId, event_id: EventId
+    ) -> Sequence[Consequence]:
+        """Следствия события: база для графа последствий (§25) и аудита (§79)."""
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return list(uow.consequences.list_caused_by(world_instance_id, event_id))
+
+    def list_consequences_caused_by_consequence(
+        self, world_instance_id: WorldInstanceId, consequence_id: ConsequenceId
+    ) -> Sequence[Consequence]:
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return list(
+                uow.consequences.list_caused_by_consequence(world_instance_id, consequence_id)
+            )
 
     # --- запросы -----------------------------------------------------------
 

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from world_error.infrastructure.db.repositories import (
     SqlCharacterRepository,
+    SqlConsequenceRepository,
     SqlEventLogRepository,
     SqlInformationRepository,
     SqlKnowledgeRepository,
@@ -32,6 +33,7 @@ class SqlAlchemyUnitOfWork:
         self.knowledge: SqlKnowledgeRepository
         self.npcs: SqlNpcRepository
         self.relationships: SqlRelationshipRepository
+        self.consequences: SqlConsequenceRepository
 
     def __enter__(self) -> "SqlAlchemyUnitOfWork":
         self._session = self._session_factory()
@@ -43,6 +45,7 @@ class SqlAlchemyUnitOfWork:
         self.knowledge = SqlKnowledgeRepository(self._session)
         self.npcs = SqlNpcRepository(self._session)
         self.relationships = SqlRelationshipRepository(self._session)
+        self.consequences = SqlConsequenceRepository(self._session)
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:

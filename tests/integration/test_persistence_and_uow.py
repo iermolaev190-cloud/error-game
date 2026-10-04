@@ -45,7 +45,7 @@ def test_alembic_upgrade_head_on_clean_database(
 
     assert {"world_instances", "events", "alembic_version"} <= tables
     # Миграция 0002 добавляет персонажей, локации, информацию и знание,
-    # 0003 — NPC, 0004 — отношения.
+    # 0003 — NPC, 0004 — отношения, 0005 — последствия и их причины.
     assert {
         "characters",
         "location_states",
@@ -53,6 +53,8 @@ def test_alembic_upgrade_head_on_clean_database(
         "knowledge",
         "npcs",
         "relationships",
+        "consequences",
+        "consequence_causes",
     } <= tables
 
 

@@ -12,15 +12,26 @@ from pathlib import Path
 from typing import Any
 
 from world_error.domain.content.catalog import ContentCatalog, ContentError
+from world_error.domain.consequences.consequence import ConsequenceTrigger
+from world_error.domain.consequences.rules import ConsequenceRule
+from world_error.domain.consequences.vocabulary import (
+    ConsequenceEffect,
+    ConsequenceScale,
+    ConsequenceType,
+    ConsequenceVisibility,
+    TriggerKind,
+)
+from world_error.domain.events.event import EventType
 from world_error.domain.information.information import InformationDefinition
 from world_error.domain.locations.location import LocationDefinition
 from world_error.domain.npcs.npc import NpcDefinition
-from world_error.domain.shared.kernel import LocationKey
+from world_error.domain.shared.kernel import DomainError, LocationKey
 
 MANIFEST_FILE = "manifest.json"
 LOCATIONS_DIR = "locations"
 INFORMATION_DIR = "information"
 NPCS_DIR = "npcs"
+CONSEQUENCES_DIR = "consequences"
 
 
 def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
@@ -31,6 +42,7 @@ def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
     locations = _load_locations(root / LOCATIONS_DIR)
     information = _load_information(root / INFORMATION_DIR)
     npcs = _load_npcs(root / NPCS_DIR)
+    rules = _load_consequences(root / CONSEQUENCES_DIR)
 
     return ContentCatalog.build(
         version=_require_str(manifest, "version", manifest_path),
@@ -38,6 +50,7 @@ def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
         locations=locations,
         information=information,
         npcs=npcs,
+        rules=rules,
     )
 
 
@@ -101,6 +114,51 @@ def _load_npcs(directory: Path) -> dict[str, NpcDefinition]:
             goals=tuple(str(goal) for goal in _require_list(data, "goals", path)),
         )
     return items
+
+
+def _load_consequences(directory: Path) -> dict[str, ConsequenceRule]:
+    """Правила последствий. Каталог может отсутствовать: мир без правил допустим."""
+    items: dict[str, ConsequenceRule] = {}
+    if not directory.is_dir():
+        return items
+    for path in _json_files(directory, require_any=False):
+        data = _read_object(path)
+        key = _require_str(data, "key", path)
+        if key in items:
+            raise ContentError(f"duplicate consequence rule key {key!r} ({path})")
+        try:
+            items[key] = _build_rule(key, data)
+        except ContentError as exc:
+            raise ContentError(f"{exc} ({path})") from exc
+    return items
+
+
+def _build_rule(key: str, data: dict[str, Any]) -> ConsequenceRule:
+    try:
+        trigger_data = dict(data["trigger"])
+        trigger_kind = TriggerKind(str(trigger_data["kind"]))
+        if trigger_kind is TriggerKind.AFTER_TICKS:
+            trigger = ConsequenceTrigger.after_ticks(int(trigger_data["delay_ticks"]))
+        elif trigger_kind is TriggerKind.ON_EVENT_TYPE:
+            trigger = ConsequenceTrigger.on_event_type(str(trigger_data["event_type"]))
+        else:
+            trigger = ConsequenceTrigger.immediate()
+
+        effect_data = dict(data["effect"])
+        effect = ConsequenceEffect(str(effect_data.pop("kind")))
+        return ConsequenceRule(
+            key=key,
+            on_event_type=EventType(str(data["on_event_type"])),
+            when_payload={str(k): str(v) for k, v in dict(data["when_payload"]).items()},
+            type=ConsequenceType(str(data["type"])),
+            scale=ConsequenceScale(str(data["scale"])),
+            visibility=ConsequenceVisibility(str(data["visibility"])),
+            trigger=trigger,
+            effect=effect,
+            effect_keys=effect_data,
+        )
+    except (KeyError, TypeError, ValueError, DomainError) as exc:
+        raise ContentError(f"invalid consequence rule {key!r}: {exc}") from exc
 
 
 def _json_files(directory: Path, *, require_any: bool = True) -> list[Path]:

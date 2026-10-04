@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Callable, Protocol, Sequence
 
 from world_error.domain.characters.character import Character
+from world_error.domain.consequences.consequence import Consequence
 from world_error.domain.events.log import EventLog
 from world_error.domain.information.information import Information
 from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
@@ -22,6 +23,8 @@ from world_error.domain.relationships.relationship import (
 )
 from world_error.domain.shared.kernel import (
     CharacterId,
+    ConsequenceId,
+    EventId,
     InformationId,
     LocationKey,
     NpcId,
@@ -163,6 +166,41 @@ class RelationshipRepository(Protocol):
     def save(self, relationship: Relationship) -> None: ...
 
 
+class ConsequenceRepository(Protocol):
+    """Последствия и их причины. Причина — часть агрегата, а не ссылка «где-то»."""
+
+    def add(self, consequence: Consequence) -> None: ...
+
+    def get(
+        self, world_instance_id: WorldInstanceId, consequence_id: ConsequenceId
+    ) -> Consequence: ...
+
+    def find_by_rule(
+        self,
+        world_instance_id: WorldInstanceId,
+        rule_key: str,
+        source_event_id: EventId,
+    ) -> Consequence | None:
+        """Сработало ли правило на это событие: материализация идемпотентна."""
+        ...
+
+    def list_for_instance(self, world_instance_id: WorldInstanceId) -> Sequence[Consequence]: ...
+
+    def list_pending(self, world_instance_id: WorldInstanceId) -> Sequence[Consequence]: ...
+
+    def list_caused_by(
+        self, world_instance_id: WorldInstanceId, event_id: EventId
+    ) -> Sequence[Consequence]:
+        """Ветвление (§25): у одного события может быть несколько последствий."""
+        ...
+
+    def list_caused_by_consequence(
+        self, world_instance_id: WorldInstanceId, consequence_id: ConsequenceId
+    ) -> Sequence[Consequence]: ...
+
+    def save(self, consequence: Consequence) -> None: ...
+
+
 class UnitOfWork(Protocol):
     """Одна транзакция на один игровой запрос.
 
@@ -178,6 +216,7 @@ class UnitOfWork(Protocol):
     knowledge: KnowledgeRepository
     npcs: NpcRepository
     relationships: RelationshipRepository
+    consequences: ConsequenceRepository
 
     def __enter__(self) -> "UnitOfWork": ...
 

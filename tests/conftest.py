@@ -26,6 +26,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
 
 
+@pytest.fixture(scope="session", autouse=True)
+def ensure_pytest_tmp_dir() -> None:
+    Path(".pytest_tmp").mkdir(exist_ok=True)
+
+
 def sqlite_url(path: Path) -> str:
     return f"sqlite+pysqlite:///{path.as_posix()}"
 

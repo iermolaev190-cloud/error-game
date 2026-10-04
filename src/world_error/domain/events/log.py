@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Protocol, Sequence
 
-from world_error.domain.events.event import Event
+from world_error.domain.events.event import Event, EventType
 from world_error.domain.shared.kernel import EventId, WorldInstanceId
 
 
@@ -20,5 +20,23 @@ class EventLog(Protocol):
     def append(self, event: Event) -> None: ...
 
     def has_event(self, world_instance_id: WorldInstanceId, event_id: EventId) -> bool: ...
+
+    def get(self, world_instance_id: WorldInstanceId, event_id: EventId) -> Event:
+        """Вернуть событие своего инстанса или поднять ``DomainError(NOT_FOUND)``."""
+        ...
+
+    def has_event_of_type_since(
+        self,
+        world_instance_id: WorldInstanceId,
+        event_type: EventType,
+        since_event_id: EventId,
+    ) -> bool:
+        """Было ли событие такого типа не раньше указанного (по порядку ``seq``).
+
+        Нужно триггеру ``ON_EVENT_TYPE``: последствие созревает, когда мир уже
+        успел породить событие нужного типа. Сравнение по ``seq``, а не по
+        времени, делает проверку устойчивой к перезапуску процесса.
+        """
+        ...
 
     def list_for_instance(self, world_instance_id: WorldInstanceId) -> Sequence[Event]: ...

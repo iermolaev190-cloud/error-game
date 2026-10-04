@@ -25,4 +25,4 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 # Свой basetemp внутри проекта: прогон не зависит от состояния %TEMP%,
 # а временные БД тестов остаются в рабочей папке (см. .gitignore).
-addopts = "-q --basetemp=.pytest_tmp"
+addopts = "--basetemp=.pytest_tmp"

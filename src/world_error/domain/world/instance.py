@@ -62,6 +62,8 @@ ACTION_EVENT_TYPES: frozenset[EventType] = frozenset(
         EventType.NPC_LEARNED,
         EventType.NPC_STATUS_CHANGED,
         EventType.RELATIONSHIP_CHANGED,
+        EventType.CONSEQUENCE_CREATED,
+        EventType.CONSEQUENCE_FAILED,
     }
 )
 

@@ -17,6 +17,7 @@ InformationId = NewType("InformationId", str)
 KnowledgeId = NewType("KnowledgeId", str)
 NpcId = NewType("NpcId", str)
 RelationshipId = NewType("RelationshipId", str)
+ConsequenceId = NewType("ConsequenceId", str)
 LocationKey = NewType("LocationKey", str)
 
 
@@ -55,6 +56,11 @@ def new_relationship_id() -> RelationshipId:
     return RelationshipId(f"rel_{uuid.uuid4().hex}")
 
 
+def new_consequence_id() -> ConsequenceId:
+    """Новый идентификатор последствия."""
+    return ConsequenceId(f"csq_{uuid.uuid4().hex}")
+
+
 class DiscoveryState(StrEnum):
     """Состояние мира: «кто-то из существ уже был здесь / уже нашёл это».
 
@@ -80,6 +86,7 @@ class ErrorCode(StrEnum):
     INSUFFICIENT_RESOURCE = "INSUFFICIENT_RESOURCE"
     CONFLICT = "CONFLICT"
     ALREADY_PROCESSED = "ALREADY_PROCESSED"
+    CASCADE_LIMIT = "CASCADE_LIMIT"
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
