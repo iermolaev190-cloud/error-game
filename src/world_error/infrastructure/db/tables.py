@@ -192,3 +192,34 @@ npcs = Table(
     ),
     Index("ix_npcs_instance_location", "world_instance_id", "location_key"),
 )
+
+relationships = Table(
+    "relationships",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column(
+        "world_instance_id",
+        String(64),
+        ForeignKey("world_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("holder_type", String(16), nullable=False),
+    Column("holder_id", String(64), nullable=False),
+    Column("subject_type", String(16), nullable=False),
+    Column("subject_id", String(64), nullable=False),
+    Column("kind", String(16), nullable=False),
+    Column("level", String(16), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint(
+        "world_instance_id",
+        "holder_type",
+        "holder_id",
+        "subject_type",
+        "subject_id",
+        "kind",
+        name="uq_relationships_pair_kind",
+    ),
+    Index("ix_relationships_holder", "world_instance_id", "holder_type", "holder_id"),
+    Index("ix_relationships_subject", "world_instance_id", "subject_type", "subject_id"),
+)

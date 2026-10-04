@@ -15,6 +15,11 @@ from world_error.domain.information.information import Information
 from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
 from world_error.domain.locations.location import LocationState
 from world_error.domain.npcs.npc import Npc
+from world_error.domain.relationships.relationship import (
+    Relationship,
+    RelationshipKind,
+    SubjectRef,
+)
 from world_error.domain.shared.kernel import (
     CharacterId,
     InformationId,
@@ -132,6 +137,32 @@ class NpcRepository(Protocol):
     def save(self, npc: Npc) -> None: ...
 
 
+class RelationshipRepository(Protocol):
+    """Отношения асимметричны: holder → subject и subject → holder — разные записи."""
+
+    def add(self, relationship: Relationship) -> None: ...
+
+    def find(
+        self,
+        world_instance_id: WorldInstanceId,
+        holder: SubjectRef,
+        subject: SubjectRef,
+        kind: RelationshipKind,
+    ) -> Relationship | None:
+        """Запись или ``None``: отсутствие записи означает базовую ступень."""
+        ...
+
+    def list_of(
+        self, world_instance_id: WorldInstanceId, holder: SubjectRef
+    ) -> Sequence[Relationship]: ...
+
+    def list_about(
+        self, world_instance_id: WorldInstanceId, subject: SubjectRef
+    ) -> Sequence[Relationship]: ...
+
+    def save(self, relationship: Relationship) -> None: ...
+
+
 class UnitOfWork(Protocol):
     """Одна транзакция на один игровой запрос.
 
@@ -146,6 +177,7 @@ class UnitOfWork(Protocol):
     information: InformationRepository
     knowledge: KnowledgeRepository
     npcs: NpcRepository
+    relationships: RelationshipRepository
 
     def __enter__(self) -> "UnitOfWork": ...
 

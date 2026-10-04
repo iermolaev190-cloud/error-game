@@ -16,6 +16,7 @@ CharacterId = NewType("CharacterId", str)
 InformationId = NewType("InformationId", str)
 KnowledgeId = NewType("KnowledgeId", str)
 NpcId = NewType("NpcId", str)
+RelationshipId = NewType("RelationshipId", str)
 LocationKey = NewType("LocationKey", str)
 
 
@@ -47,6 +48,11 @@ def new_knowledge_id() -> KnowledgeId:
 def new_npc_id() -> NpcId:
     """Новый идентификатор NPC."""
     return NpcId(f"npc_{uuid.uuid4().hex}")
+
+
+def new_relationship_id() -> RelationshipId:
+    """Новый идентификатор отношения."""
+    return RelationshipId(f"rel_{uuid.uuid4().hex}")
 
 
 class DiscoveryState(StrEnum):

@@ -22,6 +22,14 @@ import secrets
 from typing import Any, Callable, Mapping, Sequence
 
 from world_error.application.action_result import ActionResult
+from world_error.application.commands.apply_significant_action import (
+    ApplySignificantActionCommand,
+    ApplySignificantActionHandler,
+)
+from world_error.application.commands.change_relationship import (
+    ChangeRelationshipCommand,
+    ChangeRelationshipHandler,
+)
 from world_error.application.commands.create_character import (
     CreateCharacterCommand,
     CreateCharacterHandler,
@@ -64,6 +72,13 @@ from world_error.domain.knowledge.knowledge import (
     SubjectType,
 )
 from world_error.domain.npcs.npc import Npc, NpcDefinition, NpcStatus
+from world_error.domain.relationships.relationship import (
+    Relationship,
+    RelationshipDirection,
+    RelationshipKind,
+    SubjectRef,
+)
+from world_error.domain.relationships.rules import SignificantAction
 from world_error.domain.shared.kernel import (
     CharacterId,
     Clock,
@@ -123,6 +138,16 @@ class WorldEngine:
             new_event_id_factory=self._new_event_id,
         )
         self._location_view = LocationViewQuery(uow_factory=uow_factory, catalog=catalog)
+        self._change_relationship = ChangeRelationshipHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._apply_significant_action = ApplySignificantActionHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
         self._npc_move = NpcMoveHandler(
             uow_factory=uow_factory,
             clock=self._clock,
@@ -375,6 +400,48 @@ class WorldEngine:
             )
         )
 
+    # --- отношения (коммит 5) ----------------------------------------------
+
+    def change_relationship(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        holder: SubjectRef,
+        subject: SubjectRef,
+        kind: RelationshipKind,
+        direction: RelationshipDirection,
+        reason: str = "manual",
+    ) -> ActionResult:
+        """Сдвинуть отношение holder → subject на одну ступень по лестнице вида."""
+        return self._change_relationship.handle(
+            ChangeRelationshipCommand(
+                world_instance_id=world_instance_id,
+                holder=holder,
+                subject=subject,
+                kind=kind,
+                direction=direction,
+                reason=reason,
+            )
+        )
+
+    def apply_significant_action(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        actor: SubjectRef,
+        holder: SubjectRef,
+        action: SignificantAction,
+    ) -> ActionResult:
+        """Значимое действие: holder меняет своё отношение к actor по правилу домена."""
+        return self._apply_significant_action.handle(
+            ApplySignificantActionCommand(
+                world_instance_id=world_instance_id,
+                actor=actor,
+                holder=holder,
+                action=action,
+            )
+        )
+
     # --- запросы -----------------------------------------------------------
 
     def view_location(
@@ -436,6 +503,37 @@ class WorldEngine:
     def get_npc_definition(self, npc_key: str) -> NpcDefinition:
         """Определение NPC из контента (имя, описание, цели)."""
         return self._catalog.npc_definition(npc_key)
+
+    def get_relationship(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        holder: SubjectRef,
+        subject: SubjectRef,
+        kind: RelationshipKind,
+    ) -> Relationship | None:
+        """Внутренний запрос: ``None`` означает базовую ступень.
+
+        Наружу (в CLI) отношения не выводятся: игрок видит только поведение и
+        последствия, а не внутренние оценки NPC.
+        """
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return uow.relationships.find(world_instance_id, holder, subject, kind)
+
+    def list_relationships_of(
+        self, world_instance_id: WorldInstanceId, holder: SubjectRef
+    ) -> Sequence[Relationship]:
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return list(uow.relationships.list_of(world_instance_id, holder))
+
+    def list_relationships_about(
+        self, world_instance_id: WorldInstanceId, subject: SubjectRef
+    ) -> Sequence[Relationship]:
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return list(uow.relationships.list_about(world_instance_id, subject))
 
     def get_npc_knowledge(
         self, world_instance_id: WorldInstanceId, npc_id: NpcId

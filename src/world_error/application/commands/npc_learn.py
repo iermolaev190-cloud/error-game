@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from world_error.application.action_result import ActionResult
+from world_error.application.commands._subjects import subject_ref_from_id
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
@@ -26,6 +27,8 @@ from world_error.domain.knowledge.knowledge import (
     KnowledgeSource,
     SubjectType,
 )
+from world_error.domain.relationships.relationship import RelationshipKind, SubjectRef
+from world_error.domain.relationships.rules import is_source_distrusted
 from world_error.domain.shared.kernel import (
     Clock,
     DomainError,
@@ -95,6 +98,29 @@ class NpcLearnHandler:
                             "confidence": already_known.confidence.value,
                         },
                     )
+
+                # Гейт отношений: NPC не принимает знание от того, кому не доверяет
+                # (TRUST=HOSTILE или SUSPICION=HIGH). База NEUTRAL/NONE пропускает,
+                # поэтому обычные вызовы без source_ref работают как раньше.
+                source_subject = (
+                    subject_ref_from_id(command.source_ref) if command.source_ref else None
+                )
+                if source_subject is not None:
+                    holder = SubjectRef(type=SubjectType.NPC, id=str(npc.id))
+                    trust = uow.relationships.find(
+                        instance.id, holder, source_subject, RelationshipKind.TRUST
+                    )
+                    suspicion = uow.relationships.find(
+                        instance.id, holder, source_subject, RelationshipKind.SUSPICION
+                    )
+                    if is_source_distrusted(
+                        trust_level=trust.level if trust is not None else None,
+                        suspicion_level=suspicion.level if suspicion is not None else None,
+                    ):
+                        raise DomainError(
+                            ErrorCode.NOT_ALLOWED,
+                            f"npc {npc.id} does not trust source {command.source_ref}",
+                        )
 
                 definition = self._catalog.information_definition(information.key)
                 claim = command.claim if command.claim is not None else definition.content

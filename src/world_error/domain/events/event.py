@@ -40,6 +40,7 @@ class EventType(StrEnum):
     NPC_MOVED = "NPC_MOVED"
     NPC_LEARNED = "NPC_LEARNED"
     NPC_STATUS_CHANGED = "NPC_STATUS_CHANGED"
+    RELATIONSHIP_CHANGED = "RELATIONSHIP_CHANGED"
 
 
 @dataclass(frozen=True, slots=True)

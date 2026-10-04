@@ -15,6 +15,7 @@ from world_error.infrastructure.db.repositories import (
     SqlKnowledgeRepository,
     SqlLocationStateRepository,
     SqlNpcRepository,
+    SqlRelationshipRepository,
     SqlWorldInstanceRepository,
 )
 
@@ -30,6 +31,7 @@ class SqlAlchemyUnitOfWork:
         self.information: SqlInformationRepository
         self.knowledge: SqlKnowledgeRepository
         self.npcs: SqlNpcRepository
+        self.relationships: SqlRelationshipRepository
 
     def __enter__(self) -> "SqlAlchemyUnitOfWork":
         self._session = self._session_factory()
@@ -40,6 +42,7 @@ class SqlAlchemyUnitOfWork:
         self.information = SqlInformationRepository(self._session)
         self.knowledge = SqlKnowledgeRepository(self._session)
         self.npcs = SqlNpcRepository(self._session)
+        self.relationships = SqlRelationshipRepository(self._session)
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:

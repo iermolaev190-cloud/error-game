@@ -12,6 +12,7 @@ from world_error.infrastructure.db.repositories.information import SqlInformatio
 from world_error.infrastructure.db.repositories.knowledge import SqlKnowledgeRepository
 from world_error.infrastructure.db.repositories.location import SqlLocationStateRepository
 from world_error.infrastructure.db.repositories.npc import SqlNpcRepository
+from world_error.infrastructure.db.repositories.relationship import SqlRelationshipRepository
 from world_error.infrastructure.db.repositories.world_instance import SqlWorldInstanceRepository
 
 __all__ = [
@@ -21,5 +22,6 @@ __all__ = [
     "SqlKnowledgeRepository",
     "SqlLocationStateRepository",
     "SqlNpcRepository",
+    "SqlRelationshipRepository",
     "SqlWorldInstanceRepository",
 ]

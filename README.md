@@ -102,6 +102,8 @@ python -m venv .venv
 .venv\Scripts\python -m world_error npc-learn --world-id <wi_id> --npc-id <npc_id> --information damaged_radio --claim-type RUMOR
 .venv\Scripts\python -m world_error npc-observe --world-id <wi_id> --npc-id <npc_id> --information damaged_radio
 .venv\Scripts\python -m world_error npc-status --world-id <wi_id> --npc-id <npc_id> --to MISSING
+.venv\Scripts\python -m world_error relationship-change --world-id <wi_id> --holder-type NPC --holder-id <npc_id> --subject-type CHARACTER --subject-id <ch_id> --kind TRUST --direction DECREASE
+.venv\Scripts\python -m world_error significant-action --world-id <wi_id> --actor-type CHARACTER --actor-id <ch_id> --holder-type NPC --holder-id <npc_id> --action BETRAYED
 .venv\Scripts\python -m world_error events <wi_id>
 ```
 
@@ -109,6 +111,9 @@ python -m venv .venv
 Для каждой записи знания `show-character` печатает строку `KNOWLEDGE_PROVENANCE <claim_type> <source> <source_ref>`,
 по которой видна цепочка происхождения: у наблюдения `source_ref` — сам наблюдатель, у переданного знания —
 тот, кто им поделился.
+
+Отношения между субъектами (`TRUST`, `SUSPICION`) — внутреннее состояние мира: команды на изменение есть,
+читающих команд нет, и ни `show-location`, ни `show-npc`, ни `show-character` отношений не раскрывают.
 
 ### Порядок работ
 

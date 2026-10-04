@@ -20,6 +20,12 @@ from world_error.domain.knowledge.knowledge import (
 )
 from world_error.domain.locations.location import LocationState
 from world_error.domain.npcs.npc import Npc, NpcStatus
+from world_error.domain.relationships.relationship import (
+    Relationship,
+    RelationshipKind,
+    SubjectRef,
+    coerce_level,
+)
 from world_error.domain.shared.kernel import (
     CharacterId,
     DiscoveryState,
@@ -28,6 +34,7 @@ from world_error.domain.shared.kernel import (
     KnowledgeId,
     LocationKey,
     NpcId,
+    RelationshipId,
     WorldInstanceId,
 )
 from world_error.domain.world.instance import (
@@ -257,6 +264,38 @@ def npc_from_row(row: dict) -> Npc:
         key=row["key"],
         location_key=LocationKey(row["location_key"]),
         status=NpcStatus(row["status"]),
+        created_at=as_utc(row["created_at"]),
+        updated_at=as_utc(row["updated_at"]),
+    )
+
+
+# --- relationship ---------------------------------------------------------
+
+
+def relationship_row(relationship: Relationship) -> dict[str, object]:
+    return {
+        "id": str(relationship.id),
+        "world_instance_id": str(relationship.world_instance_id),
+        "holder_type": relationship.holder.type.value,
+        "holder_id": relationship.holder.id,
+        "subject_type": relationship.subject.type.value,
+        "subject_id": relationship.subject.id,
+        "kind": relationship.kind.value,
+        "level": relationship.level.value,
+        "created_at": relationship.created_at,
+        "updated_at": relationship.updated_at,
+    }
+
+
+def relationship_from_row(row: dict) -> Relationship:
+    kind = RelationshipKind(row["kind"])
+    return Relationship(
+        id=RelationshipId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        holder=SubjectRef(type=SubjectType(row["holder_type"]), id=row["holder_id"]),
+        subject=SubjectRef(type=SubjectType(row["subject_type"]), id=row["subject_id"]),
+        kind=kind,
+        level=coerce_level(kind, row["level"]),
         created_at=as_utc(row["created_at"]),
         updated_at=as_utc(row["updated_at"]),
     )

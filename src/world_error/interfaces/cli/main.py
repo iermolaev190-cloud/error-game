@@ -23,8 +23,15 @@ from world_error.domain.knowledge.knowledge import (
     ClaimType,
     KnowledgeConfidence,
     KnowledgeSource,
+    SubjectType,
 )
 from world_error.domain.npcs.npc import NpcStatus
+from world_error.domain.relationships.relationship import (
+    RelationshipDirection,
+    RelationshipKind,
+    SubjectRef,
+)
+from world_error.domain.relationships.rules import SignificantAction
 from world_error.domain.shared.kernel import (
     CharacterId,
     DomainError,
@@ -36,6 +43,8 @@ from world_error.domain.world.instance import InstanceEnvironment, WorldInstance
 
 _LIFECYCLE_CHOICES = ("ACTIVE", "PAUSED", "ARCHIVED")
 _ENVIRONMENT_CHOICES = tuple(environment.value for environment in InstanceEnvironment)
+# FACTION в списке сознательно: домен должен явно отклонять его до Phase 18.
+_SUBJECT_TYPE_CHOICES = tuple(subject_type.value for subject_type in SubjectType)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -134,6 +143,48 @@ def build_parser() -> argparse.ArgumentParser:
     show_npc = subparsers.add_parser("show-npc", help="публичные факты NPC")
     show_npc.add_argument("--world-id", dest="world_id", required=True)
     show_npc.add_argument("--npc-id", dest="npc_id", required=True)
+
+    relationship_change = subparsers.add_parser(
+        "relationship-change", help="изменить отношение holder → subject на одну ступень"
+    )
+    relationship_change.add_argument("--world-id", dest="world_id", required=True)
+    relationship_change.add_argument(
+        "--holder-type", dest="holder_type", choices=_SUBJECT_TYPE_CHOICES, required=True
+    )
+    relationship_change.add_argument("--holder-id", dest="holder_id", required=True)
+    relationship_change.add_argument(
+        "--subject-type", dest="subject_type", choices=_SUBJECT_TYPE_CHOICES, required=True
+    )
+    relationship_change.add_argument("--subject-id", dest="subject_id", required=True)
+    relationship_change.add_argument(
+        "--kind", dest="kind", choices=[kind.value for kind in RelationshipKind], required=True
+    )
+    relationship_change.add_argument(
+        "--direction",
+        dest="direction",
+        choices=[direction.value for direction in RelationshipDirection],
+        required=True,
+    )
+    relationship_change.add_argument("--reason", dest="reason", default="manual")
+
+    significant_action = subparsers.add_parser(
+        "significant-action", help="значимое действие меняет отношение держателя к действующему"
+    )
+    significant_action.add_argument("--world-id", dest="world_id", required=True)
+    significant_action.add_argument(
+        "--actor-type", dest="actor_type", choices=_SUBJECT_TYPE_CHOICES, required=True
+    )
+    significant_action.add_argument("--actor-id", dest="actor_id", required=True)
+    significant_action.add_argument(
+        "--holder-type", dest="holder_type", choices=_SUBJECT_TYPE_CHOICES, required=True
+    )
+    significant_action.add_argument("--holder-id", dest="holder_id", required=True)
+    significant_action.add_argument(
+        "--action",
+        dest="action",
+        choices=[action.value for action in SignificantAction],
+        required=True,
+    )
 
     show_character = subparsers.add_parser(
         "show-character", help="показать персонажа и его знание"
@@ -313,6 +364,28 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
         print(f"status={npc.status.value}")
         print(f"location_key={npc.location_key}")
         return 0
+
+    if args.command == "relationship-change":
+        return _print_action_result(
+            world_engine.change_relationship(
+                WorldInstanceId(args.world_id),
+                holder=SubjectRef(type=SubjectType(args.holder_type), id=args.holder_id),
+                subject=SubjectRef(type=SubjectType(args.subject_type), id=args.subject_id),
+                kind=RelationshipKind(args.kind),
+                direction=RelationshipDirection(args.direction),
+                reason=args.reason,
+            )
+        )
+
+    if args.command == "significant-action":
+        return _print_action_result(
+            world_engine.apply_significant_action(
+                WorldInstanceId(args.world_id),
+                actor=SubjectRef(type=SubjectType(args.actor_type), id=args.actor_id),
+                holder=SubjectRef(type=SubjectType(args.holder_type), id=args.holder_id),
+                action=SignificantAction(args.action),
+            )
+        )
 
     if args.command == "show-character":
         world_instance_id = WorldInstanceId(args.world_id)
