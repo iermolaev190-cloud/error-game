@@ -8,6 +8,12 @@
 Это не God Object: движок не знает про Telegram, AI и SQL, не содержит правил
 мира и не управляет чужими подсистемами. Правила живут в domain, хранение — за
 портами (MASTER_SPEC §3.10, 20_TECH_ARCHITECTURE_V1 §29).
+
+Новые действия (CREATE_CHARACTER / MOVE / INSPECT) возвращают ``ActionResult``:
+игровая ошибка — часть результата, а не только исключение.
+
+Инстанс-события коммита 1 (`create_instance`, `advance_tick`, `change_status`)
+сохраняют прежнюю сигнатуру и не переписываются.
 """
 
 from __future__ import annotations
@@ -15,17 +21,34 @@ from __future__ import annotations
 import secrets
 from typing import Any, Callable, Mapping, Sequence
 
+from world_error.application.action_result import ActionResult
+from world_error.application.commands.create_character import (
+    CreateCharacterCommand,
+    CreateCharacterHandler,
+)
 from world_error.application.commands.create_world_instance import (
     CreateWorldInstanceCommand,
     CreateWorldInstanceHandler,
 )
+from world_error.application.commands.inspect_information import (
+    InspectInformationCommand,
+    InspectInformationHandler,
+)
+from world_error.application.commands.move_character import (
+    MoveCharacterCommand,
+    MoveCharacterHandler,
+)
 from world_error.application.ports.repositories import UnitOfWorkFactory
+from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
+from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
 from world_error.domain.shared.kernel import (
+    CharacterId,
     Clock,
     DomainError,
     ErrorCode,
     EventId,
+    LocationKey,
     SystemClock,
     WorldInstanceId,
     new_event_id,
@@ -39,19 +62,40 @@ class WorldEngine:
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
+        catalog: ContentCatalog,
         clock: Clock | None = None,
         new_event_id_factory: Callable[[], EventId] = new_event_id,
     ) -> None:
         self._uow_factory = uow_factory
+        self._catalog = catalog
         self._clock = clock or SystemClock()
         self._new_event_id = new_event_id_factory
         self._create_world_instance = CreateWorldInstanceHandler(
             uow_factory=uow_factory,
             clock=self._clock,
+            catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._create_character = CreateCharacterHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._move_character = MoveCharacterHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._inspect_information = InspectInformationHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            catalog=catalog,
             new_event_id_factory=self._new_event_id,
         )
 
-    # --- команды -----------------------------------------------------------
+    # --- команды коммита 1 (инстанс-события) -------------------------------
 
     def create_instance(
         self,
@@ -61,7 +105,7 @@ class WorldEngine:
         environment: InstanceEnvironment = InstanceEnvironment.DEV,
         actor: str = "system",
     ) -> WorldInstance:
-        """Создать WORLD INSTANCE.
+        """Создать WORLD INSTANCE и материализовать instance-состояние из контента.
 
         ``seed`` хранится в инстансе: он нужен, чтобы случайность в будущем
         была воспроизводимой (20_TECH_ARCHITECTURE_V1 §25).
@@ -82,9 +126,9 @@ class WorldEngine:
 
         ВРЕМЕННЫЙ механизм коммита 1 "Фундамент": он нужен только чтобы
         проверить event-driven переход состояния и восстановление после
-        перезапуска процесса без игрового контента. В дальнейшем ``world_tick``
-        будет увеличиваться как часть обработки произвольного EVENT, а не
-        отдельным событием.
+        перезапуска процесса без игрового контента. Игровые действия коммита 2
+        тик не через него двигают: ``MOVE`` и ``INSPECT`` увеличивают
+        ``world_tick`` как часть обработки своего события.
         """
         return self._apply(
             world_instance_id,
@@ -118,6 +162,61 @@ class WorldEngine:
             payload_factory=lambda instance: {"from": instance.lifecycle.value, "to": target.value},
         )
 
+    # --- команды коммита 2 -------------------------------------------------
+
+    def create_character(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        player_id: str,
+        name: str,
+        location_key: LocationKey | None = None,
+        actor: str = "system",
+    ) -> ActionResult:
+        return self._create_character.handle(
+            CreateCharacterCommand(
+                world_instance_id=world_instance_id,
+                player_id=player_id,
+                name=name,
+                location_key=location_key,
+                actor=actor,
+            )
+        )
+
+    def move_character(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        character_id: CharacterId,
+        to_location_key: LocationKey,
+        cause: str = "move",
+    ) -> ActionResult:
+        return self._move_character.handle(
+            MoveCharacterCommand(
+                world_instance_id=world_instance_id,
+                character_id=character_id,
+                to_location_key=to_location_key,
+                cause=cause,
+            )
+        )
+
+    def inspect_information(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        character_id: CharacterId,
+        target_key: str,
+        cause: str = "inspect",
+    ) -> ActionResult:
+        return self._inspect_information.handle(
+            InspectInformationCommand(
+                world_instance_id=world_instance_id,
+                character_id=character_id,
+                target_key=target_key,
+                cause=cause,
+            )
+        )
+
     # --- запросы -----------------------------------------------------------
 
     def get_instance(self, world_instance_id: WorldInstanceId) -> WorldInstance:
@@ -128,6 +227,28 @@ class WorldEngine:
         with self._uow_factory() as uow:
             uow.world_instances.get(world_instance_id)  # NOT_FOUND вместо пустого списка
             return list(uow.events.list_for_instance(world_instance_id))
+
+    def get_character(self, world_instance_id: WorldInstanceId, character_id: CharacterId):
+        with self._uow_factory() as uow:
+            return uow.characters.get(world_instance_id, character_id)
+
+    def get_locations(self, world_instance_id: WorldInstanceId):
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return list(uow.locations.list_for_instance(world_instance_id))
+
+    def get_information(self, world_instance_id: WorldInstanceId, key: str):
+        with self._uow_factory() as uow:
+            return uow.information.get_by_key(world_instance_id, key)
+
+    def get_knowledge(self, world_instance_id: WorldInstanceId, character_id: CharacterId) -> Sequence[Knowledge]:
+        with self._uow_factory() as uow:
+            uow.characters.get(world_instance_id, character_id)
+            return list(
+                uow.knowledge.list_for_subject(
+                    world_instance_id, SubjectType.CHARACTER, str(character_id)
+                )
+            )
 
     # --- внутреннее --------------------------------------------------------
 

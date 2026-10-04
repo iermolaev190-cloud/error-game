@@ -5,6 +5,8 @@ pydantic используется только здесь и в интерфей
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from world_error.domain.world.instance import InstanceEnvironment
@@ -19,3 +21,4 @@ class Settings(BaseSettings):
 
     env: InstanceEnvironment = InstanceEnvironment.DEV
     db_url: str = "sqlite+pysqlite:///./world_error.db"
+    content_dir: Path = Path("content")

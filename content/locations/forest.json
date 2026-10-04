@@ -1,0 +1,7 @@
+{
+  "key": "forest",
+  "name": "Лес",
+  "type": "WILD",
+  "description": "Густой лес между лагерем и старой станцией.",
+  "connections": ["base", "old_station"]
+}

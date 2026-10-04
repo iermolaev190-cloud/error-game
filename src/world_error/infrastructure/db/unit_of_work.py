@@ -9,7 +9,11 @@ from __future__ import annotations
 from sqlalchemy.orm import Session, sessionmaker
 
 from world_error.infrastructure.db.repositories import (
+    SqlCharacterRepository,
     SqlEventLogRepository,
+    SqlInformationRepository,
+    SqlKnowledgeRepository,
+    SqlLocationStateRepository,
     SqlWorldInstanceRepository,
 )
 
@@ -20,11 +24,19 @@ class SqlAlchemyUnitOfWork:
         self._session: Session | None = None
         self.world_instances: SqlWorldInstanceRepository
         self.events: SqlEventLogRepository
+        self.characters: SqlCharacterRepository
+        self.locations: SqlLocationStateRepository
+        self.information: SqlInformationRepository
+        self.knowledge: SqlKnowledgeRepository
 
     def __enter__(self) -> "SqlAlchemyUnitOfWork":
         self._session = self._session_factory()
         self.world_instances = SqlWorldInstanceRepository(self._session)
         self.events = SqlEventLogRepository(self._session)
+        self.characters = SqlCharacterRepository(self._session)
+        self.locations = SqlLocationStateRepository(self._session)
+        self.information = SqlInformationRepository(self._session)
+        self.knowledge = SqlKnowledgeRepository(self._session)
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:

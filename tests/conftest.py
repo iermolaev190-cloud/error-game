@@ -1,7 +1,7 @@
-"""Общие фикстуры коммита 1 "Фундамент".
+"""Общие фикстуры.
 
-Здесь же — запуск CLI/Alembic в отдельных процессах: сценарий перезапуска
-обязан проверять состояние после смены процесса, а не только новой сессии.
+Здесь же — запуск CLI/Alembic в отдельных процессах: сценарии обязаны проверять
+состояние после смены процесса, а не только новой сессии.
 """
 
 from __future__ import annotations
@@ -16,6 +16,8 @@ import pytest
 from sqlalchemy.engine import Engine
 
 from world_error.application.services.world_engine import WorldEngine
+from world_error.domain.content.catalog import ContentCatalog
+from world_error.infrastructure.content.loader import load_content_catalog
 from world_error.infrastructure.db.engine import create_db_engine, create_session_factory
 from world_error.infrastructure.db.tables import metadata
 from world_error.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
@@ -29,11 +31,16 @@ def sqlite_url(path: Path) -> str:
 
 
 def run_python(args: list[str], *, db_url: str) -> subprocess.CompletedProcess[str]:
-    """Запустить отдельный процесс Python (новый интерпретатор)."""
+    """Запустить отдельный процесс Python (новый интерпретатор).
+
+    UTF-8 выставляется явно: контент и подписи в проекте на русском, и вывод
+    дочернего процесса не должен зависеть от кодовой страницы консоли.
+    """
     env = {
         **os.environ,
         "WORLD_ERROR_DB_URL": db_url,
         "PYTHONPATH": str(SRC_DIR),
+        "PYTHONIOENCODING": "utf-8",
     }
     return subprocess.run(
         [sys.executable, *args],
@@ -41,6 +48,8 @@ def run_python(args: list[str], *, db_url: str) -> subprocess.CompletedProcess[s
         env=env,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
 
@@ -65,8 +74,20 @@ def uow_factory(engine: Engine) -> Callable[[], SqlAlchemyUnitOfWork]:
 
 
 @pytest.fixture()
-def world_engine(uow_factory: Callable[[], SqlAlchemyUnitOfWork]) -> WorldEngine:
-    return WorldEngine(uow_factory=uow_factory)
+def content_dir() -> Path:
+    return REPO_ROOT / "content"
+
+
+@pytest.fixture()
+def catalog(content_dir: Path) -> ContentCatalog:
+    return load_content_catalog(content_dir)
+
+
+@pytest.fixture()
+def world_engine(
+    uow_factory: Callable[[], SqlAlchemyUnitOfWork], catalog: ContentCatalog
+) -> WorldEngine:
+    return WorldEngine(uow_factory=uow_factory, catalog=catalog)
 
 
 @pytest.fixture()

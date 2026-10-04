@@ -117,6 +117,7 @@ def test_uow_rolls_back_state_and_event(uow_factory: Callable[[], SqlAlchemyUnit
         id=WorldInstanceId("wi_rollback"),
         telegram_chat_id=-1001,
         seed=42,
+        content_version="v1",
         environment=InstanceEnvironment.TEST,
         now=NOW,
     )

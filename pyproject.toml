@@ -23,4 +23,6 @@ packages = ["src/world_error"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-q"
+# Свой basetemp внутри проекта: прогон не зависит от состояния %TEMP%,
+# а временные БД тестов остаются в рабочей папке (см. .gitignore).
+addopts = "-q --basetemp=.pytest_tmp"

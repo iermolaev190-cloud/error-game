@@ -5,7 +5,7 @@ Persistent multiplayer world engine.
 Telegram — только интерфейс. AI — только интерфейс/помощник, не источник истины.
 Один игровой Telegram-чат = один независимый `WORLD INSTANCE`.
 
-> Статус: **шаг 0 — структура репозитория**. Игровой код ещё не написан.
+> Статус: **коммит 2 «Первый игровой цикл»**. AI, Telegram, NPC, экономика, фракции и предметы не реализованы.
 
 ---
 
@@ -35,32 +35,41 @@ Telegram — только интерфейс. AI — только интерфе
 
 ```text
 .
-├── AGENTS.md
-├── MASTER_SPEC.md
-├── CODING_RULES.md
-├── README.md
-├── .env.example
-├── docs/
-│   ├── canon/
-│   ├── design/
-│   └── archive/
-├── src/            # код (появится в коммите 1)
-├── tests/          # тесты, в корне, по MASTER_SPEC.md §12
-├── content/        # контент мира, отдельно от кода
-└── migrations/     # Alembic
+├── AGENTS.md, MASTER_SPEC.md, CODING_RULES.md, README.md
+├── docs/{canon,design,archive}/
+├── content/                 # контент мира: определения, не состояние
+│   ├── manifest.json        # version + start_location
+│   ├── locations/*.json     # LocationDefinition + граф связей
+│   └── information/*.json   # content (что узнаёт игрок) и truth (канон)
+├── migrations/              # Alembic
+├── src/world_error/
+│   ├── domain/              # правила мира: world, events, characters, locations,
+│   │                        # information, knowledge, content, shared
+│   ├── application/         # intents/commands, services (World Engine), ports
+│   ├── infrastructure/      # db (таблицы, репозитории, UoW), content loader
+│   ├── interfaces/cli/      # временный интерфейс (Telegram — позже)
+│   └── bootstrap/           # config, container
+└── tests/{unit,integration,invariants,scenarios}/
 ```
 
-Правило слоёв: `src/world_error/domain/` не импортирует `sqlalchemy`, `alembic`, `aiogram`, `pydantic`,
-`infrastructure`, `interfaces`, `bootstrap`.
+Правило слоёв: `src/world_error/domain/` не импортирует `sqlalchemy`, `alembic`, `aiogram`,
+`pydantic`, `infrastructure`, `interfaces`, `bootstrap` (проверяется `tests/test_layering.py`).
+
+Разделение, на котором держится проект:
+
+```text
+CONTENT (content/, immutable определения)
+    ↓
+INSTANCE STATE (БД: world_instances, location_states, characters, information, knowledge)
+    ↓
+KNOWLEDGE (что субъект считает правдой)  ≠  TRUTH (канонический факт из контента)
+```
 
 ---
 
 ## Стек
 
-- Python 3.12
-- SQLAlchemy 2.x + Alembic
-- Pydantic v2 / pydantic-settings
-- pytest
+- Python 3.12, SQLAlchemy 2.x + Alembic, pydantic v2 / pydantic-settings, pytest
 - Локально — SQLite, прод-цель — PostgreSQL
 - `aiogram` — только на фазе Telegram (Phase 23 roadmap)
 
@@ -68,15 +77,32 @@ Telegram — только интерфейс. AI — только интерфе
 
 ## Разработка
 
-Один вертикальный срез за раз. Перед большой задачей: прочитать канон → посмотреть код → предложить план →
-дождаться подтверждения → реализовать маленькими шагами → добавить тесты → коммит.
-
 ```powershell
 python -m venv .venv
 .venv\Scripts\python -m pip install -e ".[dev]"
-.venv\Scripts\python -m pytest -q
+.venv\Scripts\python -m alembic upgrade head
+.venv\Scripts\python -m pytest
 ```
 
-Порядок работ: шаг 0 (структура) → коммит 1 (фундамент: WorldInstance, Event Engine skeleton, минимальный
-WorldState, persistence, save/load/restart, тест изоляции A/B) → коммит 2 (Character, Location, MOVE, INSPECT,
-Information + Knowledge) → канон-коммит (статусы Canonical, правило DM/INSTANCE, актуализация §2/§12).
+Тесты используют свой basetemp `.pytest_tmp/` (в `.gitignore`), чтобы прогон не зависел от `%TEMP%`.
+
+### Временный CLI
+
+```powershell
+.venv\Scripts\python -m world_error create-world --chat-id -1001 --seed 42 --environment TEST
+.venv\Scripts\python -m world_error create-character --world-id <wi_id> --player-id player-1 --name "Аня"
+.venv\Scripts\python -m world_error move --world-id <wi_id> --character-id <ch_id> --to forest
+.venv\Scripts\python -m world_error move --world-id <wi_id> --character-id <ch_id> --to old_station
+.venv\Scripts\python -m world_error inspect --world-id <wi_id> --character-id <ch_id> --target damaged_radio
+.venv\Scripts\python -m world_error show-character --world-id <wi_id> --character-id <ch_id>
+.venv\Scripts\python -m world_error events <wi_id>
+```
+
+Канонический факт (`truth`) в интерфейс не выводится: игрок видит только знание персонажа.
+
+### Порядок работ
+
+Один вертикальный срез за раз: шаг 0 (структура) → коммит 1 (фундамент: WorldInstance, Event Engine,
+persistence, save/load/restart, изоляция A/B) → коммит 2 (Character, Location, MOVE, INSPECT,
+Information + Knowledge) → канон-коммит (статусы Canonical, правило DM/INSTANCE, актуализация §2/§12
+MASTER_SPEC).

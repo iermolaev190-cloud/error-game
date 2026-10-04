@@ -1,4 +1,4 @@
-"""Ядро domain-слоя: идентификаторы, игровые ошибки, время.
+"""Ядро domain-слоя: идентификаторы, игровые ошибки, общие перечисления, время.
 
 Здесь допускается только стандартная библиотека.
 """
@@ -12,6 +12,10 @@ from typing import NewType, Protocol
 
 WorldInstanceId = NewType("WorldInstanceId", str)
 EventId = NewType("EventId", str)
+CharacterId = NewType("CharacterId", str)
+InformationId = NewType("InformationId", str)
+KnowledgeId = NewType("KnowledgeId", str)
+LocationKey = NewType("LocationKey", str)
 
 
 def new_world_instance_id() -> WorldInstanceId:
@@ -22,6 +26,33 @@ def new_world_instance_id() -> WorldInstanceId:
 def new_event_id() -> EventId:
     """Новый идентификатор события."""
     return EventId(f"ev_{uuid.uuid4().hex}")
+
+
+def new_character_id() -> CharacterId:
+    """Новый идентификатор персонажа."""
+    return CharacterId(f"ch_{uuid.uuid4().hex}")
+
+
+def new_information_id() -> InformationId:
+    """Новый идентификатор информационного объекта мира."""
+    return InformationId(f"info_{uuid.uuid4().hex}")
+
+
+def new_knowledge_id() -> KnowledgeId:
+    """Новый идентификатор записи знания."""
+    return KnowledgeId(f"kn_{uuid.uuid4().hex}")
+
+
+class DiscoveryState(StrEnum):
+    """Состояние мира: «кто-то из существ уже был здесь / уже нашёл это».
+
+    Различаем EXISTENCE, VISIBILITY, KNOWLEDGE и ACCESS (11_WORLD_STATE_V1 §30).
+    ``discovery_state`` описывает мир, а не знание конкретного субъекта: знание
+    живёт отдельно, в Knowledge, и не выводится автоматически.
+    """
+
+    UNDISCOVERED = "UNDISCOVERED"
+    DISCOVERED = "DISCOVERED"
 
 
 class ErrorCode(StrEnum):
