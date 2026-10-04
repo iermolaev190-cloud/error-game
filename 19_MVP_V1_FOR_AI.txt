@@ -1,0 +1,975 @@
+# 19_MVP.md
+
+## 1. Назначение
+
+MVP WORLD//ERROR — это не маленькая версия всей игры.
+
+Это минимальная версия **ядра мира**, которая должна доказать, что архитектура способна поддерживать:
+
+* независимый WORLD INSTANCE;
+* нескольких игроков;
+* persistent world state;
+* события;
+* последствия;
+* информацию и знания;
+* NPC;
+* исследование;
+* базовое время;
+* смерть и смену персонажа;
+* AI как интерфейс;
+* Telegram как интерфейс взаимодействия.
+
+Главный вопрос MVP:
+
+> **Может ли несколько игроков жить в одном изменяющемся мире, не получая заранее написанный сюжет?**
+
+Если ответ отрицательный — расширять игру нельзя.
+
+---
+
+# 2. Главный принцип MVP
+
+MVP должен быть маленьким по количеству контента, но настоящим по архитектуре.
+
+Необходимо:
+
+```text
+МАЛО КОНТЕНТА
+        +
+НАСТОЯЩИЙ WORLD ENGINE
+        +
+НАСТОЯЩАЯ PERSISTENCE
+        +
+НАСТОЯЩИЕ CONSEQUENCES
+        =
+РАБОЧЕЕ ЯДРО
+```
+
+Нельзя делать:
+
+```text
+МНОГО КОНТЕНТА
++
+СКРИПТЫ
++
+HARDCODED QUESTS
++
+ФАЛЬШИВАЯ ЭКОНОМИКА
+=
+MVP
+```
+
+---
+
+# 3. MVP World Instance
+
+Каждый Telegram-чат создаёт отдельный WORLD INSTANCE.
+
+Минимальный объект:
+
+```text
+WorldInstance
+├── id
+├── telegram_chat_id
+├── seed
+├── created_at
+├── current_time
+├── world_tick
+├── state_version
+├── content_version
+└── status
+```
+
+Минимальные статусы:
+
+```text
+ACTIVE
+PAUSED
+ARCHIVED
+```
+
+Критически важно:
+
+```text
+WORLD_INSTANCE_A != WORLD_INSTANCE_B
+```
+
+Даже если оба используют один и тот же content template.
+
+---
+
+# 4. Первый вертикальный срез
+
+Первый полностью рабочий сценарий должен выглядеть примерно так:
+
+```text
+создать WORLD INSTANCE
+        ↓
+создать персонажа
+        ↓
+исследовать локацию
+        ↓
+переместиться
+        ↓
+найти информацию
+        ↓
+получить улику
+        ↓
+произвести действие
+        ↓
+создать EVENT
+        ↓
+изменить WORLD STATE
+        ↓
+сохранить изменение
+        ↓
+перезапустить приложение
+        ↓
+загрузить изменённый мир
+        ↓
+продолжить игру
+```
+
+Если этот цикл работает — фундамент существует.
+
+---
+
+# 5. Игрок
+
+В MVP:
+
+```text
+Player
+├── id
+├── telegram_user_id
+└── account metadata
+```
+
+и отдельно:
+
+```text
+Character
+├── id
+├── world_instance_id
+├── player_id
+├── name
+├── status
+├── location_id
+├── created_at
+├── updated_at
+└── attributes
+```
+
+Один пользователь может иметь:
+
+```text
+Player
+ ├── Character A → WORLD INSTANCE A
+ ├── Character B → WORLD INSTANCE B
+ └── Character C → WORLD INSTANCE C
+```
+
+Нельзя делать глобального персонажа пользователя.
+
+---
+
+# 6. Создание персонажа
+
+При первом появлении пользователя в конкретном чате:
+
+```text
+Telegram user
+      ↓
+WORLD INSTANCE
+      ↓
+создание Character
+```
+
+Персонаж получает минимальную стартовую информацию.
+
+Например:
+
+```text
+NAME
+AGE
+EXPEDITION_ROLE
+BASIC_SKILLS
+START_LOCATION
+```
+
+Не нужно сразу выдавать:
+
+* длинную биографию;
+* классы;
+* дерево талантов;
+* 50 характеристик;
+* готовую судьбу;
+* огромный инвентарь.
+
+---
+
+# 7. Локации
+
+MVP:
+
+**5–8 полноценных локаций.**
+
+Не 100.
+
+Каждая должна иметь:
+
+```text
+Location
+├── id
+├── world_instance_id
+├── name
+├── type
+├── state
+├── access
+├── resources
+├── npc_ids
+├── connected_locations
+└── history
+```
+
+Локации должны быть связаны.
+
+Пример:
+
+```text
+BASE
+ ├── FOREST
+ │    └── OLD_STATION
+ │
+ ├── RIVER
+ │    └── SETTLEMENT
+ │
+ └── HILL
+      └── RESTRICTED_AREA
+```
+
+---
+
+# 8. NPC
+
+MVP:
+
+**3–5 важных NPC.**
+
+Каждый NPC должен иметь:
+
+```text
+NPC
+├── id
+├── world_instance_id
+├── location
+├── status
+├── goals
+├── knowledge
+├── relationships
+├── inventory
+└── faction
+```
+
+Минимальное поведение:
+
+```text
+NPC
+↓
+имеет цель
+↓
+наблюдает мир
+↓
+может получить информацию
+↓
+может изменить отношение
+↓
+может совершить действие
+```
+
+NPC не должен быть просто:
+
+```text
+/start
+→ quest
+→ reward
+```
+
+---
+
+# 9. Фракции
+
+MVP:
+
+**2–3 небольшие фракции.**
+
+Они могут быть очень простыми.
+
+Например:
+
+```text
+EXPEDITION
+LOCAL_GROUP
+UNKNOWN_GROUP
+```
+
+Фракция должна иметь:
+
+```text
+goals
+resources
+knowledge
+relationships
+territory
+members
+state
+```
+
+Не требуется полноценная политическая симуляция.
+
+Но должно быть возможно:
+
+```text
+PLAYER ACTION
+      ↓
+FACTION LEARNS
+      ↓
+FACTION REACTS
+      ↓
+WORLD CHANGES
+```
+
+---
+
+# 10. Основные действия игрока
+
+MVP должен поддерживать небольшой набор универсальных действий:
+
+```text
+MOVE
+SEARCH
+INSPECT
+TAKE
+USE
+GIVE
+TALK
+SHARE
+```
+
+Позже:
+
+```text
+TRADE
+ATTACK
+DEFEND
+BUILD
+REPAIR
+INVESTIGATE
+JOIN
+LEAVE
+CREATE
+...
+```
+
+Но MVP не должен пытаться реализовать всё.
+
+---
+
+# 11. Event Engine
+
+Это самая важная часть MVP.
+
+Игрок не должен напрямую изменять WORLD STATE.
+
+Неправильно:
+
+```python
+player.money -= 10
+npc.trust += 5
+```
+
+Правильно:
+
+```text
+PLAYER INTENT
+      ↓
+VALIDATION
+      ↓
+EVENT
+      ↓
+STATE TRANSITION
+      ↓
+NEW WORLD STATE
+```
+
+Например:
+
+```text
+Player searches station
+        ↓
+SearchIntent
+        ↓
+Validation
+        ↓
+SearchEvent
+        ↓
+item discovered
+        ↓
+knowledge updated
+        ↓
+event stored
+```
+
+---
+
+# 12. Event Log
+
+Каждое значимое изменение должно записываться.
+
+Минимально:
+
+```text
+Event
+├── id
+├── world_instance_id
+├── type
+├── timestamp
+├── source
+├── actors
+├── payload
+├── previous_state_reference
+└── result
+```
+
+Пример:
+
+```json
+{
+  "type": "ITEM_DISCOVERED",
+  "actor": "character_42",
+  "location": "old_station",
+  "item": "damaged_radio",
+  "result": "success"
+}
+```
+
+Event Log нужен не только для игры.
+
+Он нужен для:
+
+* восстановления;
+* debugging;
+* расследования ошибок;
+* истории мира;
+* аналитики;
+* будущего replay;
+* проверки действий AI.
+
+---
+
+# 13. Knowledge
+
+MVP должен уже различать:
+
+```text
+WORLD TRUTH
+KNOWLEDGE
+CLAIM
+RUMOR
+THEORY
+```
+
+Например:
+
+```text
+TRUTH:
+Radio was intentionally damaged.
+
+PLAYER A KNOWLEDGE:
+Radio was found damaged.
+
+PLAYER B KNOWLEDGE:
+Someone destroyed the radio.
+
+NPC KNOWLEDGE:
+Unknown person broke it.
+
+PLAYER THEORY:
+The local group destroyed it.
+```
+
+Все четыре объекта могут существовать одновременно.
+
+---
+
+# 14. Clues
+
+MVP должен содержать хотя бы:
+
+**5–10 meaningful clues.**
+
+Улика не должна прямо говорить:
+
+> "Виноват NPC X."
+
+Лучше:
+
+```text
+DAMAGED RADIO
++
+STRANGE FOOTPRINTS
++
+OLD DOCUMENT
++
+CONFLICTING TESTIMONY
+```
+
+Игрок сам строит гипотезу.
+
+---
+
+# 15. Первая расследовательская линия
+
+Нужна одна небольшая, но настоящая investigation.
+
+Она должна иметь:
+
+```text
+QUESTION
+↓
+EVIDENCE
+↓
+CONTRADICTIONS
+↓
+THEORIES
+↓
+PLAYER ACTION
+↓
+CONSEQUENCE
+```
+
+Важно:
+
+**не должно существовать только одного правильного пути.**
+
+Игрок может:
+
+* ошибиться;
+* обвинить неправильного NPC;
+* проигнорировать улику;
+* уничтожить доказательство;
+* поделиться информацией;
+* скрыть информацию.
+
+И мир должен реагировать.
+
+---
+
+# 16. Consequences
+
+MVP должен показать хотя бы несколько типов последствий.
+
+Например:
+
+```text
+PLAYER STEALS ITEM
+        ↓
+NPC notices
+        ↓
+TRUST decreases
+        ↓
+NPC stops sharing information
+        ↓
+PLAYER loses access to another clue
+```
+
+Другой пример:
+
+```text
+PLAYER SHARES INFORMATION
+        ↓
+FACTION LEARNS
+        ↓
+FACTION CHANGES PLAN
+        ↓
+LOCATION STATE CHANGES
+```
+
+Это важнее, чем десятки квестов.
+
+---
+
+# 17. Время
+
+MVP не должен симулировать каждую секунду.
+
+Используется:
+
+```text
+CURRENT_TIME
++
+WORLD_TICK
++
+SCHEDULED_EVENTS
+```
+
+Например:
+
+```text
+Day 1
+→ expedition arrives
+
+Day 2
+→ NPC leaves settlement
+
+Day 3
+→ weather changes
+
+Day 4
+→ faction reacts
+
+Day 5
+→ player discovers consequence
+```
+
+---
+
+# 18. Inactivity
+
+В MVP не использовать:
+
+```text
+2 DAYS INACTIVE → DEAD
+```
+
+Вместо этого:
+
+```text
+ACTIVE
+↓
+INACTIVE
+↓
+UNAVAILABLE
+↓
+MISSING
+```
+
+Конкретные переходы зависят от состояния мира.
+
+Игрок, который вернулся через неделю, должен обнаружить:
+
+> мир изменился.
+
+А не:
+
+> "Вы были удалены за отсутствие."
+
+---
+
+# 19. Death
+
+Death должен существовать уже в MVP, но в упрощённой форме.
+
+```text
+Character
+ACTIVE
+  ↓
+event
+  ↓
+DEAD
+```
+
+После смерти:
+
+```text
+Player
+   ↓
+new Character
+   ↓
+same WORLD INSTANCE
+   ↓
+changed world
+```
+
+Новый персонаж не получает автоматически:
+
+* старый инвентарь;
+* старое знание;
+* старые отношения;
+* старую репутацию.
+
+Но мир может сохранять последствия предыдущего персонажа.
+
+---
+
+# 20. Экономика
+
+MVP — минимальная экономика.
+
+Достаточно:
+
+```text
+MONEY
+ITEMS
+TRADE
+RESOURCE
+```
+
+Не нужно:
+
+* полноценный рынок;
+* банки;
+* налоги;
+* сложная инфляция;
+* производство 100 товаров.
+
+Но транзакции должны быть настоящими и атомарными.
+
+---
+
+# 21. AI
+
+AI в MVP используется только как слой интерфейса.
+
+```text
+PLAYER MESSAGE
+      ↓
+AI INTERPRETER
+      ↓
+INTENT
+      ↓
+WORLD ENGINE
+      ↓
+RESULT
+      ↓
+AI RESPONSE
+```
+
+Например игрок пишет:
+
+> "Проверю старое радио."
+
+AI превращает это в:
+
+```json
+{
+  "intent": "INSPECT",
+  "target": "damaged_radio"
+}
+```
+
+Engine проверяет:
+
+* существует ли объект;
+* находится ли он рядом;
+* доступен ли он;
+* может ли персонаж его исследовать.
+
+Только после этого происходит изменение мира.
+
+---
+
+# 22. Telegram
+
+Telegram в MVP — адаптер.
+
+Он не должен быть источником игровой логики.
+
+```text
+Telegram
+   ↓
+Interface
+   ↓
+Game API
+   ↓
+World Engine
+   ↓
+Database
+```
+
+И обратно:
+
+```text
+World Engine
+   ↓
+Result
+   ↓
+AI / Formatter
+   ↓
+Telegram
+```
+
+---
+
+# 23. Private / Group
+
+MVP должен проверить обе стороны.
+
+### Group
+
+Используется для:
+
+* общего мира;
+* обсуждений;
+* совместных действий;
+* публичных событий;
+* коллективных расследований.
+
+### Private
+
+Используется для:
+
+* личного персонажа;
+* приватных знаний;
+* личного инвентаря;
+* скрытых действий;
+* NPC conversations;
+* личного архива.
+
+Главное:
+
+```text
+GROUP KNOWLEDGE
+≠
+PLAYER PRIVATE KNOWLEDGE
+```
+
+---
+
+# 24. Persistence
+
+После:
+
+```text
+restart server
+```
+
+мир не должен сброситься.
+
+Должны сохраниться:
+
+* WORLD INSTANCE;
+* characters;
+* locations;
+* NPC state;
+* factions;
+* inventory;
+* knowledge;
+* events;
+* world time;
+* consequences;
+* history.
+
+---
+
+# 25. Multi-instance Test
+
+Обязательный тест:
+
+```text
+CHAT A → WORLD INSTANCE A
+CHAT B → WORLD INSTANCE B
+```
+
+Игрок делает действие в A.
+
+После этого:
+
+```text
+WORLD A → changed
+WORLD B → unchanged
+```
+
+Это один из главных архитектурных тестов.
+
+---
+
+# 26. Что НЕ входит в MVP
+
+Не реализовывать сразу:
+
+* огромную карту;
+* сотни NPC;
+* полноценную политику;
+* сложную военную систему;
+* полноценный survival;
+* продвинутый crafting;
+* большую экономику;
+* сложный PvP;
+* огромный ARG;
+* процедурную генерацию всего мира;
+* автономный AI-world;
+* cross-instance gameplay;
+* сложную графику;
+* десятки валют;
+* сотни характеристик;
+* бесконечную генерацию контента.
+
+---
+
+# 27. MVP Success Criteria
+
+MVP считается успешным не тогда, когда реализовано N функций.
+
+Он успешен, если игроки могут:
+
+1. войти в WORLD INSTANCE;
+2. получить персонажа;
+3. исследовать мир;
+4. найти информацию;
+5. иметь разное знание;
+6. совершать действия;
+7. менять состояние мира;
+8. сталкиваться с последствиями;
+9. взаимодействовать с NPC;
+10. ошибаться;
+11. возвращаться позже и видеть изменившийся мир;
+12. потерять персонажа;
+13. продолжить игру новым персонажем;
+14. играть вместе;
+15. видеть, что другой игрок не знает автоматически то, что знаешь ты.
+
+И самое главное:
+
+> **игрок должен начать задавать вопрос: "Что здесь на самом деле произошло?"**
+
+Если вместо этого он думает:
+
+> "Какую команду мне сейчас ввести?"
+
+значит MVP ещё не достиг цели.
+
+---
+
+# 28. MVP Quality Gate
+
+Перед расширением игры необходимо проверить:
+
+```text
+[ ] World survives restart
+[ ] Two instances are isolated
+[ ] Event log is reliable
+[ ] State transitions are deterministic where required
+[ ] AI cannot directly mutate canonical state
+[ ] Player knowledge can differ
+[ ] NPC knowledge has boundaries
+[ ] Consequences actually change future possibilities
+[ ] Death works
+[ ] New character works
+[ ] Inactivity does not destroy player unfairly
+[ ] Basic investigation works
+[ ] Group/private information separation works
+[ ] Database state can be inspected/debugged
+```
+
+Если хотя бы несколько критических пунктов не работают — контент не расширять.
+
+---
+
+# 29. Главный принцип MVP
+
+> **Не делаем маленькую игру. Делаем маленький настоящий мир.**
+
+Этот мир должен быть способен стать WORLD//ERROR.
+
+Необходимо доказать архитектуру раньше масштаба.

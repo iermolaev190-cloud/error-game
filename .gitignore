@@ -1,0 +1,15 @@
+# --- Python / virtualenv ---
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# --- local database ---
+*.db
+*.db-journal
+
+# --- local environment ---
+.env
+
+# --- local tooling (portable git и прочее, если понадобится) ---
+.tools/

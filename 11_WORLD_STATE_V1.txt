@@ -1,0 +1,2809 @@
+# WORLD//ERROR — GAME DESIGN DOCUMENT
+
+## 11_WORLD_STATE.md
+
+**Статус:** DESIGN DRAFT
+**Версия:** 1.0
+**Назначение:** определить, что такое состояние мира WORLD//ERROR, из чего оно состоит, как изменяется, кем изменяется и как фиксируется.
+
+---
+
+# 1. Что такое WORLD STATE
+
+**WORLD STATE** — это текущее состояние мира WORLD//ERROR в определённый момент времени.
+
+Он отвечает на вопрос:
+
+> «Что сейчас существует, где находится, в каком состоянии находится и какие условия действуют в мире?»
+
+WORLD STATE — не история.
+
+WORLD STATE — не база всех знаний игроков.
+
+WORLD STATE — не список последних сообщений.
+
+WORLD STATE — это актуальное состояние игровых сущностей и отношений между ними.
+
+Упрощённо:
+
+```text
+WORLD STATE
+=
+ENTITIES
++
+RELATIONSHIPS
++
+LOCATIONS
++
+RESOURCES
++
+KNOWLEDGE STATES
++
+ACTIVE CONDITIONS
++
+EVENT CONSEQUENCES
++
+TIME
+```
+
+---
+
+# 2. Главное различие
+
+Необходимо различать:
+
+```text
+WORLD STATE
+```
+
+и:
+
+```text
+WORLD HISTORY
+```
+
+Например:
+
+Персонаж был владельцем здания.
+
+Через некоторое время здание захватили.
+
+Текущее состояние:
+
+```text
+OWNER = FACTION_B
+```
+
+История:
+
+```text
+PLAYER_A owned building
+→ FACTION_B occupied building
+→ ownership changed
+```
+
+Текущий WORLD STATE не обязан хранить всю историю внутри каждого объекта.
+
+История должна существовать отдельно через:
+
+* EVENTS;
+* EVENT LOG;
+* HISTORY;
+* AUDIT DATA.
+
+---
+
+# 3. Принцип текущего состояния
+
+Любая важная сущность должна иметь:
+
+```text
+CURRENT STATE
+```
+
+и при необходимости:
+
+```text
+STATE HISTORY
+```
+
+Например:
+
+```text
+LOCATION:
+CURRENT_STATE = OCCUPIED
+```
+
+История:
+
+```text
+SAFE
+→ ABANDONED
+→ DISCOVERED
+→ OCCUPIED
+```
+
+Это позволяет одновременно иметь:
+
+* быстрый доступ к текущему состоянию;
+* полную историю изменений.
+
+---
+
+# 4. WORLD STATE не должен быть одной огромной таблицей
+
+Нельзя строить систему как:
+
+```text
+WORLD_STATE
+├── everything
+├── everything
+├── everything
+└── everything
+```
+
+Мир состоит из подсистем.
+
+Основные домены:
+
+```text
+WORLD
+├── ENTITIES
+├── LOCATIONS
+├── NPCS
+├── PLAYERS
+├── ORGANIZATIONS
+├── FACTIONS
+├── ITEMS
+├── RESOURCES
+├── ECONOMY
+├── EVENTS
+├── KNOWLEDGE
+├── INFORMATION
+├── RELATIONSHIPS
+├── CONDITIONS
+├── ENVIRONMENT
+├── INFRASTRUCTURE
+└── TIMELINE
+```
+
+Каждая система имеет собственное состояние.
+
+WORLD STATE объединяет их.
+
+---
+
+# 5. Сущность
+
+Любой объект, который имеет собственное существование в мире, является **ENTITY**.
+
+Примеры:
+
+* персонаж;
+* NPC;
+* фракция;
+* организация;
+* здание;
+* предмет;
+* транспорт;
+* локация;
+* документ;
+* ресурс;
+* животное;
+* устройство;
+* поселение.
+
+Базовая модель:
+
+```text
+ENTITY
+
+ENTITY_ID
+TYPE
+STATUS
+CREATED_AT
+UPDATED_AT
+LOCATION
+OWNER
+ATTRIBUTES
+RELATIONSHIPS
+HISTORY_REFERENCE
+```
+
+Не все сущности обязаны иметь все поля.
+
+---
+
+# 6. Состояние сущности
+
+Состояние сущности состоит из:
+
+```text
+STATIC DATA
++
+DYNAMIC DATA
++
+RELATIONAL DATA
+```
+
+### STATIC DATA
+
+То, что обычно не меняется:
+
+* идентификатор;
+* происхождение;
+* базовый тип;
+* дата создания;
+* авторство;
+* каноническая принадлежность.
+
+### DYNAMIC DATA
+
+То, что меняется:
+
+* местоположение;
+* здоровье;
+* статус;
+* ресурсы;
+* владельцы;
+* доступ;
+* активность;
+* состояние инфраструктуры.
+
+### RELATIONAL DATA
+
+То, что определяется отношениями:
+
+* доверие;
+* вражда;
+* принадлежность;
+* влияние;
+* контроль;
+* репутация;
+* торговые отношения.
+
+---
+
+# 7. Не всё должно храниться как число
+
+Одна из потенциально опасных ошибок:
+
+> превратить весь мир в набор числовых параметров.
+
+Например:
+
+```text
+trust = 73
+fear = 42
+danger = 81
+influence = 67
+```
+
+Это создаёт иллюзию точной симуляции.
+
+Для большинства игровых систем предпочтительнее состояния:
+
+```text
+LOW
+MEDIUM
+HIGH
+```
+
+или:
+
+```text
+UNKNOWN
+STABLE
+UNSTABLE
+CRITICAL
+```
+
+Числа могут существовать внутри движка, но игрок не обязан их видеть.
+
+---
+
+# 8. Состояния должны иметь смысл
+
+Плохой параметр:
+
+```text
+building_value = 71
+```
+
+Хорошие параметры:
+
+```text
+POWER = OFFLINE
+SECURITY = COMPROMISED
+OWNER = UNKNOWN
+ACCESS = RESTRICTED
+```
+
+Каждое состояние должно иметь игровое значение.
+
+---
+
+# 9. Состояние мира и восприятие мира
+
+Критически важно:
+
+```text
+WORLD STATE
+≠
+PLAYER PERCEPTION
+```
+
+Например:
+
+```text
+WORLD:
+station = abandoned
+```
+
+Игрок:
+
+```text
+KNOWLEDGE:
+station = operational
+```
+
+NPC:
+
+```text
+BELIEF:
+station = destroyed
+```
+
+Фракция:
+
+```text
+OFFICIAL_POSITION:
+station never existed
+```
+
+Один объект мира может иметь несколько информационных представлений.
+
+---
+
+# 10. Truth Layer
+
+В WORLD STATE существует канонический слой:
+
+```text
+TRUTH
+```
+
+Он определяет фактическое состояние мира.
+
+Например:
+
+```text
+STATION_04
+STATUS = ACTIVE
+LOCATION = REGION_2
+POWER = PARTIAL
+OWNER = UNKNOWN
+```
+
+Игрок может не знать ни одного из этих фактов.
+
+---
+
+# 11. Knowledge Layer
+
+Знание игроков, NPC и организаций не должно переписывать WORLD STATE.
+
+Например:
+
+```text
+WORLD:
+OWNER = FACTION_A
+```
+
+Но:
+
+```text
+PLAYER:
+OWNER = UNKNOWN
+```
+
+И:
+
+```text
+NPC:
+OWNER = FACTION_B
+CONFIDENCE = UNCERTAIN
+```
+
+Таким образом:
+
+```text
+TRUTH
+↓
+INFORMATION
+↓
+KNOWLEDGE
+↓
+BELIEF
+```
+
+а не наоборот.
+
+---
+
+# 12. Состояние может быть неизвестным игроку
+
+Очень важно не путать:
+
+```text
+UNKNOWN TO PLAYER
+```
+
+с:
+
+```text
+UNKNOWN TO ENGINE
+```
+
+Если разработчик ещё не определил ответ:
+
+```text
+ENGINE = UNKNOWN
+```
+
+Если ответ существует, но игрок его не знает:
+
+```text
+ENGINE = KNOWN
+PLAYER = UNKNOWN
+```
+
+Это принципиально разные состояния.
+
+---
+
+# 13. Состояние мира должно быть детерминируемым
+
+При одинаковом состоянии и одинаковом действии движок должен давать одинаковый результат, если правила не предусматривают случайность.
+
+Например:
+
+```text
+STATE_A
++
+ACTION_X
+→
+STATE_B
+```
+
+а не:
+
+```text
+STATE_A
++
+ACTION_X
+→
+что-нибудь случайное
+```
+
+Если существует вероятность:
+
+```text
+ACTION_X
+→
+OUTCOME_A (60%)
+OUTCOME_B (40%)
+```
+
+то случайность должна быть частью формальной модели и журналироваться.
+
+---
+
+# 14. Randomness
+
+Случайность допустима.
+
+Но:
+
+> Случайность не должна означать отсутствие причинности.
+
+Например, погода может быть:
+
+```text
+WEATHER = RAIN
+```
+
+и влиять на:
+
+* путешествия;
+* сельское хозяйство;
+* видимость;
+* события;
+* экономику;
+* безопасность.
+
+Случайное изменение погоды становится причиной последующих изменений.
+
+---
+
+# 15. Активное состояние
+
+Не все параметры должны постоянно симулироваться.
+
+Например:
+
+```text
+NPC schedule
+```
+
+не обязательно рассчитывать каждую минуту.
+
+Можно хранить:
+
+```text
+CURRENT_ACTIVITY
+NEXT_STATE_CHANGE
+```
+
+Например:
+
+```text
+NPC_014
+
+CURRENT_ACTIVITY = WORK
+LOCATION = FACTORY
+NEXT_CHANGE = 18:00
+```
+
+В 18:00 движок создаёт переход.
+
+---
+
+# 16. Event-driven World State
+
+WORLD//ERROR должен использовать преимущественно событийную модель.
+
+```text
+STATE
+↓
+EVENT
+↓
+STATE TRANSITION
+↓
+NEW STATE
+```
+
+Например:
+
+```text
+POWER_PLANT
+STATUS = ACTIVE
+```
+
+Событие:
+
+```text
+REACTOR_FAILURE
+```
+
+После обработки:
+
+```text
+POWER_PLANT
+STATUS = DAMAGED
+```
+
+и:
+
+```text
+REGION_POWER
+STATUS = UNSTABLE
+```
+
+---
+
+# 17. State Transition
+
+Изменение состояния должно быть формализовано.
+
+```text
+BEFORE
+→ EVENT
+→ RULES
+→ AFTER
+```
+
+Например:
+
+```text
+LOCATION_A
+SECURITY = LOW
+
+PLAYER_BREAK_IN
+
+→ security rule
+
+LOCATION_A
+SECURITY = HIGH
+```
+
+Дополнительно:
+
+```text
+EVENT_LOG
+PLAYER_REPUTATION
+NPC_KNOWLEDGE
+FACTION_KNOWLEDGE
+```
+
+могут измениться одновременно.
+
+---
+
+# 18. Atomicity
+
+Сложное изменение мира должно происходить атомарно.
+
+Например:
+
+Игрок покупает редкий предмет.
+
+Нельзя получить:
+
+```text
+PLAYER:
+money -100
+```
+
+и при сбое не получить:
+
+```text
+ITEM:
+player ownership
+```
+
+Операция должна быть:
+
+```text
+BEFORE
+PLAYER MONEY = 1000
+ITEM OWNER = SELLER
+
+TRANSACTION
+
+AFTER
+PLAYER MONEY = 900
+ITEM OWNER = PLAYER
+```
+
+Либо изменение происходит целиком, либо не происходит.
+
+---
+
+# 19. Idempotency
+
+Повторная обработка одного и того же события не должна случайно применить последствия дважды.
+
+Например:
+
+```text
+EVENT_1045
+```
+
+обработан.
+
+Если система повторно получает:
+
+```text
+EVENT_1045
+```
+
+она должна определить:
+
+```text
+ALREADY_PROCESSED
+```
+
+а не:
+
+```text
+-100 resources
+-100 resources
+```
+
+Это особенно важно для Telegram, сетевых ошибок и очередей.
+
+---
+
+# 20. State Version
+
+Мир должен иметь версию состояния.
+
+Например:
+
+```text
+WORLD_TICK = 18452
+```
+
+или:
+
+```text
+WORLD_VERSION = 2028.04.17.18452
+```
+
+Конкретный формат будет определён технической архитектурой.
+
+Смысл:
+
+> можно понять, к какому состоянию мира относится действие или событие.
+
+---
+
+# 21. World Tick
+
+Необходимо отличать:
+
+```text
+REAL TIME
+```
+
+от:
+
+```text
+WORLD TIME
+```
+
+Мир может обновляться по событиям.
+
+Например:
+
+```text
+REAL TIME:
+12:41:03
+
+WORLD:
+DAY 183
+```
+
+Не требуется вычислять каждую секунду.
+
+---
+
+# 22. Tick не равен секунде
+
+WORLD TICK может означать:
+
+* игровой момент;
+* обработку пакета событий;
+* смену состояния;
+* планировочный цикл;
+* логическую единицу времени.
+
+Не следует связывать игровую логику с:
+
+```text
+каждая реальная секунда = один игровой тик.
+```
+
+Это усложнит систему без необходимости.
+
+---
+
+# 23. Dirty State
+
+Не все системы должны обновляться одновременно.
+
+Если изменился:
+
+```text
+LOCATION_12
+```
+
+не нужно пересчитывать:
+
+```text
+весь мир.
+```
+
+Движок определяет затронутые области.
+
+Например:
+
+```text
+EVENT
+↓
+LOCATION_12
+↓
+INFRASTRUCTURE
+↓
+LOCAL ECONOMY
+↓
+FACTION AWARENESS
+```
+
+Остальная часть мира не пересчитывается.
+
+---
+
+# 24. Dependency Graph
+
+Системы должны иметь зависимости.
+
+Например:
+
+```text
+POWER_PLANT
+      ↓
+ELECTRICITY
+      ↓
+FACTORY
+      ↓
+PRODUCTION
+      ↓
+MARKET
+      ↓
+ECONOMY
+```
+
+Изменение верхнего элемента может вызвать цепочку.
+
+Но цепочка должна быть ограниченной и вычислимой.
+
+---
+
+# 25. World Conditions
+
+Помимо объектов существуют глобальные или локальные условия.
+
+Например:
+
+```text
+WAR
+PANDEMIC
+DROUGHT
+BLACKOUT
+CURFEW
+ECONOMIC_CRISIS
+STORM
+COMMUNICATION_FAILURE
+MASS_DISPLACEMENT
+```
+
+Condition отличается от Event.
+
+```text
+EVENT:
+BLACKOUT_STARTED
+```
+
+```text
+CONDITION:
+REGION_POWER = UNSTABLE
+```
+
+Event запускает изменение.
+
+Condition определяет текущее положение дел.
+
+---
+
+# 26. Условия могут быть локальными
+
+Например:
+
+```text
+REGION_A:
+DROUGHT = ACTIVE
+
+REGION_B:
+DROUGHT = NONE
+```
+
+Поэтому нельзя иметь только:
+
+```text
+WORLD_WEATHER
+```
+
+если мир достаточно большой.
+
+Состояния должны иметь область действия.
+
+---
+
+# 27. Scope
+
+Каждое изменение может иметь масштаб:
+
+```text
+PERSONAL
+LOCAL
+REGIONAL
+GLOBAL
+CANONICAL
+```
+
+Это соответствует системе EVENTS.
+
+Например:
+
+```text
+PERSONAL:
+PLAYER_INJURED
+
+LOCAL:
+SETTLEMENT_DAMAGED
+
+REGIONAL:
+TRADE_ROUTE_CLOSED
+
+GLOBAL:
+MAJOR_FACTION_COLLAPSED
+
+CANONICAL:
+WORLD_DEFINING_EVENT
+```
+
+---
+
+# 28. Ownership
+
+Для многих сущностей необходимо различать:
+
+```text
+OWNER
+CONTROLLER
+OCCUPIER
+USER
+CREATOR
+```
+
+Например:
+
+Здание может:
+
+```text
+OWNER = COMPANY_A
+CONTROLLER = FACTION_B
+OCCUPIER = FACTION_B
+USER = SETTLEMENT
+```
+
+Это намного точнее, чем одно поле:
+
+```text
+OWNER
+```
+
+---
+
+# 29. Access
+
+Доступ — отдельное состояние.
+
+Игрок может знать о здании, но не иметь доступа.
+
+```text
+LOCATION:
+KNOWN = TRUE
+ACCESS = DENIED
+```
+
+Другой игрок:
+
+```text
+KNOWN = TRUE
+ACCESS = ALLOWED
+```
+
+Фракция:
+
+```text
+CONTROL = TRUE
+```
+
+---
+
+# 30. Visibility
+
+Необходимо различать:
+
+```text
+EXISTENCE
+VISIBILITY
+KNOWLEDGE
+ACCESS
+```
+
+Например:
+
+```text
+SECRET FACILITY
+
+EXISTS = TRUE
+VISIBLE = FALSE
+PLAYER KNOWS = FALSE
+ACCESS = DENIED
+```
+
+Игрок может получить слух:
+
+```text
+PLAYER KNOWS = RUMORED
+```
+
+но объект всё ещё:
+
+```text
+VISIBLE = FALSE
+```
+
+---
+
+# 31. State vs Representation
+
+Один и тот же объект может иметь разные представления.
+
+Например:
+
+```text
+WORLD STATE:
+facility = active
+```
+
+На карте игрока:
+
+```text
+"abandoned warehouse"
+```
+
+На карте фракции:
+
+```text
+"research facility"
+```
+
+На официальной карте:
+
+```text
+"nonexistent"
+```
+
+Это не четыре разных объекта.
+
+Это четыре представления одного состояния.
+
+---
+
+# 32. World State и карта
+
+Карта является производным представлением WORLD STATE.
+
+```text
+WORLD STATE
+↓
+PLAYER ACCESS
+↓
+PLAYER KNOWLEDGE
+↓
+MAP
+```
+
+Поэтому карта не должна быть источником истины.
+
+---
+
+# 33. World State и экономика
+
+Экономические значения являются частью состояния мира.
+
+Например:
+
+```text
+RESOURCE_IRON
+REGION_A
+STOCK = LOW
+```
+
+и:
+
+```text
+PRICE_IRON = HIGH
+```
+
+Но цена не обязательно должна быть независимым параметром.
+
+Она может вычисляться из:
+
+* запасов;
+* производства;
+* спроса;
+* транспорта;
+* риска;
+* контроля;
+* событий.
+
+---
+
+# 34. Derived State
+
+Некоторые значения лучше вычислять, а не хранить.
+
+Например:
+
+```text
+DANGER_LEVEL
+```
+
+может зависеть от:
+
+```text
+HOSTILE_FACTIONS
++
+RECENT_EVENTS
++
+SECURITY
++
+ENVIRONMENT
++
+PLAYER_ACTIVITY
+```
+
+Не обязательно хранить каждую производную величину постоянно.
+
+---
+
+# 35. Source of Truth
+
+Для каждого типа состояния должен существовать единственный основной источник истины.
+
+Например:
+
+```text
+NPC LOCATION
+→ NPC STATE
+
+FACTION MEMBERSHIP
+→ FACTION/PERSON RELATION
+
+ITEM OWNERSHIP
+→ ITEM/OWNERSHIP SYSTEM
+
+EVENT OCCURRENCE
+→ EVENT SYSTEM
+
+PLAYER KNOWLEDGE
+→ KNOWLEDGE SYSTEM
+```
+
+Нельзя позволять разным системам независимо хранить противоречивые версии одного факта.
+
+---
+
+# 36. Derived vs Stored
+
+Правило:
+
+> Храним то, что является самостоятельным фактом. Вычисляем то, что является следствием других фактов.
+
+Например:
+
+```text
+STORED:
+RESOURCE_STOCK = 100
+
+DERIVED:
+RESOURCE_SCARCITY = HIGH
+```
+
+---
+
+# 37. World State и история
+
+Каждое значимое изменение должно иметь связь с причиной.
+
+Например:
+
+```text
+CURRENT:
+FACTORY_STATUS = CLOSED
+```
+
+Должно быть возможно найти:
+
+```text
+WHY?
+```
+
+Ответ:
+
+```text
+EVENT_812
+POWER FAILURE
+```
+
+и:
+
+```text
+WHY POWER FAILURE?
+EVENT_799
+SABOTAGE
+```
+
+Таким образом возникает causal graph.
+
+---
+
+# 38. Auditability
+
+Критическое состояние должно быть проверяемым.
+
+Система должна позволять разработчику выяснить:
+
+```text
+WHY IS THIS NPC HERE?
+WHY IS THIS LOCATION CLOSED?
+WHY DOES THIS PLAYER OWN THIS ITEM?
+WHY DOES THIS FACTION CONTROL THIS TERRITORY?
+WHY DID THIS EVENT HAPPEN?
+```
+
+Если система не может ответить, отладка многолетнего мира станет практически невозможной.
+
+---
+
+# 39. Snapshot + Event Log
+
+Рекомендуемая модель хранения:
+
+```text
+EVENT LOG
++
+WORLD SNAPSHOTS
+```
+
+Event Log:
+
+```text
+EVENT_1
+EVENT_2
+EVENT_3
+...
+EVENT_100000
+```
+
+Snapshot:
+
+```text
+WORLD STATE @ EVENT_100000
+```
+
+Это позволяет:
+
+* восстанавливать состояние;
+* анализировать историю;
+* делать rollback;
+* отлаживать;
+* создавать архивы.
+
+---
+
+# 40. Почему нельзя хранить только события
+
+Теоретически можно восстановить мир из всей истории.
+
+Практически это может стать слишком дорого.
+
+Если необходимо восстановить состояние после:
+
+```text
+1 000 000 events
+```
+
+это не всегда удобно.
+
+Поэтому:
+
+```text
+SNAPSHOT
++
+SUBSEQUENT EVENTS
+```
+
+эффективнее.
+
+---
+
+# 41. Почему нельзя хранить только текущее состояние
+
+Потому что исчезает причинность.
+
+Мы видим:
+
+```text
+FACTORY = DESTROYED
+```
+
+но не знаем:
+
+* почему;
+* когда;
+* кем;
+* каким событием;
+* какие последствия уже были применены.
+
+Поэтому необходима история.
+
+---
+
+# 42. Canonical State
+
+Некоторые изменения являются особенно важными.
+
+Например:
+
+* смерть важного NPC;
+* падение фракции;
+* открытие региона;
+* глобальная катастрофа;
+* раскрытие центральной тайны;
+* изменение фундаментального правила мира.
+
+Такие состояния должны иметь:
+
+```text
+CANONICAL EVENT
++
+CANONICAL STATE CHANGE
+```
+
+и дополнительную защиту от случайного изменения.
+
+---
+
+# 43. State Locks
+
+Некоторые состояния после определённого события могут стать необратимыми.
+
+Например:
+
+```text
+CANONICAL_EVENT_17
+```
+
+после публикации не должен случайно исчезнуть из мира.
+
+Это может быть:
+
+```text
+IMMUTABLE
+```
+
+или:
+
+```text
+REVERSAL_REQUIRES_ADMIN_AUTHORIZATION
+```
+
+---
+
+# 44. Reversible State
+
+Не все изменения необратимы.
+
+Например:
+
+```text
+DOOR = LOCKED
+```
+
+может стать:
+
+```text
+DOOR = UNLOCKED
+```
+
+Но:
+
+```text
+NPC = DEAD
+```
+
+может быть:
+
+```text
+IRREVERSIBLE
+```
+
+если правила мира не предусматривают иное.
+
+---
+
+# 45. State Machine
+
+Для важных объектов можно использовать конечные автоматы.
+
+Например NPC:
+
+```text
+ALIVE
+ ↓
+INJURED
+ ↓
+HOSPITALIZED
+ ↓
+RECOVERED
+```
+
+или:
+
+```text
+ALIVE
+ ↓
+MISSING
+ ↓
+DEAD
+```
+
+Не каждое состояние может переходить в любое другое.
+
+---
+
+# 46. Invalid State
+
+Движок обязан защищаться от невозможных комбинаций.
+
+Например:
+
+```text
+NPC:
+STATUS = DEAD
+LOCATION = MOVING
+```
+
+или:
+
+```text
+ITEM:
+OWNER = PLAYER_A
+OWNER = PLAYER_B
+```
+
+или:
+
+```text
+FACTION:
+DISSOLVED
+CONTROL = ACTIVE
+```
+
+если правила явно не допускают такое состояние.
+
+---
+
+# 47. Invariants
+
+Необходимо определить **WORLD INVARIANTS** — правила, которые должны всегда оставаться истинными.
+
+Например:
+
+```text
+DEAD_CHARACTER cannot perform normal physical actions.
+```
+
+```text
+Destroyed unique item cannot exist in active inventory.
+```
+
+```text
+A player cannot simultaneously own one unique item twice.
+```
+
+```text
+An event cannot be completed before it is triggered.
+```
+
+```text
+An entity cannot be located in two exclusive physical locations simultaneously.
+```
+
+Это один из важнейших элементов движка.
+
+---
+
+# 48. Invariants важнее AI
+
+AI никогда не должен иметь возможность нарушить invariant.
+
+Даже если модель сгенерировала:
+
+> "NPC достал уничтоженный предмет."
+
+Движок должен отклонить действие.
+
+AI:
+
+```text
+PROPOSAL
+```
+
+Engine:
+
+```text
+VALID / INVALID
+```
+
+---
+
+# 49. State Validation
+
+Перед применением изменения:
+
+```text
+ACTION
+↓
+VALIDATION
+↓
+RULE CHECK
+↓
+PERMISSION CHECK
+↓
+RESOURCE CHECK
+↓
+STATE TRANSITION
+```
+
+Если проверка не пройдена:
+
+```text
+NO STATE CHANGE
+```
+
+---
+
+# 50. Concurrent Changes
+
+Несколько игроков могут менять один объект одновременно.
+
+Например:
+
+```text
+PLAYER A → BUY ITEM
+PLAYER B → BUY ITEM
+```
+
+Если предмет уникальный, движок должен решить конфликт.
+
+Возможная модель:
+
+```text
+FIRST VALID TRANSACTION
+→ SUCCESS
+
+SECOND
+→ FAILED / ITEM UNAVAILABLE
+```
+
+Нельзя полагаться на порядок сообщений Telegram.
+
+---
+
+# 51. Race Conditions
+
+WORLD//ERROR должен проектироваться с учётом:
+
+* задержки сети;
+* повторной отправки;
+* параллельных действий;
+* дублирования сообщений;
+* разных клиентов;
+* reconnect;
+* задержки AI.
+
+Игровая логика не должна зависеть от того, кто физически быстрее получил сообщение Telegram.
+
+---
+
+# 52. World State и игрок
+
+Состояние персонажа включает:
+
+```text
+IDENTITY
+LOCATION
+STATUS
+HEALTH
+RESOURCES
+INVENTORY
+RELATIONSHIPS
+REPUTATION
+KNOWLEDGE
+ACTIVE_EFFECTS
+CURRENT_ACTIVITY
+HISTORY_REFERENCE
+```
+
+Но часть этих данных относится к другим системам.
+
+WORLD STATE лишь связывает их.
+
+---
+
+# 53. Character State vs Player State
+
+Это необходимо разделять.
+
+```text
+PLAYER
+```
+
+— реальный пользователь.
+
+```text
+CHARACTER
+```
+
+— субъект мира.
+
+Например:
+
+```text
+PLAYER:
+online = true
+```
+
+не означает:
+
+```text
+CHARACTER:
+active = true
+```
+
+И наоборот.
+
+Персонаж может продолжать существовать в мире, когда игрок офлайн.
+
+---
+
+# 54. Offline State
+
+Офлайн-персонаж может иметь:
+
+```text
+CURRENT_ACTIVITY
+```
+
+например:
+
+```text
+WORKING
+TRAVELLING
+RESTING
+HOSPITALIZED
+MISSING
+CAPTURED
+```
+
+Но система не должна бесконтрольно принимать крупные решения за игрока.
+
+Для этого существуют отдельные правила WORLD-CONTROLLED поведения.
+
+---
+
+# 55. World-Controlled State
+
+Если игрок отсутствует, мир может:
+
+* переместить NPC;
+* изменить рынок;
+* провести событие;
+* изменить отношения;
+* создать последствия;
+* изменить окружающую ситуацию.
+
+Но не должен произвольно:
+
+* продавать уникальные вещи игрока;
+* вступать от его имени в политические организации;
+* заключать критические договоры;
+* принимать необратимые решения;
+
+если игрок заранее не дал на это соответствующее разрешение или механика явно это предусматривает.
+
+---
+
+# 56. State Ownership
+
+Для каждого действия необходимо знать:
+
+```text
+WHO CAN CHANGE THIS STATE?
+```
+
+Варианты:
+
+```text
+PLAYER
+NPC
+FACTION
+WORLD EVENT
+SYSTEM
+ADMIN
+```
+
+Например:
+
+```text
+PLAYER INVENTORY
+→ PLAYER / VALID GAME ACTION
+
+FACTION TERRITORY
+→ FACTION / EVENTS / CONFLICT
+
+WEATHER
+→ WORLD SYSTEM
+
+CANONICAL EVENT
+→ AUTHOR / WORLD ENGINE
+```
+
+---
+
+# 57. Authority Matrix
+
+Для важных объектов должна существовать матрица полномочий.
+
+Например:
+
+| Объект               |       Игрок |         NPC | Фракция | Мир |
+| -------------------- | ----------: | ----------: | ------: | --: |
+| Личный инвентарь     |          Да |         Нет |    Нет* | Да* |
+| NPC-позиция          |         Нет |          Да |      Да |  Да |
+| Погода               |         Нет |         Нет |     Нет |  Да |
+| Территория           | Ограниченно | Ограниченно |      Да |  Да |
+| Каноническое событие |         Нет |         Нет |     Нет |  Да |
+| Личная репутация     |    Косвенно |          Да |      Да |  Да |
+
+`*` только через предусмотренные правила.
+
+---
+
+# 58. State Propagation
+
+Изменение одного состояния может распространяться.
+
+Например:
+
+```text
+BRIDGE_DESTROYED
+```
+
+→
+
+```text
+ROUTE_UNAVAILABLE
+```
+
+→
+
+```text
+TRADE_DELAY
+```
+
+→
+
+```text
+RESOURCE_SHORTAGE
+```
+
+→
+
+```text
+PRICE_INCREASE
+```
+
+→
+
+```text
+SOCIAL_UNREST
+```
+
+→
+
+```text
+FACTION_RESPONSE
+```
+
+Это и есть системный мир.
+
+---
+
+# 59. Ограничение каскадов
+
+Однако нельзя допускать бесконечных цепочек:
+
+```text
+A
+→ B
+→ C
+→ D
+→ ...
+→ A
+→ B
+→ C
+```
+
+Должны существовать:
+
+* лимиты;
+* условия остановки;
+* cooldown;
+* thresholds;
+* приоритеты;
+* защита от повторного запуска.
+
+---
+
+# 60. World State и последствия
+
+CONSEQUENCES не должны храниться как отдельная параллельная реальность.
+
+Они должны проявляться через изменение состояния.
+
+Например:
+
+```text
+CONSEQUENCE:
+ECONOMIC DAMAGE
+```
+
+становится:
+
+```text
+FACTORY:
+PRODUCTION = LOW
+
+MARKET:
+SUPPLY = LOW
+
+REGION:
+UNEMPLOYMENT = HIGH
+```
+
+То есть:
+
+> Последствие — это изменение условий существования мира.
+
+---
+
+# 61. World State и события
+
+EVENT отвечает:
+
+> Что произошло?
+
+WORLD STATE отвечает:
+
+> Что теперь?
+
+Например:
+
+```text
+EVENT:
+FIRE_DESTROYED_WAREHOUSE
+```
+
+WORLD STATE:
+
+```text
+WAREHOUSE.STATUS = DESTROYED
+```
+
+---
+
+# 62. World State и знания
+
+EVENT может изменить:
+
+```text
+WORLD STATE
+```
+
+и одновременно:
+
+```text
+KNOWLEDGE STATE
+```
+
+Но они не обязаны совпадать.
+
+Например:
+
+```text
+WAREHOUSE = DESTROYED
+```
+
+Игроки не знают об этом.
+
+Через несколько дней:
+
+```text
+NPC WITNESS
+→ INFORMATION
+→ PLAYER KNOWLEDGE
+```
+
+---
+
+# 63. State Queries
+
+Игровой движок должен уметь отвечать на запросы:
+
+```text
+WHERE IS CHARACTER_X?
+```
+
+```text
+WHO CONTROLS LOCATION_Y?
+```
+
+```text
+IS ROUTE_Z AVAILABLE?
+```
+
+```text
+WHAT IS THE CURRENT STATE OF FACTION_A?
+```
+
+```text
+WHAT CONDITIONS AFFECT REGION_B?
+```
+
+```text
+WHAT EVENTS ARE ACTIVE?
+```
+
+Эти запросы должны обращаться к структурированному состоянию, а не к LLM.
+
+---
+
+# 64. AI не должен хранить WORLD STATE
+
+Нельзя делать:
+
+```text
+LLM memory = world database
+```
+
+LLM может иметь контекст текущей сцены.
+
+Но источник истины:
+
+```text
+DATABASE / WORLD ENGINE
+```
+
+---
+
+# 65. State Context для AI
+
+Перед обращением к AI система должна сформировать минимальный контекст:
+
+```text
+PLAYER
+CURRENT LOCATION
+RELEVANT ENTITIES
+RELEVANT EVENTS
+RELEVANT KNOWLEDGE
+CURRENT CONDITIONS
+ALLOWED ACTIONS
+```
+
+AI не получает весь WORLD STATE.
+
+---
+
+# 66. State Snapshots для расследований
+
+Иногда полезно сохранять состояние мира на момент события.
+
+Например:
+
+```text
+CASE_OPENED_AT = WORLD_VERSION_812
+```
+
+Это позволяет понять:
+
+> Что было известно и что существовало в мире в момент расследования?
+
+---
+
+# 67. Исторические состояния
+
+Некоторые расследования должны позволять изучать прошлое.
+
+Например:
+
+```text
+LOCATION STATE:
+YEAR 2012
+YEAR 2015
+YEAR 2019
+CURRENT
+```
+
+Это не означает, что игрок путешествует во времени.
+
+Он изучает исторические данные.
+
+---
+
+# 68. State Reconstruction
+
+Движок должен потенциально уметь восстановить:
+
+```text
+WORLD STATE @ TIME_X
+```
+
+если это необходимо для:
+
+* расследований;
+* архива;
+* отладки;
+* исторических данных;
+* ARG;
+* анализа последствий.
+
+---
+
+# 69. Значимость состояния
+
+Не каждое изменение должно сохраняться одинаково долго.
+
+### EPHEMERAL
+
+Краткосрочное состояние.
+
+### TEMPORARY
+
+Состояние с ограниченным сроком.
+
+### PERSISTENT
+
+Долгосрочное состояние.
+
+### HISTORICAL
+
+Состояние сохранилось только как история.
+
+### CANONICAL
+
+Фундаментальное изменение мира.
+
+---
+
+# 70. Пример
+
+Погода:
+
+```text
+TEMPORARY
+```
+
+Повреждение здания:
+
+```text
+PERSISTENT
+```
+
+Смерть NPC:
+
+```text
+PERSISTENT + HISTORICAL
+```
+
+Падение государства:
+
+```text
+CANONICAL
+```
+
+---
+
+# 71. State Decay
+
+Некоторые состояния должны постепенно исчезать.
+
+Например:
+
+```text
+PANIC
+```
+
+может снижаться со временем.
+
+Но decay должен быть правилом мира.
+
+Например:
+
+```text
+PANIC = HIGH
+```
+
+через несколько игровых дней:
+
+```text
+PANIC = MEDIUM
+```
+
+если не произошло нового события.
+
+---
+
+# 72. State Escalation
+
+Обратный процесс:
+
+```text
+WARNING
+→ ALERT
+→ CRISIS
+→ COLLAPSE
+```
+
+Переход между состояниями должен зависеть от условий.
+
+---
+
+# 73. Thresholds
+
+Некоторые события происходят только при достижении порога.
+
+Например:
+
+```text
+FOOD_STOCK < CRITICAL
+```
+
+→
+
+```text
+FOOD_SHORTAGE
+```
+
+или:
+
+```text
+FACTION_INFLUENCE > THRESHOLD
+```
+
+→
+
+```text
+TERRITORIAL_CONTROL
+```
+
+---
+
+# 74. State Hysteresis
+
+Важно не допускать постоянного переключения:
+
+```text
+HIGH
+LOW
+HIGH
+LOW
+HIGH
+LOW
+```
+
+при нахождении около порога.
+
+Поэтому некоторые переходы должны иметь разные условия включения и выключения.
+
+Например:
+
+```text
+CRISIS START:
+stock < 20
+
+CRISIS END:
+stock > 40
+```
+
+---
+
+# 75. State Consistency
+
+Периодически система должна проверять:
+
+```text
+WORLD STATE
+```
+
+на внутреннюю согласованность.
+
+Например:
+
+```text
+inventory
+ownership
+location
+faction membership
+event status
+```
+
+не должны противоречить друг другу.
+
+---
+
+# 76. World State Integrity Check
+
+Можно иметь отдельный механизм:
+
+```text
+STATE VALIDATOR
+```
+
+который проверяет:
+
+* invariants;
+* ownership;
+* references;
+* impossible states;
+* orphaned entities;
+* duplicated objects;
+* invalid relationships;
+* incomplete transitions.
+
+---
+
+# 77. Rollback
+
+Если обнаружена критическая ошибка:
+
+```text
+BAD STATE
+```
+
+система должна иметь возможность:
+
+```text
+ROLLBACK
+```
+
+до последнего корректного snapshot.
+
+После этого события могут быть переиграны.
+
+---
+
+# 78. Rollback и канон
+
+Rollback не должен использоваться как:
+
+> «Игрокам не понравилось, поэтому перепишем историю».
+
+Rollback — технический инструмент исправления ошибок.
+
+Если событие произошло канонически, оно не должно исчезать только потому, что результат оказался неудобным.
+
+---
+
+# 79. Admin Intervention
+
+Разработчик может иметь административные инструменты:
+
+```text
+INSPECT
+PAUSE
+REPLAY
+ROLLBACK
+CORRECT
+FREEZE
+TRIGGER
+```
+
+Но административное вмешательство должно логироваться.
+
+Например:
+
+```text
+ADMIN_EVENT
+REASON
+AUTHOR
+TIMESTAMP
+BEFORE
+AFTER
+```
+
+---
+
+# 80. Невидимая симуляция
+
+Не нужно симулировать всё.
+
+WORLD//ERROR должен симулировать то, что имеет:
+
+* игровую ценность;
+* причинную связь;
+* влияние на игроков;
+* влияние на мир.
+
+Остальное может быть абстрагировано.
+
+Например, не нужно симулировать каждого прохожего каждую секунду.
+
+Можно хранить:
+
+```text
+SETTLEMENT_POPULATION
+ECONOMIC_STATE
+ACTIVITY_LEVEL
+```
+
+и создавать конкретных NPC при необходимости.
+
+---
+
+# 81. Level of Simulation
+
+Можно использовать уровни:
+
+### LEVEL 0 — STATIC
+
+Объект почти не меняется.
+
+### LEVEL 1 — STATEFUL
+
+Есть несколько состояний.
+
+### LEVEL 2 — EVENT-DRIVEN
+
+Меняется через события.
+
+### LEVEL 3 — SYSTEMIC
+
+Взаимодействует с другими системами.
+
+### LEVEL 4 — HIGH IMPORTANCE
+
+Глубоко симулируется и влияет на большие части мира.
+
+Не каждый объект должен быть LEVEL 4.
+
+---
+
+# 82. Это защищает проект от чрезмерной сложности
+
+Например:
+
+```text
+BACKGROUND BUILDING
+→ LEVEL 0
+
+SHOP
+→ LEVEL 1–2
+
+IMPORTANT LOCATION
+→ LEVEL 3
+
+WORLD-CRITICAL FACILITY
+→ LEVEL 4
+```
+
+Так мы не пытаемся создать полноценную симуляцию каждого квадратного метра мира.
+
+---
+
+# 83. World State и масштабирование
+
+Чем больше становится мир, тем важнее:
+
+* lazy loading;
+* event queues;
+* snapshots;
+* derived state;
+* региональные обновления;
+* приоритеты симуляции;
+* агрегированное состояние.
+
+Игрок не должен заставлять движок пересчитывать весь мир одним запросом.
+
+---
+
+# 84. Региональная симуляция
+
+Можно разделить мир:
+
+```text
+WORLD
+├── REGION A
+├── REGION B
+├── REGION C
+└── REGION D
+```
+
+И обновлять их с разной интенсивностью.
+
+Например:
+
+```text
+ACTIVE PLAYER REGION
+→ HIGH DETAIL
+
+NEARBY REGION
+→ MEDIUM DETAIL
+
+UNVISITED REGION
+→ LOW DETAIL
+```
+
+Но это не должно означать, что удалённый регион перестаёт существовать.
+
+Он просто симулируется на более высоком уровне абстракции.
+
+---
+
+# 85. Мир не должен останавливаться из-за отсутствия игроков
+
+Если игрок покинул регион:
+
+```text
+REGION SIMULATION
+```
+
+может перейти в упрощённый режим.
+
+Но:
+
+```text
+WORLD
+≠
+PAUSED
+```
+
+События всё равно могут происходить.
+
+---
+
+# 86. Player-centric simulation
+
+Игроку может казаться, что мир особенно подробно реагирует на его присутствие.
+
+На самом деле:
+
+```text
+WORLD SIMULATION
+```
+
+существует независимо.
+
+Просто рядом с игроком движок раскрывает больше деталей.
+
+Это позволяет сохранить иллюзию живого мира без симуляции всего с максимальной точностью.
+
+---
+
+# 87. State Expansion
+
+По мере развития игры новые системы могут добавляться.
+
+Например:
+
+```text
+v1:
+LOCATION
+NPC
+FACTION
+ITEM
+EVENT
+```
+
+Позже:
+
+```text
+v2:
+ECONOMY
+INFRASTRUCTURE
+POLITICS
+TRANSPORT
+```
+
+Ещё позже:
+
+```text
+v3:
+GLOBAL MARKETS
+MULTI-REGION CONFLICT
+LONG-TERM CLIMATE
+```
+
+WORLD STATE должен быть расширяемым.
+
+---
+
+# 88. Главное требование к расширяемости
+
+Добавление новой системы не должно ломать существующие системы.
+
+Например:
+
+```text
+ECONOMY
+```
+
+может появиться позже.
+
+Она должна подключаться к:
+
+```text
+RESOURCES
+FACTIONS
+LOCATIONS
+EVENTS
+CONSEQUENCES
+```
+
+через определённые интерфейсы.
+
+---
+
+# 89. Minimal World State
+
+Минимальный рабочий мир может содержать:
+
+```text
+TIME
+LOCATIONS
+CHARACTERS
+NPCS
+FACTIONS
+ITEMS
+EVENTS
+RELATIONSHIPS
+KNOWLEDGE
+WORLD CONDITIONS
+```
+
+Этого уже достаточно для прототипа.
+
+---
+
+# 90. Расширенный World State
+
+Позже:
+
+```text
+WORLD
+├── TIME
+├── GEOGRAPHY
+├── LOCATIONS
+├── CHARACTERS
+├── NPCS
+├── FACTIONS
+├── ORGANIZATIONS
+├── ITEMS
+├── RESOURCES
+├── ECONOMY
+├── INFRASTRUCTURE
+├── TRANSPORT
+├── ENVIRONMENT
+├── EVENTS
+├── CONDITIONS
+├── RELATIONSHIPS
+├── KNOWLEDGE
+├── INFORMATION
+├── CASES
+├── ARG
+└── HISTORY
+```
+
+---
+
+# 91. Что является сердцем
+
+Несмотря на количество подсистем, ядро можно выразить очень просто:
+
+```text
+ENTITIES
++
+STATE
++
+RULES
++
+EVENTS
++
+TIME
+```
+
+Всё остальное строится поверх этого.
+
+---
+
+# 92. Главная архитектурная формула
+
+```text
+CURRENT WORLD STATE
+        ↓
+PLAYER / NPC / FACTION ACTION
+        ↓
+VALIDATION
+        ↓
+EVENT
+        ↓
+RULES
+        ↓
+STATE TRANSITION
+        ↓
+NEW WORLD STATE
+        ↓
+KNOWLEDGE / INFORMATION
+        ↓
+NEW ACTIONS
+```
+
+---
+
+# 93. Главный принцип
+
+> **WORLD STATE — это не описание мира. Это рабочее состояние мира.**
+
+Описание можно написать в документе.
+
+WORLD STATE должен существовать в движке.
+
+---
+
+# 94. Второй принцип
+
+> **Игрок не должен быть источником существования мира.**
+
+Если игрок не знает о событии:
+
+```text
+EVENT
+```
+
+оно всё равно может существовать.
+
+Если игрок не посещал регион:
+
+```text
+REGION
+```
+
+он всё равно существует.
+
+Если игрок не разговаривал с NPC:
+
+```text
+NPC
+```
+
+NPC продолжает жить.
+
+---
+
+# 95. Третий принцип
+
+> **История мира не должна исчезать только потому, что текущее состояние изменилось.**
+
+Текущее состояние:
+
+```text
+CURRENT
+```
+
+История:
+
+```text
+WHY
+WHEN
+HOW
+BY WHOM
+```
+
+Обе системы необходимы.
+
+---
+
+# 96. Четвёртый принцип
+
+> **Каждое значимое состояние должно иметь причину, а каждое значимое изменение — след.**
+
+Это фундамент расследовательской части WORLD//ERROR.
+
+Если:
+
+```text
+LOCATION = DESTROYED
+```
+
+должен существовать путь к:
+
+```text
+WHY?
+```
+
+Даже если игрок его никогда не найдёт.
+
+---
+
+# 97. Пятый принцип
+
+> **Не нужно симулировать всё. Нужно симулировать всё, что имеет значение.**
+
+Это один из главных принципов технической реализации WORLD//ERROR.
+
+Глубина должна появляться из взаимодействия систем, а не из бессмысленной детализации.
+
+---
+
+# 98. Финальная модель
+
+В наиболее компактной форме:
+
+```text
+WORLD
+│
+├── ENTITIES
+│     ├── Characters
+│     ├── NPCs
+│     ├── Factions
+│     ├── Locations
+│     ├── Items
+│     └── Organizations
+│
+├── STATE
+│     ├── Current
+│     ├── Conditions
+│     ├── Ownership
+│     ├── Access
+│     └── Relationships
+│
+├── EVENTS
+│     ├── Causes
+│     ├── Transitions
+│     └── Consequences
+│
+├── KNOWLEDGE
+│     ├── Player
+│     ├── NPC
+│     ├── Faction
+│     └── Public
+│
+├── TIME
+│
+└── HISTORY
+      ├── Event Log
+      ├── Snapshots
+      └── Canonical Changes
+```
+
+---
+
+# 99. Главная формула WORLD//ERROR
+
+```text
+WORLD STATE
+→ ACTION
+→ EVENT
+→ STATE TRANSITION
+→ NEW WORLD STATE
+→ INFORMATION
+→ KNOWLEDGE
+→ INTERPRETATION
+→ NEW ACTION
+```
+
+Это замкнутый цикл существования мира.
+
+---
+
+# 100. Ключевая фраза
+
+> **WORLD//ERROR — это не база данных с сюжетом. Это система состояний, субъектов, информации и событий, которая способна порождать историю из изменений мира.**

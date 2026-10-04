@@ -1,0 +1,2941 @@
+# WORLD//ERROR — 15_ECONOMY.md
+
+# Экономика
+
+## 1. Назначение документа
+
+Экономика WORLD//ERROR — это система производства, распределения, обмена и потребления ресурсов, которая существует независимо от игроков.
+
+Она должна:
+
+* поддерживать жизнь мира;
+* создавать ограничения;
+* формировать стимулы;
+* создавать дефицит;
+* порождать конфликты;
+* связывать регионы;
+* создавать социальные роли;
+* создавать расследования;
+* реагировать на события;
+* изменяться под влиянием игроков.
+
+Главный принцип:
+
+> **Экономика — не магазин. Экономика — система движения ограниченных ресурсов через мир.**
+
+---
+
+# 2. Основная формула
+
+```text
+RESOURCES
+↓
+PRODUCTION
+↓
+LOGISTICS
+↓
+DISTRIBUTION
+↓
+ACCESS
+↓
+CONSUMPTION
+↓
+SHORTAGE / SURPLUS
+↓
+PRICE / AVAILABILITY
+↓
+PLAYER & FACTION ACTIONS
+↓
+WORLD CHANGE
+```
+
+---
+
+# 3. Экономика существует без игроков
+
+Даже если игроки ничего не делают:
+
+* NPC производят;
+* NPC потребляют;
+* поселения торгуют;
+* транспорт перемещает грузы;
+* ресурсы заканчиваются;
+* предприятия ломаются;
+* возникают дефициты;
+* меняются цены;
+* фракции заключают договоры.
+
+Игроки не являются единственным источником экономической активности.
+
+---
+
+# 4. Но игроки могут вмешиваться
+
+Игрок способен:
+
+* добывать;
+* производить;
+* перевозить;
+* покупать;
+* продавать;
+* хранить;
+* воровать;
+* уничтожать;
+* контролировать;
+* монополизировать;
+* инвестировать;
+* саботировать;
+* открывать новые маршруты;
+* раскрывать информацию;
+* создавать организации.
+
+Каждое значимое действие может изменить экономическое состояние мира.
+
+---
+
+# 5. Деньги
+
+В мире может существовать одна или несколько валют.
+
+Но:
+
+> **не следует автоматически делать одну универсальную валюту на всё.**
+
+В зависимости от мира могут существовать:
+
+```text
+CURRENCY
+LOCAL_CURRENCY
+FOREIGN_CURRENCY
+CREDIT
+DEBT
+BARTER
+RESOURCE_VALUE
+```
+
+---
+
+# 6. Деньги ≠ богатство
+
+Богатство персонажа может состоять из:
+
+```text
+MONEY
+ITEMS
+PROPERTY
+RESOURCES
+INFORMATION
+ACCESS
+DEBT
+CONTRACTS
+INFLUENCE
+```
+
+Игрок с небольшим количеством денег может обладать очень ценным:
+
+```text
+DOCUMENT
+KEY
+ACCESS
+KNOWLEDGE
+RELATIONSHIP
+```
+
+---
+
+# 7. Resource Model
+
+Ресурс — любой ограниченный объект, который имеет полезность в экономической системе.
+
+Категории:
+
+```text
+RAW_MATERIAL
+FOOD
+WATER
+ENERGY
+FUEL
+MEDICINE
+TOOLS
+EQUIPMENT
+TECHNOLOGY
+COMPONENTS
+LUXURY
+INFORMATION
+LABOR
+TRANSPORT
+LAND
+ACCESS
+```
+
+---
+
+# 8. Ресурс имеет состояние
+
+Предмет нельзя моделировать только как:
+
+```text
+ITEM = 1
+```
+
+Для некоторых объектов важны:
+
+```text
+CONDITION
+QUALITY
+DURABILITY
+AGE
+ORIGIN
+AUTHENTICITY
+OWNER
+LOCATION
+```
+
+Например:
+
+```text
+GENERATOR
+condition = 42%
+fuel = 17%
+owner = settlement_A
+```
+
+---
+
+# 9. Ресурс ≠ предмет
+
+Не каждый ресурс должен быть физическим предметом.
+
+Например:
+
+```text
+LABOR
+TIME
+ACCESS
+INFORMATION
+REPUTATION
+```
+
+тоже могут иметь экономическую ценность.
+
+---
+
+# 10. Scarcity
+
+Главный экономический принцип:
+
+> **Ценность возникает не только из полезности, но и из ограниченности.**
+
+Если воды:
+
+```text
+SUPPLY >> DEMAND
+```
+
+она дешёвая.
+
+Если:
+
+```text
+SUPPLY << DEMAND
+```
+
+она становится стратегическим ресурсом.
+
+---
+
+# 11. Supply
+
+Предложение формируется из:
+
+```text
+PRODUCTION
+IMPORT
+STOCKPILE
+RECYCLING
+SALVAGE
+THEFT
+DISCOVERY
+```
+
+---
+
+# 12. Demand
+
+Спрос формируется из:
+
+```text
+POPULATION
+CONSUMPTION
+PRODUCTION
+EVENTS
+SEASON
+WEATHER
+TECHNOLOGY
+CONFLICT
+MEDICINE
+CONSTRUCTION
+```
+
+---
+
+# 13. Dynamic Economy
+
+Цены и доступность могут зависеть от:
+
+```text
+SUPPLY
+DEMAND
+DISTANCE
+RISK
+TAX
+SCARCITY
+QUALITY
+SECURITY
+INFORMATION
+```
+
+Но не обязательно рассчитывать каждую цену каждую секунду.
+
+---
+
+# 14. Event-Based Economy
+
+Экономика должна быть прежде всего:
+
+```text
+STATE + EVENTS
+```
+
+а не непрерывной симуляцией каждой транзакции.
+
+Например:
+
+```text
+EVENT:
+склад уничтожен
+```
+
+создаёт:
+
+```text
+SUPPLY ↓
+PRICE ↑
+SHORTAGE = TRUE
+```
+
+---
+
+# 15. Market
+
+Рынок — это не обязательно физическое место.
+
+Это система:
+
+```text
+BUYERS
+SELLERS
+SUPPLY
+DEMAND
+RULES
+PRICES
+ACCESS
+```
+
+Он может существовать в:
+
+* городе;
+* поселении;
+* Telegram-канале;
+* организации;
+* подпольной сети;
+* между NPC.
+
+---
+
+# 16. Local Markets
+
+Разные регионы могут иметь разные цены.
+
+Например:
+
+```text
+REGION A:
+FUEL = 10
+
+REGION B:
+FUEL = 35
+```
+
+Причина:
+
+```text
+distance
+shortage
+risk
+transport
+local production
+```
+
+---
+
+# 17. Arbitrage
+
+Игрок может заметить:
+
+```text
+A:
+дёшево
+
+B:
+дорого
+```
+
+и заработать на разнице.
+
+Но появляется риск:
+
+```text
+TRANSPORT
+THEFT
+TAX
+WEATHER
+BORDER
+TIME
+```
+
+Поэтому арбитраж становится игровым решением.
+
+---
+
+# 18. Logistics
+
+Логистика должна быть отдельной системой.
+
+Товар:
+
+```text
+PRODUCED
+↓
+STORED
+↓
+LOADED
+↓
+TRANSPORTED
+↓
+ARRIVED
+↓
+STORED
+↓
+SOLD
+```
+
+---
+
+# 19. Logistics Creates Gameplay
+
+Если дорога перекрыта:
+
+```text
+ROUTE CLOSED
+```
+
+то:
+
+```text
+DELIVERY DELAYED
+↓
+LOCAL SHORTAGE
+↓
+PRICE INCREASE
+↓
+POLITICAL PRESSURE
+```
+
+Игроки могут не знать исходную причину.
+
+И это уже потенциальное расследование.
+
+---
+
+# 20. Routes
+
+Каждый важный торговый маршрут может иметь:
+
+```text
+ROUTE_ID
+ORIGIN
+DESTINATION
+DISTANCE
+RISK
+CAPACITY
+STATUS
+OWNER
+SECURITY
+HISTORY
+```
+
+---
+
+# 21. Route States
+
+```text
+OPEN
+LIMITED
+DANGEROUS
+BLOCKED
+CONTROLLED
+CONTESTED
+SECRET
+DESTROYED
+```
+
+---
+
+# 22. Transport
+
+Транспорт имеет:
+
+```text
+CAPACITY
+SPEED
+RANGE
+FUEL
+CONDITION
+SECURITY
+OWNER
+```
+
+Например:
+
+```text
+TRUCK
+capacity = 100
+fuel = 62
+condition = 81
+```
+
+---
+
+# 23. Production
+
+Производство превращает входные ресурсы в выходные.
+
+Например:
+
+```text
+IRON + COAL + LABOR
+↓
+STEEL
+```
+
+Или:
+
+```text
+MEDICAL_COMPONENTS
++
+LABOR
++
+LAB
+↓
+MEDICINE
+```
+
+---
+
+# 24. Production Chain
+
+Сложные товары могут иметь цепочку:
+
+```text
+RAW MATERIAL
+↓
+COMPONENT
+↓
+INTERMEDIATE PRODUCT
+↓
+FINAL PRODUCT
+```
+
+Это позволяет создавать системные последствия.
+
+---
+
+# 25. Production Failure
+
+Если отсутствует один компонент:
+
+```text
+COMPONENT = 0
+```
+
+то:
+
+```text
+PRODUCTION ↓
+```
+
+что приводит к:
+
+```text
+SUPPLY ↓
+PRICE ↑
+```
+
+---
+
+# 26. Production Capacity
+
+Предприятие не должно производить бесконечно.
+
+Имеет:
+
+```text
+CAPACITY
+LABOR
+ENERGY
+RAW MATERIALS
+EQUIPMENT
+MAINTENANCE
+```
+
+---
+
+# 27. Maintenance
+
+Объекты постепенно требуют:
+
+```text
+REPAIR
+FUEL
+PARTS
+LABOR
+```
+
+Если этого нет:
+
+```text
+EFFICIENCY ↓
+```
+
+а затем:
+
+```text
+FAILURE
+```
+
+---
+
+# 28. NPC Labor
+
+NPC являются частью экономики.
+
+Они могут иметь:
+
+```text
+JOB
+SKILL
+EMPLOYER
+WAGE
+LOCATION
+SCHEDULE
+```
+
+Но не нужно моделировать каждого жителя с одинаковой глубиной.
+
+---
+
+# 29. Economic Tiers
+
+Можно использовать уровни:
+
+### TIER 0 — абстрактное население
+
+Используется для массовой экономики.
+
+### TIER 1 — экономический NPC
+
+Имеет профессию и базовые потребности.
+
+### TIER 2 — важный работник
+
+Может влиять на предприятие.
+
+### TIER 3 — ключевой экономический субъект
+
+Владелец, директор, торговец, финансист и т.д.
+
+---
+
+# 30. Wages
+
+Заработок может зависеть от:
+
+```text
+SKILL
+DEMAND
+RISK
+SCARCITY
+ORGANIZATION
+REGION
+```
+
+---
+
+# 31. Unemployment
+
+Неактивность экономики может создавать:
+
+```text
+UNEMPLOYMENT
+POVERTY
+MIGRATION
+CRIME
+SOCIAL_TENSION
+```
+
+Но эти эффекты должны быть частью модели мира, а не автоматически применяться ко всему.
+
+---
+
+# 32. Needs
+
+Поселения могут иметь потребности:
+
+```text
+FOOD
+WATER
+ENERGY
+MEDICINE
+SECURITY
+HOUSING
+TOOLS
+```
+
+Если потребность не удовлетворяется:
+
+```text
+STRESS
+```
+
+может расти.
+
+---
+
+# 33. Economic Stress
+
+У региона может быть:
+
+```text
+ECONOMIC_STABILITY
+```
+
+Но это не обязательно один числовой показатель.
+
+Лучше хранить причины:
+
+```text
+FOOD_SHORTAGE
+ENERGY_SHORTAGE
+UNEMPLOYMENT
+DEBT
+SUPPLY_DISRUPTION
+POLITICAL_INSTABILITY
+```
+
+---
+
+# 34. Inflation
+
+Инфляция может возникать из:
+
+```text
+MONEY_SUPPLY
+SUPPLY_SHOCK
+DEMAND_SHOCK
+WAR
+RESOURCE_SHORTAGE
+LOSS_OF_CONFIDENCE
+```
+
+Но для первой версии не нужно моделировать полноценную макроэкономику.
+
+Достаточно локальных ценовых изменений.
+
+---
+
+# 35. Debt
+
+Долг может быть отдельным объектом:
+
+```text
+DEBT_ID
+DEBTOR
+CREDITOR
+AMOUNT
+CURRENCY
+INTEREST
+DUE_DATE
+COLLATERAL
+STATUS
+```
+
+---
+
+# 36. Debt Creates Stories
+
+Игрок может:
+
+* взять кредит;
+* не вернуть;
+* заложить имущество;
+* договориться;
+* скрыться;
+* продать долг;
+* выкупить долг другого игрока.
+
+Это создаёт социальные связи.
+
+---
+
+# 37. Contracts
+
+Контракт:
+
+```text
+PARTIES
+TERMS
+REWARD
+DEADLINE
+PENALTY
+STATUS
+```
+
+может стать экономическим объектом.
+
+---
+
+# 38. Contract States
+
+```text
+PROPOSED
+ACCEPTED
+ACTIVE
+FULFILLED
+BREACHED
+CANCELLED
+DISPUTED
+EXPIRED
+```
+
+---
+
+# 39. Player Businesses
+
+Игроки могут создавать:
+
+```text
+SHOP
+WORKSHOP
+TRANSPORT_COMPANY
+FARM
+LAB
+SECURITY_COMPANY
+MEDIA
+BROKERAGE
+```
+
+Но бизнес должен существовать в экономике мира.
+
+---
+
+# 40. Business State
+
+Минимум:
+
+```text
+BUSINESS_ID
+OWNER
+LOCATION
+CAPITAL
+EMPLOYEES
+INVENTORY
+PRODUCTION
+SERVICES
+REVENUE
+EXPENSES
+REPUTATION
+STATUS
+```
+
+---
+
+# 41. Business ≠ Passive Income
+
+Не стоит делать:
+
+```text
+купил магазин
+↓
+каждый день +1000
+```
+
+Это быстро превращает экономику в:
+
+```text
+IDLE GAME
+```
+
+Бизнес должен зависеть от:
+
+```text
+SUPPLY
+DEMAND
+CUSTOMERS
+STAFF
+SECURITY
+COMPETITION
+LOGISTICS
+REPUTATION
+```
+
+---
+
+# 42. Competition
+
+Компании и торговцы могут конкурировать:
+
+```text
+PRICE
+QUALITY
+ACCESS
+REPUTATION
+SUPPLY
+LOCATION
+```
+
+---
+
+# 43. Monopoly
+
+Игрок или организация может получить контроль над ресурсом.
+
+Например:
+
+```text
+один поставщик
++
+один маршрут
++
+редкий ресурс
+```
+
+создают потенциальную монополию.
+
+Это должно быть возможно.
+
+Но монополия создаёт:
+
+```text
+POLITICAL_PRESSURE
+BLACK_MARKET
+COMPETITORS
+SABOTAGE
+ALTERNATIVE_ROUTES
+```
+
+---
+
+# 44. Anti-Monopoly
+
+Не следует искусственно запрещать игроку становиться очень богатым.
+
+Лучше создавать естественные ограничения:
+
+```text
+CONTROL COST
+MAINTENANCE
+POLITICAL ATTENTION
+COMPETITION
+LOGISTICS
+SECURITY
+INTERNAL CONFLICT
+```
+
+---
+
+# 45. Factions and Economy
+
+Фракции могут контролировать:
+
+* шахты;
+* заводы;
+* транспорт;
+* рынки;
+* валюту;
+* налоги;
+* территории;
+* информацию.
+
+Экономика напрямую связывается с системой фракций.
+
+---
+
+# 46. Taxation
+
+Фракция или администрация может вводить:
+
+```text
+TAX
+TOLL
+LICENSE
+FEE
+```
+
+Это создаёт:
+
+```text
+REVENUE
+```
+
+но может увеличивать:
+
+```text
+RESISTANCE
+BLACK_MARKET
+EVASION
+```
+
+---
+
+# 47. Black Market
+
+Чёрный рынок может существовать для:
+
+```text
+ILLEGAL_ITEMS
+RESTRICTED_ITEMS
+STOLEN_GOODS
+FORBIDDEN_INFORMATION
+SMUGGLED_RESOURCES
+```
+
+Но он должен иметь:
+
+```text
+RISK
+NETWORK
+ACCESS
+PRICE
+```
+
+---
+
+# 48. Black Market ≠ Secret Shop
+
+Чёрный рынок — сеть участников.
+
+Например:
+
+```text
+SUPPLIER
+↓
+BROKER
+↓
+COURIER
+↓
+BUYER
+```
+
+Каждый может знать только часть цепочки.
+
+---
+
+# 49. Economic Crime
+
+Экономические преступления могут включать:
+
+```text
+THEFT
+FRAUD
+SMUGGLING
+PRICE_MANIPULATION
+SABOTAGE
+CORRUPTION
+EXTORTION
+COUNTERFEITING
+```
+
+Они становятся источниками расследований.
+
+---
+
+# 50. Counterfeits
+
+Подделка может существовать как:
+
+```text
+AUTHENTIC
+SUSPECTED
+COUNTERFEIT
+UNKNOWN
+```
+
+Например, документ может выглядеть настоящим, но иметь неверное происхождение.
+
+---
+
+# 51. Information as Economic Resource
+
+Информация может продаваться.
+
+Например:
+
+```text
+LOCATION
+ROUTE
+MARKET_PRICE
+FACTION_PLAN
+RESOURCE_DEPOSIT
+NPC_SECRET
+```
+
+Стоимость зависит от:
+
+```text
+RARITY
+ACCURACY
+URGENCY
+RELIABILITY
+ACCESS
+```
+
+---
+
+# 52. Information Decay
+
+Информация может устаревать.
+
+Например:
+
+```text
+PRICE = 10
+```
+
+вчера.
+
+Сегодня:
+
+```text
+PRICE = 30
+```
+
+Поэтому старая информация может иметь историческую ценность, но уже не быть актуальной.
+
+---
+
+# 53. Economic Rumors
+
+Игроки могут распространять слух:
+
+> «Завтра закроют шахту».
+
+Если рынок поверит:
+
+```text
+DEMAND ↑
+PRICE ↑
+STOCKPILING ↑
+```
+
+даже если слух ложный.
+
+Это создаёт интересную систему:
+
+```text
+BELIEF
+→ ACTION
+→ ECONOMIC EFFECT
+```
+
+---
+
+# 54. Information Can Create Reality
+
+Например:
+
+```text
+ложный слух
+↓
+люди начинают скупать ресурс
+↓
+ресурс действительно заканчивается
+↓
+цена растёт
+```
+
+Таким образом ложная информация может создать реальные последствия.
+
+---
+
+# 55. Economic Events
+
+Примеры:
+
+```text
+HARVEST
+SHORTAGE
+STRIKE
+BANKRUPTCY
+FIRE
+FLOOD
+DISCOVERY
+MINE_COLLAPSE
+ROUTE_BLOCKADE
+TRADE_DEAL
+EMBARGO
+SANCTIONS
+CURRENCY_CRISIS
+MARKET_PANIC
+```
+
+---
+
+# 56. Economic Crisis
+
+Кризис не должен быть просто:
+
+```text
+CRISIS = TRUE
+```
+
+Он должен иметь причины.
+
+Например:
+
+```text
+FUEL_SHORTAGE
++
+ROUTE_BLOCKADE
++
+HIGH_DEMAND
+```
+
+→
+
+```text
+TRANSPORT_CRISIS
+```
+
+---
+
+# 57. Crisis Chains
+
+```text
+MINE COLLAPSE
+↓
+ORE SHORTAGE
+↓
+STEEL PRODUCTION ↓
+↓
+TOOL SHORTAGE
+↓
+REPAIR CAPACITY ↓
+↓
+INFRASTRUCTURE DEGRADATION
+↓
+TRANSPORT PROBLEMS
+```
+
+Игроки могут увидеть только последний этап.
+
+---
+
+# 58. Economic Investigation
+
+Экономика должна создавать расследования.
+
+Например:
+
+> Почему в городе внезапно исчезло топливо?
+
+Возможные причины:
+
+```text
+MINE FAILURE
+SMUGGLING
+SABOTAGE
+HOARDING
+CORRUPTION
+TRANSPORT DISRUPTION
+FALSE INFORMATION
+```
+
+---
+
+# 59. Economic Mystery
+
+Особенно интересны случаи, когда:
+
+```text
+видимое экономическое событие
+```
+
+имеет:
+
+```text
+скрытую причину.
+```
+
+Например:
+
+```text
+PRICE ↑
+```
+
+Игроки думают:
+
+> «Просто дефицит».
+
+Но позже обнаруживают:
+
+```text
+кто-то намеренно изменял маршруты поставок.
+```
+
+---
+
+# 60. Supply Chains as Clue Chains
+
+Цепочка поставок сама может стать расследованием:
+
+```text
+MINE
+↓
+PROCESSING PLANT
+↓
+WAREHOUSE
+↓
+TRADER
+↓
+SETTLEMENT
+```
+
+Если где-то исчезает ресурс, игроки могут идти по цепочке назад.
+
+---
+
+# 61. Resource Discovery
+
+Новые ресурсы могут быть обнаружены игроками.
+
+Например:
+
+```text
+DEPOSIT_UNKNOWN
+↓
+DISCOVERED
+↓
+ASSESSED
+↓
+CLAIMED
+↓
+EXPLOITED
+```
+
+---
+
+# 62. Resource ≠ Infinite
+
+Ресурс может иметь:
+
+```text
+RESERVE
+EXTRACTION_RATE
+QUALITY
+RENEWAL_RATE
+```
+
+Некоторые ресурсы:
+
+```text
+FINITE
+```
+
+другие:
+
+```text
+RENEWABLE
+```
+
+третьи:
+
+```text
+UNKNOWN
+```
+
+---
+
+# 63. Depletion
+
+Если добыча слишком интенсивна:
+
+```text
+EXTRACTION > RENEWAL
+```
+
+то:
+
+```text
+RESERVE ↓
+```
+
+и в дальнейшем:
+
+```text
+PRODUCTION ↓
+```
+
+---
+
+# 64. Renewable Resources
+
+Некоторые ресурсы могут восстанавливаться:
+
+```text
+FISH
+FOREST
+AGRICULTURE
+WATER
+```
+
+Но восстановление занимает время и зависит от условий.
+
+---
+
+# 65. Resource Quality
+
+Один и тот же ресурс может иметь качество:
+
+```text
+LOW
+STANDARD
+HIGH
+EXCEPTIONAL
+CONTAMINATED
+UNKNOWN
+```
+
+Это влияет на цену и применение.
+
+---
+
+# 66. Resource Contamination
+
+Особенно важно для WORLD//ERROR:
+
+ресурс может оказаться:
+
+```text
+CONTAMINATED
+ALTERED
+ANOMALOUS
+```
+
+Игроки могут не знать об этом сразу.
+
+Это связывает экономику с исследованием мира.
+
+---
+
+# 67. Anomalous Economy
+
+Не все экономические явления обязаны быть сверхъестественными.
+
+Большинство экономики должна оставаться нормальной.
+
+Но редкие события могут нарушать привычные правила:
+
+```text
+RESOURCE behaves unexpectedly
+```
+
+Это должно быть:
+
+```text
+DISCOVERY
+```
+
+а не стандартной механикой каждого предмета.
+
+---
+
+# 68. Price Is Not Truth
+
+Цена не говорит автоматически:
+
+> «этот предмет действительно ценен».
+
+Она отражает:
+
+```text
+CURRENT MARKET CONDITIONS
+```
+
+Игроки могут ошибаться в оценке.
+
+---
+
+# 69. Player Speculation
+
+Игроки могут спекулировать.
+
+Например:
+
+```text
+BUY RESOURCE
+```
+
+ожидая:
+
+```text
+PRICE ↑
+```
+
+Но:
+
+```text
+PRICE ↓
+```
+
+и игрок теряет деньги.
+
+Это нормальная часть экономики.
+
+---
+
+# 70. Economic Risk
+
+Каждая экономическая стратегия должна иметь риск.
+
+Например:
+
+```text
+HIGH PROFIT
++
+HIGH RISK
+```
+
+или:
+
+```text
+LOW PROFIT
++
+LOW RISK
+```
+
+---
+
+# 71. No Infinite Money Printer
+
+Нельзя позволить системе создавать деньги без ограничений.
+
+Источники валюты должны быть определены:
+
+```text
+QUEST / CONTRACT
+TRADE
+PRODUCTION
+SALARY
+REWARD
+FACTION PAYMENT
+DISCOVERY
+```
+
+и расходы:
+
+```text
+FOOD
+TRANSPORT
+REPAIR
+TAX
+HOUSING
+EQUIPMENT
+SERVICES
+```
+
+---
+
+# 72. Money Sink
+
+Деньги должны покидать экономику.
+
+Иначе:
+
+```text
+MONEY SUPPLY ↑↑
+```
+
+и со временем деньги теряют значение.
+
+Источники sink:
+
+```text
+MAINTENANCE
+TAX
+REPAIR
+TRANSPORT
+SERVICES
+UPKEEP
+LICENSES
+CONSTRUCTION
+```
+
+---
+
+# 73. Inflation Control
+
+Не нужно пытаться идеально моделировать реальную экономику.
+
+Достаточно контролировать:
+
+```text
+MONEY CREATION
+MONEY SINKS
+RESOURCE SUPPLY
+PRICE RESPONSE
+```
+
+---
+
+# 74. Barter
+
+Бартер должен быть возможен.
+
+Например:
+
+```text
+10 FOOD
+↔
+1 MEDICAL KIT
+```
+
+Особенно в регионах, где валюта потеряла значение.
+
+---
+
+# 75. Regional Economic Systems
+
+Разные регионы могут иметь:
+
+```text
+разную валюту
+разные налоги
+разные товары
+разные правила
+разную доступность
+```
+
+Это делает путешествия экономически значимыми.
+
+---
+
+# 76. Economic Geography
+
+География должна влиять на экономику.
+
+Например:
+
+```text
+MINE
+far from city
+```
+
+означает:
+
+```text
+HIGH LOGISTICS COST
+```
+
+Но если игроки построили дорогу:
+
+```text
+LOGISTICS COST ↓
+```
+
+и регион становится более важным.
+
+---
+
+# 77. Infrastructure Investment
+
+Игроки могут инвестировать в:
+
+```text
+ROAD
+BRIDGE
+WAREHOUSE
+PORT
+RADIO
+POWER
+WATER
+```
+
+Это меняет экономические возможности региона.
+
+---
+
+# 78. Infrastructure as Multiplier
+
+Например:
+
+```text
+ROAD QUALITY ↑
+```
+
+может означать:
+
+```text
+TRANSPORT TIME ↓
+COST ↓
+TRADE VOLUME ↑
+```
+
+---
+
+# 79. Destruction
+
+Если дорога разрушена:
+
+```text
+TRADE ↓
+```
+
+но это не обязательно уничтожает экономику.
+
+Появляются:
+
+```text
+ALTERNATIVE ROUTES
+BLACK MARKET
+LOCAL PRODUCTION
+SMUGGLING
+```
+
+---
+
+# 80. Economic Resilience
+
+Мир должен иметь способность адаптироваться.
+
+Если:
+
+```text
+SOURCE A
+```
+
+исчезает, система может искать:
+
+```text
+SOURCE B
+```
+
+если он существует.
+
+Это предотвращает поломку мира одним событием.
+
+---
+
+# 81. Economic Shock
+
+При крупном событии система может получить:
+
+```text
+SUPPLY SHOCK
+DEMAND SHOCK
+LOGISTICS SHOCK
+INFORMATION SHOCK
+```
+
+Но последствия должны зависеть от состояния региона.
+
+---
+
+# 82. Economic Memory
+
+Мир помнит:
+
+```text
+PAST PRICES
+PAST SHORTAGES
+PAST DEALS
+PAST DEFAULTS
+PAST CRISES
+```
+
+Это влияет на:
+
+```text
+TRUST
+REPUTATION
+POLICY
+BEHAVIOR
+```
+
+---
+
+# 83. Reputation in Trade
+
+Игрок может иметь:
+
+```text
+GOOD TRADER
+UNRELIABLE
+FRAUD
+SMUGGLER
+PREMIUM MERCHANT
+```
+
+не как один глобальный титул, а как набор отношений с разными субъектами.
+
+---
+
+# 84. Contracts and Reputation
+
+Если игрок:
+
+```text
+FULFILLS CONTRACT
+```
+
+доверие растёт.
+
+Если:
+
+```text
+BREACHES CONTRACT
+```
+
+часть участников может перестать работать с ним.
+
+---
+
+# 85. Economic Organizations
+
+Организация может владеть:
+
+```text
+BUSINESSES
+WAREHOUSES
+TRANSPORT
+CONTRACTS
+RESOURCES
+```
+
+и иметь собственный бюджет.
+
+---
+
+# 86. Organization Treasury
+
+```text
+TREASURY
++
+INCOME
+-
+EXPENSES
+=
+BALANCE
+```
+
+Но баланс не должен быть единственным показателем здоровья организации.
+
+Важны:
+
+```text
+SUPPLY
+STAFF
+REPUTATION
+DEBT
+SECURITY
+ACCESS
+```
+
+---
+
+# 87. Bankruptcy
+
+Организация может:
+
+```text
+GROW
+STABILIZE
+DECLINE
+DEFAULT
+BANKRUPT
+DISSOLVE
+```
+
+Банкротство не обязательно означает исчезновение.
+
+Активы могут:
+
+```text
+BE SOLD
+BE SEIZED
+BE INHERITED
+BE STOLEN
+```
+
+---
+
+# 88. Economic Politics
+
+Экономические интересы могут влиять на политику.
+
+Например:
+
+```text
+FACTION A
+контролирует шахту
+```
+
+поэтому заинтересована в:
+
+```text
+ROAD SECURITY
+```
+
+Другая фракция может хотеть:
+
+```text
+TAX THE MINE
+```
+
+Так экономика становится причиной политического конфликта.
+
+---
+
+# 89. Economy → Faction
+
+Экономика влияет на фракции:
+
+```text
+RESOURCE ACCESS
+↓
+POWER
+↓
+INFLUENCE
+```
+
+---
+
+# 90. Faction → Economy
+
+Фракции влияют обратно:
+
+```text
+TAX
+EMBARGO
+SUBSIDY
+CONTROL
+PROTECTION
+REGULATION
+```
+
+Получается цикл:
+
+```text
+ECONOMY
+↔
+FACTIONS
+```
+
+---
+
+# 91. Economy → Players
+
+Экономика создаёт для игроков:
+
+```text
+OPPORTUNITIES
+RISKS
+NEEDS
+CONFLICTS
+JOBS
+INVESTMENTS
+INVESTIGATIONS
+```
+
+---
+
+# 92. Players → Economy
+
+Игроки меняют:
+
+```text
+SUPPLY
+DEMAND
+ROUTES
+LABOR
+INFORMATION
+OWNERSHIP
+SECURITY
+```
+
+---
+
+# 93. Economy → Information
+
+Экономические события создают информацию:
+
+```text
+PRICE CHANGE
+SHORTAGE
+BANKRUPTCY
+TRADE DEAL
+SCANDAL
+THEFT
+```
+
+---
+
+# 94. Information → Economy
+
+Информация может изменить экономику:
+
+```text
+RUMOR
+↓
+BEHAVIOR
+↓
+DEMAND
+↓
+PRICE
+```
+
+Это один из ключевых системных циклов WORLD//ERROR.
+
+---
+
+# 95. Economy → Investigation
+
+Экономическая аномалия:
+
+```text
+WHY IS PRICE SO HIGH?
+```
+
+может привести к:
+
+```text
+TRACE SUPPLY
+↓
+FIND MISSING SHIPMENT
+↓
+DISCOVER SMUGGLING
+↓
+FIND ORGANIZATION
+↓
+DISCOVER SECRET
+```
+
+---
+
+# 96. Investigation → Economy
+
+И наоборот:
+
+игроки раскрыли:
+
+> «Компания намеренно скрывала объёмы производства».
+
+После публикации:
+
+```text
+MARKET BELIEF CHANGES
+↓
+PRICE CHANGES
+↓
+FACTION RESPONSE
+↓
+BUSINESS CRISIS
+```
+
+---
+
+# 97. Economic Power
+
+Богатство должно быть одним из видов силы.
+
+Но:
+
+```text
+MONEY ≠ ABSOLUTE POWER
+```
+
+Игрок может быть богатым, но:
+
+```text
+не иметь доступа;
+не иметь доверия;
+не иметь защиты;
+не иметь информации.
+```
+
+---
+
+# 98. Economic Vulnerability
+
+Богатый игрок может потерять всё из-за:
+
+```text
+WAR
+BANKRUPTCY
+THEFT
+SANCTIONS
+MARKET CRASH
+BETRAYAL
+```
+
+Но крупные игроки должны иметь способы защиты.
+
+---
+
+# 99. Snowball Control
+
+Нужно контролировать эффект:
+
+```text
+богатый
+↓
+становится ещё богаче
+↓
+получает больше ресурсов
+↓
+контролирует рынок
+↓
+становится ещё богаче
+```
+
+Иначе через год появится:
+
+```text
+5 игроков
+```
+
+которые фактически владеют всей экономикой.
+
+---
+
+# 100. Natural Anti-Snowball
+
+Использовать:
+
+```text
+UPKEEP
+TAX
+RISK
+COMPETITION
+LOGISTICS
+POLITICAL ATTENTION
+MAINTENANCE
+INTERNAL CONFLICT
+```
+
+а не искусственный:
+
+> «Вы слишком богаты, поэтому система забрала 50%.»
+
+---
+
+# 101. Economic Mobility
+
+Новый игрок должен иметь возможность войти в экономику.
+
+Например:
+
+```text
+LOCAL SERVICE
+TRADE
+LABOR
+EXPLORATION
+COURIER
+REPAIR
+INFORMATION
+```
+
+---
+
+# 102. New Markets
+
+Новые территории могут открывать:
+
+```text
+NEW RESOURCES
+NEW CUSTOMERS
+NEW ROUTES
+NEW RISKS
+```
+
+Это позволяет экономике расти вместе с миром.
+
+---
+
+# 103. Economy Should Expand With World
+
+Если через год появился новый регион:
+
+```text
+WORLD EXPANSION
+```
+
+то экономика получает:
+
+```text
+NEW SUPPLY
+NEW DEMAND
+NEW TRADE
+NEW CONFLICTS
+```
+
+---
+
+# 104. No Infinite Content
+
+Не нужно создавать тысячи предметов.
+
+Лучше иметь небольшое количество системных ресурсов:
+
+```text
+FOOD
+WATER
+ENERGY
+FUEL
+METAL
+WOOD
+MEDICINE
+ELECTRONICS
+TOOLS
+MONEY
+INFORMATION
+```
+
+которые комбинируются в большое количество ситуаций.
+
+---
+
+# 105. Economic Density
+
+Один ресурс должен иметь несколько применений.
+
+Например:
+
+```text
+FUEL
+→ transport
+→ generator
+→ machinery
+→ emergency systems
+→ trade
+```
+
+Тогда его дефицит влияет сразу на несколько систем.
+
+---
+
+# 106. Economy as Systemic Glue
+
+Экономика должна соединять:
+
+```text
+LOCATIONS
+NPCS
+FACTIONS
+PLAYERS
+EVENTS
+INFORMATION
+INFRASTRUCTURE
+```
+
+---
+
+# 107. Example: One Economic Chain
+
+Допустим:
+
+```text
+PLAYER A
+находит новый источник топлива.
+```
+
+↓
+
+```text
+DISCOVERY
+```
+
+↓
+
+```text
+FACTION B
+узнаёт о нём.
+```
+
+↓
+
+```text
+FACTION B
+пытается получить контроль.
+```
+
+↓
+
+```text
+PLAYER C
+продаёт информацию другой стороне.
+```
+
+↓
+
+```text
+CONFLICT
+```
+
+↓
+
+```text
+ROUTE BLOCKED
+```
+
+↓
+
+```text
+FUEL SHORTAGE
+```
+
+↓
+
+```text
+TRANSPORT PRICE ↑
+```
+
+↓
+
+```text
+SETTLEMENT B
+испытывает дефицит.
+```
+
+↓
+
+```text
+LOCAL UNREST
+```
+
+↓
+
+```text
+NEW POLITICAL EVENT
+```
+
+Один ресурс создал цепочку:
+
+```text
+DISCOVERY
+→ INFORMATION
+→ FACTION
+→ CONFLICT
+→ LOGISTICS
+→ ECONOMY
+→ POLITICS
+```
+
+Именно такого типа системной связности нужно добиваться.
+
+---
+
+# 108. Economic Events Must Be Auditable
+
+Каждое значимое экономическое изменение должно иметь объяснение.
+
+Например:
+
+```text
+FUEL_PRICE +27%
+```
+
+внутри системы должно быть возможно объяснить:
+
+```text
+SUPPLY -18%
+DEMAND +6%
+TRANSPORT_RISK +12%
+```
+
+Игроку это необязательно показывать.
+
+Но разработчик должен иметь возможность понять причину.
+
+---
+
+# 109. Debugging
+
+Для каждой значимой экономической операции полезно сохранять:
+
+```text
+EVENT_ID
+ACTOR
+RESOURCE
+QUANTITY
+LOCATION
+PRICE
+CAUSE
+PREVIOUS_STATE
+NEW_STATE
+```
+
+Это позволит искать экономические баги.
+
+---
+
+# 110. Economic Exploits
+
+Особое внимание:
+
+```text
+DUPLICATION
+NEGATIVE PRICES
+INFINITE LOOPS
+FREE RESOURCES
+DOUBLE SPENDING
+RACE CONDITIONS
+BOT ABUSE
+```
+
+Экономика особенно уязвима к таким ошибкам.
+
+---
+
+# 111. Transaction Safety
+
+Критические операции должны быть атомарными.
+
+Например:
+
+```text
+BUY
+```
+
+не должно приводить к:
+
+```text
+деньги списались
+товар не пришёл
+```
+
+или:
+
+```text
+товар ушёл
+деньги остались
+```
+
+---
+
+# 112. Economic Ledger
+
+Для важных финансовых операций нужен журнал:
+
+```text
+TRANSACTION_ID
+FROM
+TO
+AMOUNT
+CURRENCY
+REASON
+TIMESTAMP
+STATUS
+```
+
+Это основа расследования финансовых проблем и защиты от багов.
+
+---
+
+# 113. Economy and ARG
+
+Экономические документы могут становиться ARG-объектами:
+
+* старые счета;
+* накладные;
+* финансовые отчёты;
+* архивы;
+* поддельные документы;
+* контракты;
+* записи поставок.
+
+Например:
+
+```text
+старый бухгалтерский документ
+```
+
+может оказаться ключом к историческому расследованию.
+
+---
+
+# 114. Historical Economy
+
+У мира должна существовать экономическая история:
+
+```text
+OLD MARKETS
+OLD CURRENCIES
+BANKRUPT ORGANIZATIONS
+OLD TRADE ROUTES
+ABANDONED INDUSTRY
+PAST CRISES
+```
+
+Игрок может изучать экономику прошлого как часть истории мира.
+
+---
+
+# 115. Economy and Lore
+
+Экономическая информация может раскрывать историю лучше прямого рассказа.
+
+Например:
+
+```text
+город утверждает,
+что шахта закрылась из-за истощения.
+```
+
+Но старые поставки показывают:
+
+```text
+производство продолжалось ещё три года.
+```
+
+Возникает вопрос:
+
+> Почему официальная история не совпадает с экономическими документами?
+
+---
+
+# 116. Economy and Mystery
+
+Экономика особенно хороша для скрытого сюжета, потому что она оставляет следы.
+
+Даже если игроки не знают:
+
+```text
+ЧТО ПРОИЗОШЛО
+```
+
+они могут увидеть:
+
+```text
+ЦЕНЫ
+ПОСТАВКИ
+ДОЛГИ
+ПЕРЕМЕЩЕНИЯ
+КОНТРАКТЫ
+ДЕФИЦИТЫ
+```
+
+И восстановить картину косвенно.
+
+---
+
+# 117. Economic Truth vs Economic Information
+
+Как и в других системах:
+
+```text
+ECONOMIC TRUTH
+≠
+ECONOMIC RECORD
+≠
+PLAYER KNOWLEDGE
+```
+
+Например:
+
+```text
+TRUTH:
+компания украла ресурс.
+
+OFFICIAL:
+ресурс потерян из-за аварии.
+
+REPORT:
+произошла авария.
+
+RUMOR:
+ресурс украли.
+
+PLAYER THEORY:
+кражу организовала фракция X.
+```
+
+---
+
+# 118. Minimal Technical Model
+
+Экономический объект:
+
+```text
+ECONOMIC_ENTITY
+{
+    id
+    type
+    owner
+    location
+    resources
+    production
+    consumption
+    contracts
+    debts
+    reputation
+    status
+    history
+}
+```
+
+---
+
+# 119. Resource Model
+
+```text
+RESOURCE
+{
+    id
+    type
+    quantity
+    quality
+    condition
+    location
+    owner
+    source
+    status
+}
+```
+
+---
+
+# 120. Market Model
+
+```text
+MARKET
+{
+    id
+    location
+    currency
+    goods
+    supply
+    demand
+    prices
+    restrictions
+    participants
+    history
+}
+```
+
+---
+
+# 121. Transaction Model
+
+```text
+TRANSACTION
+{
+    id
+    timestamp
+    buyer
+    seller
+    item
+    quantity
+    price
+    currency
+    location
+    status
+    cause
+}
+```
+
+---
+
+# 122. Production Model
+
+```text
+PRODUCTION
+{
+    id
+    producer
+    inputs
+    outputs
+    capacity
+    efficiency
+    workers
+    energy
+    status
+}
+```
+
+---
+
+# 123. Contract Model
+
+```text
+CONTRACT
+{
+    id
+    parties
+    terms
+    reward
+    deadline
+    collateral
+    status
+    history
+}
+```
+
+---
+
+# 124. Economy State
+
+Мир должен иметь возможность определить:
+
+```text
+RESOURCE AVAILABILITY
+MARKET STATE
+PRODUCTION
+LOGISTICS
+PRICES
+DEMAND
+SUPPLY
+DEBT
+CONTRACTS
+ECONOMIC EVENTS
+```
+
+---
+
+# 125. Simulation Depth
+
+Не нужно симулировать абсолютно всё.
+
+Нужно симулировать то, что может:
+
+```text
+влиять на игроков
+```
+
+или:
+
+```text
+создавать последствия
+```
+
+или:
+
+```text
+служить частью расследования.
+```
+
+---
+
+# 126. Economic Abstraction
+
+Для массовых NPC:
+
+```text
+ABSTRACT ECONOMIC MODEL
+```
+
+Для важных субъектов:
+
+```text
+DETAILED ECONOMIC MODEL
+```
+
+Для ключевых организаций:
+
+```text
+DEEP MODEL
+```
+
+---
+
+# 127. Three Economic Tiers
+
+### TIER 0 — WORLD ECONOMY
+
+Абстрактные показатели региона.
+
+### TIER 1 — ECONOMIC ACTORS
+
+NPC, магазины, предприятия.
+
+### TIER 2 — IMPORTANT ACTORS
+
+Игроки, крупные организации, ключевые предприятия.
+
+Это позволяет сохранить масштаб без симуляции миллионов операций.
+
+---
+
+# 128. Economic Tick
+
+Экономика может обновляться по событиям:
+
+```text
+EVENT
+→ RECALCULATE AFFECTED REGION
+```
+
+а не:
+
+```text
+EVERY SECOND
+→ RECALCULATE EVERYTHING
+```
+
+---
+
+# 129. Local Recalculation
+
+Если игрок уничтожил склад:
+
+не нужно пересчитывать всю экономику мира.
+
+Нужно:
+
+```text
+WAREHOUSE
+↓
+LOCAL MARKET
+↓
+CONNECTED ROUTES
+↓
+AFFECTED REGIONS
+```
+
+и только затем распространять значимые последствия.
+
+---
+
+# 130. Economic Cascades
+
+Каскад может быть ограничен:
+
+```text
+LOCAL
+REGIONAL
+GLOBAL
+```
+
+чтобы одно событие не пересчитывало весь мир без причины.
+
+---
+
+# 131. Final Architecture
+
+```text
+                ECONOMY
+                   │
+       ┌───────────┼───────────┐
+       │           │           │
+   RESOURCES   PRODUCTION   DEMAND
+       │           │           │
+       └──────┬────┴──────┬────┘
+              │           │
+          LOGISTICS     MARKETS
+              │           │
+              └─────┬─────┘
+                    │
+                 PRICES
+                    │
+          ┌─────────┼─────────┐
+          │         │         │
+       PLAYERS    NPCS     FACTIONS
+          │         │         │
+          └─────────┼─────────┘
+                    │
+               ECONOMIC EVENTS
+                    │
+               WORLD STATE
+```
+
+---
+
+# 132. Основные принципы
+
+### 1.
+
+> **Экономика должна существовать без игроков.**
+
+### 2.
+
+> **Игроки могут вмешиваться в экономику, но не обязаны заниматься экономикой.**
+
+### 3.
+
+> **Деньги — только один из ресурсов.**
+
+### 4.
+
+> **Дефицит интереснее бесконечного изобилия.**
+
+### 5.
+
+> **Логистика должна иметь значение.**
+
+### 6.
+
+> **Информация сама является экономическим ресурсом.**
+
+### 7.
+
+> **Экономические события должны оставлять следы.**
+
+### 8.
+
+> **Экономика должна создавать новые игровые ситуации, а не только награды.**
+
+### 9.
+
+> **Богатство не должно автоматически означать абсолютную власть.**
+
+### 10.
+
+> **Экономика должна быть достаточно глубокой, чтобы порождать истории, но достаточно абстрактной, чтобы WORLD//ERROR можно было поддерживать годами.**
+
+---
+
+# 133. Финальная формула
+
+```text
+РЕСУРСЫ
+→ ПРОИЗВОДСТВО
+→ ЛОГИСТИКА
+→ РЫНОК
+→ ПОТРЕБЛЕНИЕ
+→ ДЕФИЦИТ / ИЗБЫТОК
+→ ЦЕНЫ
+→ ПОВЕДЕНИЕ
+→ КОНФЛИКТ
+→ СОБЫТИЕ
+→ ИЗМЕНЕНИЕ МИРА
+```
+
+А затем цикл начинается снова.
+
+Экономика WORLD//ERROR не должна отвечать на вопрос:
+
+> «Как игрок заработает больше денег?»
+
+Она должна отвечать на гораздо более интересный вопрос:
+
+> **«Что происходит с миром, когда ограниченные ресурсы, люди, информация и власть сталкиваются друг с другом?»**

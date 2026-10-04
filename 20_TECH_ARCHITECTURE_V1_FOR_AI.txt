@@ -1,0 +1,1369 @@
+# 20_TECH_ARCHITECTURE.md
+
+## 1. Главный принцип
+
+WORLD//ERROR строится как:
+
+```text
+INTERFACE
+    ↓
+INTENT
+    ↓
+WORLD ENGINE
+    ↓
+EVENT
+    ↓
+STATE TRANSITION
+    ↓
+PERSISTENCE
+    ↓
+KNOWLEDGE
+    ↓
+PRESENTATION
+```
+
+Нельзя строить игру вокруг Telegram handlers.
+
+Нельзя строить игру вокруг AI.
+
+Нельзя строить игру вокруг database queries.
+
+Центром системы является:
+
+> **WORLD ENGINE**
+
+---
+
+# 2. Высокоуровневая архитектура
+
+```text
+                    ┌──────────────────┐
+                    │     TELEGRAM     │
+                    └────────┬─────────┘
+                             ↓
+                    ┌──────────────────┐
+                    │    INTERFACE     │
+                    └────────┬─────────┘
+                             ↓
+                    ┌──────────────────┐
+                    │  AI / COMMAND    │
+                    │   INTERPRETER    │
+                    └────────┬─────────┘
+                             ↓
+                    ┌──────────────────┐
+                    │      INTENT      │
+                    └────────┬─────────┘
+                             ↓
+              ┌─────────────────────────────┐
+              │        WORLD ENGINE         │
+              │                             │
+              │  Rules                      │
+              │  Validation                 │
+              │  State transitions          │
+              │  Event generation           │
+              │  Consequences               │
+              └──────────────┬──────────────┘
+                             ↓
+                    ┌──────────────────┐
+                    │   EVENT STORE    │
+                    └────────┬─────────┘
+                             ↓
+                    ┌──────────────────┐
+                    │     DATABASE     │
+                    └──────────────────┘
+```
+
+---
+
+# 3. Главная граница
+
+AI никогда не должен иметь прямой доступ к:
+
+```text
+database
+world state
+event store
+canonical truth
+economy
+inventory
+permissions
+```
+
+AI может предложить:
+
+```text
+Intent
+```
+
+Engine решает:
+
+```text
+VALID / INVALID
+```
+
+---
+
+# 4. Telegram Adapter
+
+Telegram должен быть заменяемым.
+
+Нельзя писать игровую логику:
+
+```python
+if telegram_message.text == "/search":
+    ...
+```
+
+внутри Telegram handler.
+
+Правильная структура:
+
+```text
+Telegram Update
+      ↓
+Adapter
+      ↓
+Normalized Input
+      ↓
+Game Command / Intent
+```
+
+Например:
+
+```python
+Intent(
+    type="SEARCH",
+    actor_id=character_id,
+    target_id=location_id,
+    world_instance_id=instance_id
+)
+```
+
+---
+
+# 5. World Instance Context
+
+Каждый игровой запрос обязан иметь:
+
+```text
+WORLD_INSTANCE_ID
+ACTOR_ID
+```
+
+Нельзя выполнять игровую операцию без определения instance.
+
+Пример:
+
+```text
+handle_intent(
+    world_instance_id,
+    actor_id,
+    intent
+)
+```
+
+Это защищает систему от случайного смешивания миров.
+
+---
+
+# 6. Instance Isolation
+
+Каждая сущность игрового состояния должна либо:
+
+1. принадлежать конкретному WORLD INSTANCE;
+
+или
+
+2. быть явно глобальным immutable definition.
+
+Например:
+
+```text
+LocationDefinition
+```
+
+может быть глобальным шаблоном.
+
+Но:
+
+```text
+LocationState
+```
+
+принадлежит instance.
+
+То же:
+
+```text
+NPC Definition
+      ↓
+NPC Instance State
+```
+
+```text
+Item Definition
+      ↓
+Item Instance
+```
+
+---
+
+# 7. Global vs Instance Data
+
+### Global
+
+Можно хранить глобально:
+
+```text
+content definitions
+rules
+templates
+static assets
+canonical design
+item definitions
+NPC templates
+location templates
+```
+
+### Instance
+
+Хранятся отдельно:
+
+```text
+characters
+NPC state
+locations state
+factions state
+inventory
+economy
+knowledge
+events
+world time
+history
+discoveries
+consequences
+ARG state
+```
+
+---
+
+# 8. Database Principle
+
+Database не является игровой логикой.
+
+Она хранит состояние.
+
+Нельзя превращать SQL в World Engine.
+
+Плохо:
+
+```text
+SQL query
+→ secretly changes game state
+```
+
+Лучше:
+
+```text
+Engine
+→ validates
+→ creates event
+→ transaction
+→ state update
+```
+
+---
+
+# 9. Commands / Intents / Events
+
+Разделять:
+
+```text
+COMMAND
+INTENT
+EVENT
+```
+
+### COMMAND
+
+Что попросил пользователь.
+
+```text
+"inspect radio"
+```
+
+### INTENT
+
+Что система поняла.
+
+```text
+INSPECT(
+    target=radio
+)
+```
+
+### EVENT
+
+Что действительно произошло.
+
+```text
+RADIO_INSPECTED
+```
+
+---
+
+# 10. State Transition
+
+Главный паттерн:
+
+```text
+BEFORE
+   ↓
+EVENT
+   ↓
+VALIDATION
+   ↓
+AFTER
+```
+
+Например:
+
+```text
+NPC TRUST = 50
+
+PLAYER LIES
+
+↓ EVENT
+
+NPC TRUST = 35
+NPC KNOWLEDGE += suspicion
+```
+
+---
+
+# 11. Event Sourcing Lite
+
+Полный event sourcing не обязателен.
+
+Для MVP использовать гибрид:
+
+```text
+CURRENT STATE
++
+EVENT LOG
++
+SNAPSHOTS
+```
+
+То есть:
+
+```text
+STATE → быстро читать
+EVENT LOG → история и audit
+SNAPSHOT → восстановление
+```
+
+Не нужно пересобирать весь мир из тысяч событий при каждом запросе.
+
+---
+
+# 12. Transactions
+
+Любое критическое изменение должно быть атомарным.
+
+Например trade:
+
+```text
+validate
+↓
+remove item A
+↓
+remove money B
+↓
+add item B
+↓
+add money A
+↓
+create event
+↓
+commit
+```
+
+Если одна часть не удалась:
+
+```text
+ROLLBACK
+```
+
+Нельзя получить:
+
+```text
+money removed
++
+item not received
+```
+
+---
+
+# 13. Idempotency
+
+Повтор одного и того же запроса не должен случайно дублировать действие.
+
+Особенно:
+
+```text
+trade
+give
+take
+use
+death
+world event
+scheduled event
+```
+
+Каждая важная операция должна иметь возможность проверки:
+
+```text
+already processed?
+```
+
+---
+
+# 14. Domain Modules
+
+Рекомендуемая структура:
+
+```text
+src/
+├── domain/
+│   ├── world/
+│   ├── players/
+│   ├── characters/
+│   ├── locations/
+│   ├── npcs/
+│   ├── factions/
+│   ├── items/
+│   ├── economy/
+│   ├── knowledge/
+│   ├── information/
+│   ├── investigations/
+│   ├── events/
+│   ├── consequences/
+│   └── time/
+│
+├── application/
+│   ├── commands/
+│   ├── queries/
+│   └── services/
+│
+├── infrastructure/
+│   ├── database/
+│   ├── telegram/
+│   ├── ai/
+│   └── scheduler/
+│
+└── tests/
+```
+
+Язык/фреймворк может быть другим.
+
+Главное — границы.
+
+---
+
+# 15. Domain Layer
+
+Domain не должен знать о Telegram.
+
+Например:
+
+```text
+domain.characters
+```
+
+не должен импортировать:
+
+```text
+telegram
+discord
+http
+fastapi
+aiogram
+```
+
+---
+
+# 16. Infrastructure Layer
+
+Infrastructure занимается:
+
+* Telegram;
+* database;
+* AI provider;
+* external APIs;
+* scheduler;
+* filesystem;
+* network.
+
+Domain не должен зависеть от конкретного провайдера.
+
+---
+
+# 17. AI Provider
+
+Не делать:
+
+```text
+world_engine → OpenAI
+```
+
+напрямую во всех местах.
+
+Лучше:
+
+```text
+AIService
+   ↓
+Provider Interface
+   ↓
+OpenAI / Other Provider / Mock
+```
+
+Так AI можно заменить.
+
+---
+
+# 18. AI Interpreter
+
+AI interpreter получает ограниченный контекст:
+
+```text
+current player
+current location
+visible objects
+allowed actions
+relevant knowledge
+recent conversation
+```
+
+И возвращает:
+
+```text
+Intent
+```
+
+Например:
+
+```json
+{
+  "type": "INSPECT",
+  "target_id": "radio_17"
+}
+```
+
+Если AI не уверен:
+
+```text
+clarification_required
+```
+
+---
+
+# 19. AI Generator
+
+После выполнения действия engine отдаёт AI:
+
+```text
+ActionResult
+```
+
+AI превращает его в естественный ответ.
+
+Например:
+
+```text
+Engine:
+RADIO_INSPECTED
+FOUND_CLUE: fragment_17
+```
+
+AI:
+
+> "Ты переворачиваешь корпус радио и замечаешь под крышкой тонкую полоску бумаги..."
+
+Но AI не может добавить:
+
+> "...и понимаешь, что её оставил Алекс."
+
+если engine этого не сообщил.
+
+---
+
+# 20. Knowledge Filter
+
+Перед AI необходимо:
+
+```text
+WORLD STATE
+      ↓
+ACCESS CONTROL
+      ↓
+KNOWLEDGE FILTER
+      ↓
+AI CONTEXT
+```
+
+Нельзя передавать AI:
+
+```text
+whole world database
+```
+
+Иначе модель начнёт случайно раскрывать скрытую информацию.
+
+---
+
+# 21. Source of Truth
+
+Для каждой категории данных должен существовать один authority.
+
+Пример:
+
+```text
+Money
+→ Economy Engine
+
+Inventory
+→ Item/Inventory Engine
+
+NPC location
+→ NPC/World Engine
+
+Knowledge
+→ Knowledge Engine
+
+Canonical event
+→ Event Engine
+
+Dialogue wording
+→ AI
+```
+
+Если два разных сервиса могут независимо менять одну и ту же истину — архитектура начинает разрушаться.
+
+---
+
+# 22. Content vs Code
+
+Не хардкодить всё содержимое игры.
+
+Разделять:
+
+```text
+ENGINE
+```
+
+и:
+
+```text
+CONTENT
+```
+
+Например:
+
+```text
+content/
+├── locations/
+├── npcs/
+├── factions/
+├── items/
+├── clues/
+├── investigations/
+└── events/
+```
+
+А engine знает:
+
+```text
+как работает investigation
+```
+
+но не знает:
+
+```text
+кто конкретно украл радио.
+```
+
+---
+
+# 23. Rules vs Content
+
+Rule:
+
+```text
+NPC может изменить отношение к игроку,
+если произошло событие X.
+```
+
+Content:
+
+```text
+NPC_17 боится,
+что игрок расскажет о старой станции.
+```
+
+Не смешивать.
+
+---
+
+# 24. Testing
+
+Минимум четыре уровня.
+
+### Unit
+
+Проверяют:
+
+```text
+rules
+state transitions
+calculations
+validation
+```
+
+### Integration
+
+Проверяют:
+
+```text
+database
+event engine
+knowledge
+economy
+```
+
+### Scenario
+
+Проверяют полноценные цепочки:
+
+```text
+ACTION
+→ EVENT
+→ STATE
+→ CONSEQUENCE
+```
+
+### Instance Isolation
+
+Критический тест:
+
+```text
+INSTANCE A
+INSTANCE B
+
+action A
+
+assert:
+A changed
+B unchanged
+```
+
+---
+
+# 25. Deterministic Randomness
+
+Если используется randomness:
+
+```text
+WORLD_SEED
++
+EVENT_ID
++
+WORLD_TICK
++
+RULE
+```
+
+должны позволять воспроизвести результат.
+
+Не использовать неконтролируемый random для важных событий.
+
+Иначе debugging становится кошмаром.
+
+---
+
+# 26. Logging
+
+Каждый значимый запрос должен иметь:
+
+```text
+request_id
+world_instance_id
+actor_id
+intent
+validation_result
+event_id
+result
+error
+```
+
+Это позволит потом понять:
+
+> почему этот NPC вдруг оказался здесь?
+
+или:
+
+> почему игрок получил эту улику?
+
+---
+
+# 27. Admin / Debug
+
+С самого MVP нужен хотя бы простой debug-инструмент.
+
+Например:
+
+```text
+/world
+/events
+/character
+/npc
+/location
+/knowledge
+```
+
+Но желательно не делать их частью обычного игрового интерфейса.
+
+Admin должен иметь возможность:
+
+```text
+inspect state
+inspect event
+inspect history
+pause world
+advance time
+replay scenario
+repair invalid state
+```
+
+---
+
+# 28. Invariants
+
+Система должна автоматически проверять невозможные состояния.
+
+Примеры:
+
+```text
+DEAD character cannot perform normal actions
+
+item cannot belong to two inventories simultaneously
+
+money cannot become negative unless debt is explicitly supported
+
+NPC cannot be in two locations simultaneously
+
+character cannot be in two locations simultaneously
+
+event cannot be processed twice
+
+world instance cannot reference another instance's private state
+```
+
+---
+
+# 29. Не делать God Object
+
+Не создавать:
+
+```text
+GameManager
+```
+
+на 10 000 строк.
+
+Не делать:
+
+```text
+WorldManager
+```
+
+который знает абсолютно всё.
+
+Если один объект начинает управлять:
+
+* NPC;
+* economy;
+* Telegram;
+* AI;
+* database;
+* factions;
+* quests;
+* time;
+
+архитектура уже начинает ломаться.
+
+---
+
+# 30. Не делать микросервисы слишком рано
+
+Для MVP:
+
+```text
+ONE APPLICATION
++
+ONE DATABASE
+```
+
+вполне достаточно.
+
+Модули должны быть логически разделены.
+
+Физически разделять их на 20 сервисов пока не нужно.
+
+---
+
+# 31. Suggested Runtime Flow
+
+Полный запрос:
+
+```text
+Telegram message
+        ↓
+Telegram Adapter
+        ↓
+AI Interpreter / Command Parser
+        ↓
+Intent
+        ↓
+World Instance Resolver
+        ↓
+Authorization
+        ↓
+Validation
+        ↓
+Domain Logic
+        ↓
+Event
+        ↓
+Transaction
+        ↓
+State Update
+        ↓
+Knowledge Update
+        ↓
+Consequences
+        ↓
+Action Result
+        ↓
+AI Generator
+        ↓
+Telegram Response
+```
+
+---
+
+# 32. Error Handling
+
+Ошибки не должны изменять мир частично.
+
+Плохой вариант:
+
+```text
+NPC moved
+money removed
+item failed
+database error
+```
+
+Правильный:
+
+```text
+transaction failed
+↓
+no state change
+↓
+error logged
+```
+
+Игровая ошибка ≠ системная ошибка.
+
+Нужно различать:
+
+```text
+INVALID_ACTION
+NOT_FOUND
+NOT_ALLOWED
+INSUFFICIENT_RESOURCE
+CONFLICT
+INTERNAL_ERROR
+```
+
+---
+
+# 33. Security
+
+Нельзя доверять:
+
+* Telegram user input;
+* AI output;
+* uploaded documents;
+* player-generated content;
+* external ARG data.
+
+Все они являются:
+
+```text
+UNTRUSTED INPUT
+```
+
+AI особенно.
+
+AI не получает права:
+
+```text
+execute arbitrary SQL
+modify state
+grant permissions
+create currency
+delete character
+```
+
+без engine validation.
+
+---
+
+# 34. Vibe Coding Rule
+
+Если coding AI предлагает:
+
+> "Давайте просто добавим это в текущий handler."
+
+сначала спросить:
+
+> **"Это относится к interface или к domain logic?"**
+
+Если это игровое правило — оно должно попасть в domain/application layer.
+
+---
+
+# 35. Второе правило Vibe Coding
+
+Если coding AI говорит:
+
+> "Для простоты будем хранить это прямо в Telegram message."
+
+Остановиться.
+
+Telegram — транспорт.
+
+Игровое состояние должно храниться независимо от Telegram.
+
+---
+
+# 36. Третье правило
+
+Если coding AI предлагает:
+
+> "AI сам решит, что произошло."
+
+Запрещено.
+
+AI может:
+
+```text
+interpret
+generate
+suggest
+summarize
+roleplay
+```
+
+Но engine определяет:
+
+```text
+WHAT HAPPENED
+```
+
+---
+
+# 37. Четвёртое правило
+
+Перед добавлением новой системы спросить:
+
+```text
+Это domain system?
+Что является source of truth?
+Какие state transitions она делает?
+Какие events создаёт?
+Какие последствия может вызвать?
+Как она тестируется?
+```
+
+Если ответов нет — систему пока не добавлять.
+
+---
+
+# 38. Пятое правило
+
+Не разрешать coding AI переписывать архитектуру ради одной функции.
+
+Плохой паттерн:
+
+```text
+Нужен trade
+→ переделаем database
+→ перенесём NPC
+→ добавим новый GameManager
+→ перепишем половину проекта
+```
+
+Правильный:
+
+```text
+Trade
+→ новый domain module
+→ existing event system
+→ existing transaction system
+→ existing inventory/economy
+```
+
+---
+
+# 39. Шестое правило
+
+Каждая новая функция должна отвечать:
+
+```text
+WHAT ENTITY CHANGES?
+WHAT EVENT HAPPENS?
+WHAT STATE CHANGES?
+WHAT KNOWLEDGE CHANGES?
+WHAT CAN HAPPEN NEXT?
+```
+
+Если функция не вписывается в модель мира — она подозрительна.
+
+---
+
+# 40. Coding AI Context
+
+Перед каждой большой задачей coding AI желательно давать:
+
+```text
+PROJECT:
+WORLD//ERROR
+
+ARCHITECTURE:
+event-driven persistent multiplayer world
+
+IMPORTANT:
+one Telegram chat = one independent WORLD INSTANCE
+
+AI:
+interface only, never source of truth
+
+WORLD STATE:
+owned by domain engine
+
+EVENTS:
+all significant mutations go through events
+
+DATABASE:
+persistence, not business logic
+
+TELEGRAM:
+adapter only
+
+RULE:
+do not invent architecture without checking existing modules
+```
+
+---
+
+# 41. Как давать задачи coding AI
+
+Плохо:
+
+> "Сделай NPC."
+
+Хорошо:
+
+> "Реализуй базовую NPC domain model согласно 05_NPCS.md. NPC должен принадлежать WORLD_INSTANCE. Не добавляй AI dialogue, Telegram logic или database-specific logic в domain model. Нужны unit tests на location, status и knowledge boundaries."
+
+Ещё лучше:
+
+> "Сначала проанализируй существующую архитектуру. Не пиши код. Покажи, какие существующие модули будут затронуты и где должен находиться новый код."
+
+И только после этого:
+
+> "Теперь реализуй."
+
+---
+
+# 42. Правило маленьких шагов
+
+Vibe coding должен идти:
+
+```text
+PLAN
+↓
+SMALL CHANGE
+↓
+TEST
+↓
+RUN
+↓
+INSPECT
+↓
+COMMIT
+↓
+NEXT CHANGE
+```
+
+Не:
+
+```text
+"Сделай всю игру"
+```
+
+---
+
+# 43. Git
+
+Каждая значимая архитектурная стадия должна иметь commit.
+
+Например:
+
+```text
+feat(world): add world instances
+
+feat(events): add event engine
+
+feat(players): add characters
+
+feat(locations): add location system
+
+feat(knowledge): add player knowledge
+
+feat(npcs): add npc state
+
+feat(investigation): add investigation core
+```
+
+Это особенно важно при vibe coding.
+
+Если AI сломал архитектуру:
+
+```text
+git diff
+git revert
+```
+
+а не попытка заставить следующий AI чинить бесконечную кашу.
+
+---
+
+# 44. Архитектурный стоп-сигнал
+
+Если код начинает выглядеть так:
+
+```text
+if telegram:
+    if ai:
+        if npc:
+            if faction:
+                if investigation:
+                    if player:
+                        ...
+```
+
+остановиться.
+
+Это сигнал, что границы систем нарушены.
+
+---
+
+# 45. Главный принцип разработки
+
+Не спрашивать:
+
+> "Как быстрее добавить эту функцию?"
+
+Спрашивать:
+
+> **"В каком месте архитектуры эта функция должна существовать?"**
+
+---
+
+# 46. Definition of Done
+
+Функция считается готовой, если:
+
+```text
+[ ] находится в правильном слое
+[ ] имеет source of truth
+[ ] имеет validation
+[ ] корректно меняет state
+[ ] создаёт необходимые events
+[ ] имеет persistence
+[ ] имеет tests
+[ ] не ломает instance isolation
+[ ] не даёт AI лишних полномочий
+[ ] имеет понятный error path
+```
+
+---
+
+# 47. Финальная архитектурная формула
+
+```text
+PLAYER
+  ↓
+INTERFACE
+  ↓
+INTENT
+  ↓
+WORLD ENGINE
+  ↓
+RULES
+  ↓
+EVENT
+  ↓
+STATE TRANSITION
+  ↓
+WORLD STATE
+  ↓
+KNOWLEDGE
+  ↓
+AI PRESENTATION
+  ↓
+PLAYER
+```
+
+А вокруг этого:
+
+```text
+DATABASE
+EVENT LOG
+SNAPSHOTS
+TESTS
+DEBUGGING
+CONTENT
+```
+
+---
+
+# 48. Главная мысль
+
+> **Coding AI должен помогать писать WORLD//ERROR, но не проектировать WORLD//ERROR заново на каждом запросе.**
+
+Архитектура принадлежит проекту.
+
+Кодер следует архитектуре.
+
+AI помогает реализовывать её.
+
+Игровой движок определяет мир.
+
+ИИ определяет форму взаимодействия с ним.
