@@ -168,3 +168,27 @@ knowledge = Table(
     ),
     Index("ix_knowledge_subject", "world_instance_id", "subject_id"),
 )
+
+npcs = Table(
+    "npcs",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column(
+        "world_instance_id",
+        String(64),
+        ForeignKey("world_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("key", String(64), nullable=False),
+    Column("location_key", String(64), nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "key", name="uq_npcs_instance_key"),
+    ForeignKeyConstraint(
+        ["world_instance_id", "location_key"],
+        ["location_states.world_instance_id", "location_states.key"],
+        name="fk_npcs_location",
+    ),
+    Index("ix_npcs_instance_location", "world_instance_id", "location_key"),
+)

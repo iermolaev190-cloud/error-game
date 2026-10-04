@@ -15,6 +15,7 @@ from typing import Mapping
 
 from world_error.domain.information.information import InformationDefinition
 from world_error.domain.locations.location import LocationDefinition
+from world_error.domain.npcs.npc import NpcDefinition
 from world_error.domain.shared.kernel import DomainError, ErrorCode, LocationKey
 
 
@@ -31,6 +32,7 @@ class ContentCatalog:
     start_location: LocationKey
     locations: Mapping[LocationKey, LocationDefinition]
     information: Mapping[str, InformationDefinition]
+    npcs: Mapping[str, NpcDefinition]
 
     @classmethod
     def build(
@@ -40,6 +42,7 @@ class ContentCatalog:
         start_location: LocationKey,
         locations: Mapping[LocationKey, LocationDefinition],
         information: Mapping[str, InformationDefinition],
+        npcs: Mapping[str, NpcDefinition] | None = None,
     ) -> "ContentCatalog":
         if not locations:
             raise ContentError("content has no locations")
@@ -59,11 +62,19 @@ class ContentCatalog:
                     f"information {information_definition.key!r} is placed in unknown location "
                     f"{information_definition.location_key!r}"
                 )
+        npc_definitions = dict(npcs or {})
+        for npc_definition in npc_definitions.values():
+            if npc_definition.initial_location not in locations:
+                raise ContentError(
+                    f"npc {npc_definition.key!r} starts in unknown location "
+                    f"{npc_definition.initial_location!r}"
+                )
         return cls(
             version=version,
             start_location=start_location,
             locations=dict(locations),
             information=dict(information),
+            npcs=npc_definitions,
         )
 
     def has_location(self, key: LocationKey) -> bool:
@@ -80,6 +91,12 @@ class ContentCatalog:
             return self.information[key]
         except KeyError as exc:
             raise DomainError(ErrorCode.NOT_FOUND, f"unknown information: {key}") from exc
+
+    def npc_definition(self, key: str) -> NpcDefinition:
+        try:
+            return self.npcs[key]
+        except KeyError as exc:
+            raise DomainError(ErrorCode.NOT_FOUND, f"unknown npc: {key}") from exc
 
     def is_connected(self, source: LocationKey, target: LocationKey) -> bool:
         definition = self.locations.get(source)

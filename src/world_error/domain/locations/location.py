@@ -5,6 +5,11 @@
 только то, что реально меняется (факт обнаружения локации). Названия, типы и
 связи в БД не дублируются (11_WORLD_STATE_V1 §35: один источник истины).
 
+Обнаружение отмечается, когда в локации оказывается субъект мира: персонаж
+игрока или NPC. Материализация NPC при создании мира обнаружением НЕ считается:
+она не является событием, а лишь задаёт стартовое состояние (иначе все локации
+с NPC были бы «обнаружены» до начала игры).
+
 Маршруты пока неизменяемы: блокировка дорог появится вместе с механиками
 последствий, тогда состояние маршрута станет частью ``LocationState``.
 """
@@ -22,6 +27,8 @@ from world_error.domain.shared.kernel import (
     LocationKey,
     WorldInstanceId,
 )
+
+_MOVEMENT_EVENT_TYPES = frozenset({EventType.CHARACTER_MOVED, EventType.NPC_MOVED})
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,11 +53,11 @@ class LocationState:
     first_visited_at: datetime | None = None
 
     def apply(self, event: Event) -> None:
-        """Отметить, что в локации впервые оказался персонаж.
+        """Отметить, что в локации впервые оказался субъект мира.
 
         Событие ``CHARACTER_CREATED`` учитывает стартовую локацию персонажа,
-        ``CHARACTER_MOVED`` — локацию назначения. Знание персонажу при этом НЕ
-        выдаётся: знание о локации — отдельная механика.
+        ``CHARACTER_MOVED`` и ``NPC_MOVED`` — локацию назначения. Знание при
+        этом НЕ выдаётся: знание о локации — отдельная механика.
         """
         if event.world_instance_id != self.world_instance_id:
             raise DomainError(
@@ -71,8 +78,8 @@ class LocationState:
 
     @staticmethod
     def _location_of(event: Event) -> LocationKey:
-        if event.type is EventType.CHARACTER_MOVED:
-            return LocationKey(str(event.payload["to"]))
         if event.type is EventType.CHARACTER_CREATED:
             return LocationKey(str(event.payload["location_key"]))
+        if event.type in _MOVEMENT_EVENT_TYPES:
+            return LocationKey(str(event.payload["to"]))
         raise DomainError(ErrorCode.INVALID_ACTION, f"unsupported event type: {event.type}")

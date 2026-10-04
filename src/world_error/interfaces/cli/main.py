@@ -19,10 +19,17 @@ from world_error.application.action_result import ActionResult
 from world_error.bootstrap.config import Settings
 from world_error.bootstrap.container import Container
 from world_error.domain.content.catalog import ContentError
+from world_error.domain.knowledge.knowledge import (
+    ClaimType,
+    KnowledgeConfidence,
+    KnowledgeSource,
+)
+from world_error.domain.npcs.npc import NpcStatus
 from world_error.domain.shared.kernel import (
     CharacterId,
     DomainError,
     LocationKey,
+    NpcId,
     WorldInstanceId,
 )
 from world_error.domain.world.instance import InstanceEnvironment, WorldInstance
@@ -98,6 +105,35 @@ def build_parser() -> argparse.ArgumentParser:
     show_location.add_argument("--world-id", dest="world_id", required=True)
     show_location.add_argument("--character-id", dest="character_id", required=True)
     show_location.add_argument("--location", dest="location", required=True)
+
+    npc_move = subparsers.add_parser("npc-move", help="переместить NPC")
+    npc_move.add_argument("--world-id", dest="world_id", required=True)
+    npc_move.add_argument("--npc-id", dest="npc_id", required=True)
+    npc_move.add_argument("--to", dest="to", required=True)
+
+    npc_learn = subparsers.add_parser("npc-learn", help="передать знание NPC")
+    npc_learn.add_argument("--world-id", dest="world_id", required=True)
+    npc_learn.add_argument("--npc-id", dest="npc_id", required=True)
+    npc_learn.add_argument("--information", dest="information", required=True)
+    npc_learn.add_argument("--claim-type", dest="claim_type", choices=[c.value for c in ClaimType], default=ClaimType.FACT.value)
+    npc_learn.add_argument("--source", dest="source", choices=[s.value for s in KnowledgeSource], default=KnowledgeSource.OBSERVATION.value)
+    npc_learn.add_argument("--confidence", dest="confidence", choices=[c.value for c in KnowledgeConfidence], default=KnowledgeConfidence.LIKELY.value)
+    npc_learn.add_argument("--claim", dest="claim", default=None)
+    npc_learn.add_argument("--source-ref", dest="source_ref", default=None)
+
+    npc_observe = subparsers.add_parser("npc-observe", help="NPC сам находит объект")
+    npc_observe.add_argument("--world-id", dest="world_id", required=True)
+    npc_observe.add_argument("--npc-id", dest="npc_id", required=True)
+    npc_observe.add_argument("--information", dest="information", required=True)
+
+    npc_status = subparsers.add_parser("npc-status", help="NPC исчезает или возвращается")
+    npc_status.add_argument("--world-id", dest="world_id", required=True)
+    npc_status.add_argument("--npc-id", dest="npc_id", required=True)
+    npc_status.add_argument("--to", dest="to", choices=[s.value for s in NpcStatus], required=True)
+
+    show_npc = subparsers.add_parser("show-npc", help="публичные факты NPC")
+    show_npc.add_argument("--world-id", dest="world_id", required=True)
+    show_npc.add_argument("--npc-id", dest="npc_id", required=True)
 
     show_character = subparsers.add_parser(
         "show-character", help="показать персонажа и его знание"
@@ -222,6 +258,60 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
         print(f"characters_total={len(view.characters)}")
         for presence in view.characters:
             print(f"CHARACTER {presence.character_id} {presence.name} {presence.activity}")
+        print(f"npcs_total={len(view.npcs)}")
+        for npc_presence in view.npcs:
+            print(f"NPC {npc_presence.npc_id} {npc_presence.name} {npc_presence.status}")
+        return 0
+
+    if args.command == "npc-move":
+        return _print_action_result(
+            world_engine.npc_move(
+                WorldInstanceId(args.world_id),
+                npc_id=NpcId(args.npc_id),
+                to_location_key=LocationKey(args.to),
+            )
+        )
+
+    if args.command == "npc-learn":
+        return _print_action_result(
+            world_engine.npc_learn(
+                WorldInstanceId(args.world_id),
+                npc_id=NpcId(args.npc_id),
+                information_key=args.information,
+                claim_type=ClaimType(args.claim_type),
+                source=KnowledgeSource(args.source),
+                confidence=KnowledgeConfidence(args.confidence),
+                claim=args.claim,
+                source_ref=args.source_ref,
+            )
+        )
+
+    if args.command == "npc-observe":
+        return _print_action_result(
+            world_engine.npc_observe_information(
+                WorldInstanceId(args.world_id),
+                npc_id=NpcId(args.npc_id),
+                information_key=args.information,
+            )
+        )
+
+    if args.command == "npc-status":
+        return _print_action_result(
+            world_engine.npc_change_status(
+                WorldInstanceId(args.world_id),
+                npc_id=NpcId(args.npc_id),
+                to_status=NpcStatus(args.to),
+            )
+        )
+
+    if args.command == "show-npc":
+        npc = world_engine.get_npc(WorldInstanceId(args.world_id), NpcId(args.npc_id))
+        definition = world_engine.get_npc_definition(npc.key)
+        print(f"npc_id={npc.id}")
+        print(f"npc_key={npc.key}")
+        print(f"name={definition.name}")
+        print(f"status={npc.status.value}")
+        print(f"location_key={npc.location_key}")
         return 0
 
     if args.command == "show-character":

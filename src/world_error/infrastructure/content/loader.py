@@ -14,11 +14,13 @@ from typing import Any
 from world_error.domain.content.catalog import ContentCatalog, ContentError
 from world_error.domain.information.information import InformationDefinition
 from world_error.domain.locations.location import LocationDefinition
+from world_error.domain.npcs.npc import NpcDefinition
 from world_error.domain.shared.kernel import LocationKey
 
 MANIFEST_FILE = "manifest.json"
 LOCATIONS_DIR = "locations"
 INFORMATION_DIR = "information"
+NPCS_DIR = "npcs"
 
 
 def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
@@ -28,12 +30,14 @@ def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
 
     locations = _load_locations(root / LOCATIONS_DIR)
     information = _load_information(root / INFORMATION_DIR)
+    npcs = _load_npcs(root / NPCS_DIR)
 
     return ContentCatalog.build(
         version=_require_str(manifest, "version", manifest_path),
         start_location=LocationKey(_require_str(manifest, "start_location", manifest_path)),
         locations=locations,
         information=information,
+        npcs=npcs,
     )
 
 
@@ -75,6 +79,26 @@ def _load_information(directory: Path) -> dict[str, InformationDefinition]:
             access=_require_str(data, "access", path),
             content=_require_str(data, "content", path),
             truth=_require_str(data, "truth", path),
+        )
+    return items
+
+
+def _load_npcs(directory: Path) -> dict[str, NpcDefinition]:
+    """Загрузка NPC. Каталог может отсутствовать: мир без NPC допустим."""
+    items: dict[str, NpcDefinition] = {}
+    if not directory.is_dir():
+        return items
+    for path in _json_files(directory, require_any=False):
+        data = _read_object(path)
+        key = _require_str(data, "key", path)
+        if key in items:
+            raise ContentError(f"duplicate npc key {key!r} ({path})")
+        items[key] = NpcDefinition(
+            key=key,
+            name=_require_str(data, "name", path),
+            description=_require_str(data, "description", path),
+            initial_location=LocationKey(_require_str(data, "initial_location", path)),
+            goals=tuple(str(goal) for goal in _require_list(data, "goals", path)),
         )
     return items
 

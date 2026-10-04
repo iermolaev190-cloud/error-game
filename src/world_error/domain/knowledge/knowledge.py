@@ -128,6 +128,38 @@ class Knowledge:
         )
 
     @classmethod
+    def from_observation(
+        cls,
+        *,
+        id: KnowledgeId,
+        world_instance_id: WorldInstanceId,
+        subject_type: SubjectType,
+        subject_id: str,
+        information: Information,
+        definition: InformationDefinition,
+        now: datetime,
+    ) -> "Knowledge":
+        """Знание, полученное наблюдением (первичный источник).
+
+        ``claim`` берётся из ``definition.content``; ``definition.truth`` здесь
+        не участвует — иначе истина мира автоматически стала бы знанием
+        субъекта. Работает и для персонажа, и для NPC.
+        """
+        return cls.record(
+            id=id,
+            world_instance_id=world_instance_id,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            information_id=information.id,
+            claim=definition.content,
+            claim_type=ClaimType.FACT,
+            source=KnowledgeSource.OBSERVATION,
+            source_ref=subject_id,
+            confidence=KnowledgeConfidence.LIKELY,
+            acquired_at=now,
+        )
+
+    @classmethod
     def from_discovery(
         cls,
         *,
@@ -137,23 +169,15 @@ class Knowledge:
         definition: InformationDefinition,
         now: datetime,
     ) -> "Knowledge":
-        """Знание, полученное наблюдением.
-
-        ``claim`` берётся из ``definition.content``. ``definition.truth`` здесь
-        не участвует — иначе истина мира автоматически стала бы знанием игрока.
-        """
-        return cls.record(
+        """Наблюдение персонажем игрока (обёртка над ``from_observation``)."""
+        return cls.from_observation(
             id=id,
             world_instance_id=character.world_instance_id,
             subject_type=SubjectType.CHARACTER,
             subject_id=str(character.id),
-            information_id=information.id,
-            claim=definition.content,
-            claim_type=ClaimType.FACT,
-            source=KnowledgeSource.OBSERVATION,
-            source_ref=str(character.id),
-            confidence=KnowledgeConfidence.LIKELY,
-            acquired_at=now,
+            information=information,
+            definition=definition,
+            now=now,
         )
 
     @classmethod

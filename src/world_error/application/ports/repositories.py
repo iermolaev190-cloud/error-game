@@ -14,10 +14,12 @@ from world_error.domain.events.log import EventLog
 from world_error.domain.information.information import Information
 from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
 from world_error.domain.locations.location import LocationState
+from world_error.domain.npcs.npc import Npc
 from world_error.domain.shared.kernel import (
     CharacterId,
     InformationId,
     LocationKey,
+    NpcId,
     WorldInstanceId,
 )
 from world_error.domain.world.instance import WorldInstance
@@ -106,6 +108,30 @@ class KnowledgeRepository(Protocol):
     ) -> Sequence[Knowledge]: ...
 
 
+class NpcRepository(Protocol):
+    def add(self, npc: Npc) -> None: ...
+
+    def get(self, world_instance_id: WorldInstanceId, npc_id: NpcId) -> Npc:
+        """Вернуть NPC своего мира или поднять ``DomainError(NOT_FOUND)``."""
+        ...
+
+    def get_by_key(self, world_instance_id: WorldInstanceId, key: str) -> Npc: ...
+
+    def list_for_instance(self, world_instance_id: WorldInstanceId) -> Sequence[Npc]: ...
+
+    def list_in_location(
+        self, world_instance_id: WorldInstanceId, location_key: LocationKey
+    ) -> Sequence[Npc]:
+        """NPC, чья последняя известная локация совпадает.
+
+        Фильтр по статусу (только ACTIVE) делает вызывающий: ``MISSING`` NPC
+        остаётся здесь лишь «последним известным местом».
+        """
+        ...
+
+    def save(self, npc: Npc) -> None: ...
+
+
 class UnitOfWork(Protocol):
     """Одна транзакция на один игровой запрос.
 
@@ -119,6 +145,7 @@ class UnitOfWork(Protocol):
     locations: LocationStateRepository
     information: InformationRepository
     knowledge: KnowledgeRepository
+    npcs: NpcRepository
 
     def __enter__(self) -> "UnitOfWork": ...
 

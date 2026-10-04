@@ -97,6 +97,11 @@ python -m venv .venv
 .venv\Scripts\python -m world_error share --world-id <wi_id> --character-id <ch_a> --to-character-id <ch_b> --information damaged_radio
 .venv\Scripts\python -m world_error show-location --world-id <wi_id> --character-id <ch_id> --location old_station
 .venv\Scripts\python -m world_error show-character --world-id <wi_id> --character-id <ch_id>
+.venv\Scripts\python -m world_error show-npc --world-id <wi_id> --npc-id <npc_id>
+.venv\Scripts\python -m world_error npc-move --world-id <wi_id> --npc-id <npc_id> --to forest
+.venv\Scripts\python -m world_error npc-learn --world-id <wi_id> --npc-id <npc_id> --information damaged_radio --claim-type RUMOR
+.venv\Scripts\python -m world_error npc-observe --world-id <wi_id> --npc-id <npc_id> --information damaged_radio
+.venv\Scripts\python -m world_error npc-status --world-id <wi_id> --npc-id <npc_id> --to MISSING
 .venv\Scripts\python -m world_error events <wi_id>
 ```
 

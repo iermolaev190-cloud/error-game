@@ -58,6 +58,9 @@ ACTION_EVENT_TYPES: frozenset[EventType] = frozenset(
         EventType.CHARACTER_MOVED,
         EventType.INFORMATION_DISCOVERED,
         EventType.KNOWLEDGE_SHARED,
+        EventType.NPC_MOVED,
+        EventType.NPC_LEARNED,
+        EventType.NPC_STATUS_CHANGED,
     }
 )
 

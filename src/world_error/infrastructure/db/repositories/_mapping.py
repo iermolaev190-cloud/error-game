@@ -19,6 +19,7 @@ from world_error.domain.knowledge.knowledge import (
     SubjectType,
 )
 from world_error.domain.locations.location import LocationState
+from world_error.domain.npcs.npc import Npc, NpcStatus
 from world_error.domain.shared.kernel import (
     CharacterId,
     DiscoveryState,
@@ -26,6 +27,7 @@ from world_error.domain.shared.kernel import (
     InformationId,
     KnowledgeId,
     LocationKey,
+    NpcId,
     WorldInstanceId,
 )
 from world_error.domain.world.instance import (
@@ -186,14 +188,13 @@ def information_row(information: Information) -> dict[str, object]:
 
 
 def information_from_row(row: dict) -> Information:
-    discovered_by = row["discovered_by"]
     return Information(
         id=InformationId(row["id"]),
         world_instance_id=WorldInstanceId(row["world_instance_id"]),
         key=row["key"],
         location_key=LocationKey(row["location_key"]),
         discovery_state=DiscoveryState(row["discovery_state"]),
-        discovered_by=CharacterId(discovered_by) if discovered_by else None,
+        discovered_by=row["discovered_by"],
         discovered_at=as_utc_optional(row["discovered_at"]),
         created_at=as_utc_optional(row["created_at"]),
     )
@@ -231,4 +232,31 @@ def knowledge_from_row(row: dict) -> Knowledge:
         source_ref=row["source_ref"],
         confidence=KnowledgeConfidence(row["confidence"]),
         acquired_at=as_utc(row["acquired_at"]),
+    )
+
+
+# --- npc ------------------------------------------------------------------
+
+
+def npc_row(npc: Npc) -> dict[str, object]:
+    return {
+        "id": str(npc.id),
+        "world_instance_id": str(npc.world_instance_id),
+        "key": npc.key,
+        "location_key": str(npc.location_key),
+        "status": npc.status.value,
+        "created_at": npc.created_at,
+        "updated_at": npc.updated_at,
+    }
+
+
+def npc_from_row(row: dict) -> Npc:
+    return Npc(
+        id=NpcId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        key=row["key"],
+        location_key=LocationKey(row["location_key"]),
+        status=NpcStatus(row["status"]),
+        created_at=as_utc(row["created_at"]),
+        updated_at=as_utc(row["updated_at"]),
     )

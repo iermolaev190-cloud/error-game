@@ -15,6 +15,7 @@ EventId = NewType("EventId", str)
 CharacterId = NewType("CharacterId", str)
 InformationId = NewType("InformationId", str)
 KnowledgeId = NewType("KnowledgeId", str)
+NpcId = NewType("NpcId", str)
 LocationKey = NewType("LocationKey", str)
 
 
@@ -41,6 +42,11 @@ def new_information_id() -> InformationId:
 def new_knowledge_id() -> KnowledgeId:
     """Новый идентификатор записи знания."""
     return KnowledgeId(f"kn_{uuid.uuid4().hex}")
+
+
+def new_npc_id() -> NpcId:
+    """Новый идентификатор NPC."""
+    return NpcId(f"npc_{uuid.uuid4().hex}")
 
 
 class DiscoveryState(StrEnum):

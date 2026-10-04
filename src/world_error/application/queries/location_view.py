@@ -1,17 +1,20 @@
 """Публичная проекция локации.
 
 Что видит любой, кто физически находится в локации: сама локация (имя, тип,
-описание из контента), её `discovery_state` как факт мира и присутствующие
-персонажи (имя и активность).
+описание из контента), её `discovery_state` как факт мира, присутствующие
+персонажи (имя и активность) и присутствующие NPC (имя и статус).
 
-Чего в проекции нет и не может быть: знания и канонической истины. Это
-структурная гарантия, а не соглашение — в `LocationView` и `CharacterPresence`
-просто отсутствуют соответствующие поля, и тест сверяет их набор через
-``dataclasses.fields``. Канон: EXISTENCE ≠ VISIBILITY ≠ KNOWLEDGE ≠ ACCESS
-(11_WORLD_STATE_V1 §29–30).
+Чего в проекции нет и не может быть: знания, целей NPC и канонической истины.
+Это структурная гарантия, а не соглашение — в `LocationView`, `CharacterPresence`
+и `NpcPresence` просто отсутствуют соответствующие поля, и тест сверяет их набор
+через ``dataclasses.fields``. Канон: EXISTENCE ≠ VISIBILITY ≠ KNOWLEDGE ≠ ACCESS
+(11_WORLD_STATE_V1 §29–30), NPC — субъекты мира, а не интерфейс (05_NPCS §35).
+
+Исчезнувший NPC (``MISSING``) не показывается нигде: его местонахождение
+неизвестно (05_NPCS §22), поэтому в проекции остаются только ``ACTIVE``.
 
 Запрос требует наблюдателя, который сам находится в этой локации: слепой
-просмотр чужих локаций запрещён (``NOT_ALLOWED``).
+просмотр чужих локаций запрещён (``NOT_ALLOWED``). Запрос ничего не меняет.
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ from typing import Callable
 
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.content.catalog import ContentCatalog
+from world_error.domain.npcs.npc import NpcStatus
 from world_error.domain.shared.kernel import (
     CharacterId,
     DomainError,
@@ -32,11 +36,23 @@ from world_error.domain.shared.kernel import (
 
 @dataclass(frozen=True, slots=True)
 class CharacterPresence:
-    """Публичный факт присутствия: кто и в каком состоянии активности."""
+    """Публичный факт присутствия персонажа: кто и в каком состоянии активности."""
 
     character_id: str
     name: str
     activity: str
+
+
+@dataclass(frozen=True, slots=True)
+class NpcPresence:
+    """Публичный факт присутствия NPC: только имя и статус.
+
+    Ни знания, ни целей, ни памяти здесь нет и быть не может.
+    """
+
+    npc_id: str
+    name: str
+    status: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +66,7 @@ class LocationView:
     description: str
     discovery_state: str
     characters: tuple[CharacterPresence, ...]
+    npcs: tuple[NpcPresence, ...]
 
 
 class LocationViewQuery:
@@ -81,6 +98,23 @@ class LocationViewQuery:
 
             location_state = uow.locations.get(instance.id, location_key)
             present = uow.characters.list_by_location(instance.id, location_key)
+            players_here = tuple(
+                CharacterPresence(
+                    character_id=str(character.id),
+                    name=character.name,
+                    activity=character.activity.value,
+                )
+                for character in present
+            )
+            npcs_here = tuple(
+                NpcPresence(
+                    npc_id=str(npc.id),
+                    name=self._catalog.npc_definition(npc.key).name,
+                    status=npc.status.value,
+                )
+                for npc in uow.npcs.list_in_location(instance.id, location_key)
+                if npc.status is NpcStatus.ACTIVE
+            )
 
             return LocationView(
                 world_instance_id=str(instance.id),
@@ -89,12 +123,6 @@ class LocationViewQuery:
                 type=definition.type,
                 description=definition.description,
                 discovery_state=location_state.discovery_state.value,
-                characters=tuple(
-                    CharacterPresence(
-                        character_id=str(character.id),
-                        name=character.name,
-                        activity=character.activity.value,
-                    )
-                    for character in present
-                ),
+                characters=players_here,
+                npcs=npcs_here,
             )

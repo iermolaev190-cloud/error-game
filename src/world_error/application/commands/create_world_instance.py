@@ -5,12 +5,14 @@
 
 При создании мира из контента материализуется instance-состояние:
 * ``LocationState`` для каждой локации (UNDISCOVERED);
-* ``Information`` для каждого информационного объекта (UNDISCOVERED).
+* ``Information`` для каждого информационного объекта (UNDISCOVERED);
+* ``Npc`` для каждого NPC (ACTIVE, в стартовой локации).
 
-Информация существует в мире независимо от того, нашёл её кто-то или нет
-(19_MVP §16 design), поэтому она создаётся здесь, а не в момент INSPECT.
-Материализация — часть создания мира, поэтому отдельного события не требует:
-её покрывает ``WORLD_INSTANCE_CREATED``, и ``state_version`` остаётся 0.
+Информация и NPC существуют в мире независимо от того, нашёл их кто-то или нет
+(19_MVP §16 design; 05_NPCS §1), поэтому они создаются здесь, а не в момент
+первого взаимодействия. Материализация — часть создания мира, поэтому
+отдельного события не требует: её покрывает ``WORLD_INSTANCE_CREATED``, и
+``state_version`` остаётся 0.
 """
 
 from __future__ import annotations
@@ -23,13 +25,16 @@ from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.information.information import Information
 from world_error.domain.locations.location import LocationState
+from world_error.domain.npcs.npc import Npc
 from world_error.domain.shared.kernel import (
     Clock,
     EventId,
     InformationId,
+    NpcId,
     WorldInstanceId,
     new_event_id,
     new_information_id,
+    new_npc_id,
     new_world_instance_id,
 )
 from world_error.domain.world.instance import InstanceEnvironment, WorldInstance
@@ -52,6 +57,7 @@ class CreateWorldInstanceHandler:
         new_instance_id: Callable[[], WorldInstanceId] = new_world_instance_id,
         new_event_id_factory: Callable[[], EventId] = new_event_id,
         new_information_id_factory: Callable[[], InformationId] = new_information_id,
+        new_npc_id_factory: Callable[[], NpcId] = new_npc_id,
     ) -> None:
         self._uow_factory = uow_factory
         self._clock = clock
@@ -59,6 +65,7 @@ class CreateWorldInstanceHandler:
         self._new_instance_id = new_instance_id
         self._new_event_id = new_event_id_factory
         self._new_information_id = new_information_id_factory
+        self._new_npc_id = new_npc_id_factory
 
     def handle(self, command: CreateWorldInstanceCommand) -> WorldInstance:
         now = self._clock.now()
@@ -108,6 +115,16 @@ class CreateWorldInstanceHandler:
                         key=information_definition.key,
                         location_key=information_definition.location_key,
                         created_at=now,
+                    )
+                )
+            for npc_definition in self._catalog.npcs.values():
+                uow.npcs.add(
+                    Npc.create(
+                        id=self._new_npc_id(),
+                        world_instance_id=instance.id,
+                        key=npc_definition.key,
+                        location_key=npc_definition.initial_location,
+                        now=now,
                     )
                 )
             uow.events.append(event)

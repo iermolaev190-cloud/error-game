@@ -44,6 +44,9 @@ def test_alembic_upgrade_head_on_clean_database(
         db_engine.dispose()
 
     assert {"world_instances", "events", "alembic_version"} <= tables
+    # Коммит 3b/4: миграция 0002 добавляет персонажей, локации, информацию и знание,
+    # миграция 0003 — NPC.
+    assert {"characters", "location_states", "information", "knowledge", "npcs"} <= tables
 
 
 def test_created_instance_is_loaded_from_new_session(

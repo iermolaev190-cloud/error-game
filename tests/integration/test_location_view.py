@@ -7,10 +7,15 @@ from typing import Callable
 
 import pytest
 
-from world_error.application.queries.location_view import CharacterPresence, LocationView
+from world_error.application.queries.location_view import (
+    CharacterPresence,
+    LocationView,
+    NpcPresence,
+)
 from world_error.application.services.world_engine import WorldEngine
 from world_error.domain.characters.character import CharacterActivity, CharacterLifecycle
 from world_error.domain.content.catalog import ContentCatalog
+from world_error.domain.npcs.npc import NpcStatus
 from world_error.domain.shared.kernel import (
     CharacterId,
     DomainError,
@@ -100,11 +105,17 @@ def test_location_view_has_no_knowledge_or_truth_fields(
         "description",
         "discovery_state",
         "characters",
+        "npcs",
     }
     assert {field.name for field in dataclasses.fields(CharacterPresence)} == {
         "character_id",
         "name",
         "activity",
+    }
+    assert {field.name for field in dataclasses.fields(NpcPresence)} == {
+        "npc_id",
+        "name",
+        "status",
     }
 
     definition = catalog.information_definition("damaged_radio")
@@ -208,3 +219,49 @@ def test_location_view_lists_characters_with_any_activity(
     activities = {presence.character_id: presence.activity for presence in view.characters}
     assert activities[str(other)] == "MISSING"
     assert activities[str(observer)] == "ACTIVE"
+
+
+def test_location_view_shows_npcs_with_public_facts_only(world_engine: WorldEngine) -> None:
+    instance = make_world(world_engine)
+    observer = make_character(world_engine, instance, "player-a")
+
+    view = world_engine.view_location(instance.id, observer_id=observer, location_key=BASE)
+
+    assert len(view.npcs) == 1
+    assert view.npcs[0].name == "Смотритель"
+    assert view.npcs[0].status == "ACTIVE"
+
+    rendered = repr(view)
+    # Ни целей, ни описания NPC, ни знания в проекции нет.
+    assert "KEEP_BASE_RUNNING" not in rendered
+    assert "HIDE_OLD_MISTAKE" not in rendered
+    assert "не любит лишних вопросов" not in rendered
+
+
+def test_missing_npc_is_hidden_in_every_location(world_engine: WorldEngine) -> None:
+    instance = make_world(world_engine)
+    observer = make_character(world_engine, instance, "player-a")
+    caretaker = next(npc for npc in world_engine.get_npcs(instance.id) if npc.key == "caretaker")
+
+    assert world_engine.npc_change_status(
+        instance.id, npc_id=caretaker.id, to_status=NpcStatus.MISSING
+    ).ok is True
+
+    base_view = world_engine.view_location(instance.id, observer_id=observer, location_key=BASE)
+    assert {presence.npc_id for presence in base_view.npcs} == set()
+
+    assert world_engine.move_character(
+        instance.id, character_id=observer, to_location_key=FOREST
+    ).ok is True
+    forest_view = world_engine.view_location(instance.id, observer_id=observer, location_key=FOREST)
+    assert caretaker.id not in {presence.npc_id for presence in forest_view.npcs}
+    assert {presence.name for presence in forest_view.npcs} == {"Разведчик"}
+
+    assert world_engine.move_character(
+        instance.id, character_id=observer, to_location_key=OLD_STATION
+    ).ok is True
+    station_view = world_engine.view_location(
+        instance.id, observer_id=observer, location_key=OLD_STATION
+    )
+    assert caretaker.id not in {presence.npc_id for presence in station_view.npcs}
+    assert {presence.name for presence in station_view.npcs} == {"Механик"}

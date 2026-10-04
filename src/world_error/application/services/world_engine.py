@@ -38,6 +38,16 @@ from world_error.application.commands.move_character import (
     MoveCharacterCommand,
     MoveCharacterHandler,
 )
+from world_error.application.commands.npc_change_status import (
+    NpcChangeStatusCommand,
+    NpcChangeStatusHandler,
+)
+from world_error.application.commands.npc_learn import NpcLearnCommand, NpcLearnHandler
+from world_error.application.commands.npc_move import NpcMoveCommand, NpcMoveHandler
+from world_error.application.commands.npc_observe_information import (
+    NpcObserveInformationCommand,
+    NpcObserveInformationHandler,
+)
 from world_error.application.commands.share_knowledge import (
     ShareKnowledgeCommand,
     ShareKnowledgeHandler,
@@ -46,7 +56,14 @@ from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.application.queries.location_view import LocationView, LocationViewQuery
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
-from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
+from world_error.domain.knowledge.knowledge import (
+    ClaimType,
+    Knowledge,
+    KnowledgeConfidence,
+    KnowledgeSource,
+    SubjectType,
+)
+from world_error.domain.npcs.npc import Npc, NpcDefinition, NpcStatus
 from world_error.domain.shared.kernel import (
     CharacterId,
     Clock,
@@ -54,6 +71,7 @@ from world_error.domain.shared.kernel import (
     ErrorCode,
     EventId,
     LocationKey,
+    NpcId,
     SystemClock,
     WorldInstanceId,
     new_event_id,
@@ -105,6 +123,29 @@ class WorldEngine:
             new_event_id_factory=self._new_event_id,
         )
         self._location_view = LocationViewQuery(uow_factory=uow_factory, catalog=catalog)
+        self._npc_move = NpcMoveHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._npc_learn = NpcLearnHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._npc_observe = NpcObserveInformationHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._npc_change_status = NpcChangeStatusHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
 
     # --- команды коммита 1 (инстанс-события) -------------------------------
 
@@ -252,6 +293,88 @@ class WorldEngine:
             )
         )
 
+    # --- команды NPC (коммит 4) --------------------------------------------
+
+    def npc_move(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        npc_id: NpcId,
+        to_location_key: LocationKey,
+        cause: str = "npc_move",
+    ) -> ActionResult:
+        return self._npc_move.handle(
+            NpcMoveCommand(
+                world_instance_id=world_instance_id,
+                npc_id=npc_id,
+                to_location_key=to_location_key,
+                cause=cause,
+            )
+        )
+
+    def npc_learn(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        npc_id: NpcId,
+        information_key: str,
+        claim_type: ClaimType = ClaimType.FACT,
+        source: KnowledgeSource = KnowledgeSource.OBSERVATION,
+        confidence: KnowledgeConfidence = KnowledgeConfidence.LIKELY,
+        claim: str | None = None,
+        source_ref: str | None = None,
+        cause: str = "npc_learn",
+    ) -> ActionResult:
+        """Передать NPC информацию. ``claim`` по умолчанию — из контента, truth не читается."""
+        return self._npc_learn.handle(
+            NpcLearnCommand(
+                world_instance_id=world_instance_id,
+                npc_id=npc_id,
+                information_key=information_key,
+                claim_type=claim_type,
+                source=source,
+                confidence=confidence,
+                claim=claim,
+                source_ref=source_ref,
+                cause=cause,
+            )
+        )
+
+    def npc_observe_information(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        npc_id: NpcId,
+        information_key: str,
+        cause: str = "npc_observe",
+    ) -> ActionResult:
+        """NPC сам находит объект: мир отмечает обнаружение, NPC получает знание."""
+        return self._npc_observe.handle(
+            NpcObserveInformationCommand(
+                world_instance_id=world_instance_id,
+                npc_id=npc_id,
+                information_key=information_key,
+                cause=cause,
+            )
+        )
+
+    def npc_change_status(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        npc_id: NpcId,
+        to_status: NpcStatus | str,
+        cause: str = "npc_status",
+    ) -> ActionResult:
+        return self._npc_change_status.handle(
+            NpcChangeStatusCommand(
+                world_instance_id=world_instance_id,
+                npc_id=npc_id,
+                to_status=to_status,
+                cause=cause,
+            )
+        )
+
     # --- запросы -----------------------------------------------------------
 
     def view_location(
@@ -299,6 +422,29 @@ class WorldEngine:
                 uow.knowledge.list_for_subject(
                     world_instance_id, SubjectType.CHARACTER, str(character_id)
                 )
+            )
+
+    def get_npc(self, world_instance_id: WorldInstanceId, npc_id: NpcId) -> Npc:
+        with self._uow_factory() as uow:
+            return uow.npcs.get(world_instance_id, npc_id)
+
+    def get_npcs(self, world_instance_id: WorldInstanceId) -> Sequence[Npc]:
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return list(uow.npcs.list_for_instance(world_instance_id))
+
+    def get_npc_definition(self, npc_key: str) -> NpcDefinition:
+        """Определение NPC из контента (имя, описание, цели)."""
+        return self._catalog.npc_definition(npc_key)
+
+    def get_npc_knowledge(
+        self, world_instance_id: WorldInstanceId, npc_id: NpcId
+    ) -> Sequence[Knowledge]:
+        """Знание NPC. Наружу (в CLI) не выводится: это внутренняя память мира."""
+        with self._uow_factory() as uow:
+            uow.npcs.get(world_instance_id, npc_id)
+            return list(
+                uow.knowledge.list_for_subject(world_instance_id, SubjectType.NPC, str(npc_id))
             )
 
     # --- внутреннее --------------------------------------------------------

@@ -30,6 +30,14 @@ INFORMATION: dict[str, Any] = {
     "truth": "Корпус вскрыт намеренно.",
 }
 
+NPC: dict[str, Any] = {
+    "key": "caretaker",
+    "name": "Смотритель",
+    "description": "Описание NPC.",
+    "initial_location": "base",
+    "goals": ["KEEP_BASE_RUNNING"],
+}
+
 
 def write_content(
     root: Path,
@@ -37,6 +45,7 @@ def write_content(
     manifest: dict[str, Any] | None = None,
     locations: list[dict[str, Any]] | None = None,
     information: list[dict[str, Any]] | None = None,
+    npcs: list[dict[str, Any]] | None = None,
 ) -> Path:
     (root / "locations").mkdir(parents=True, exist_ok=True)
     (root / "information").mkdir(parents=True, exist_ok=True)
@@ -48,6 +57,11 @@ def write_content(
     for index, item in enumerate(information or []):
         name = f"{index:02d}_{item.get('key', 'information')}.json"
         (root / "information" / name).write_text(json.dumps(item, ensure_ascii=False), encoding="utf-8")
+    if npcs is not None:
+        (root / "npcs").mkdir(parents=True, exist_ok=True)
+        for index, item in enumerate(npcs):
+            name = f"{index:02d}_{item.get('key', 'npc')}.json"
+            (root / "npcs" / name).write_text(json.dumps(item, ensure_ascii=False), encoding="utf-8")
     return root
 
 
@@ -109,5 +123,37 @@ def test_unknown_start_location_is_rejected(tmp_path: Path) -> None:
                 tmp_path / "c",
                 manifest={"version": "v1", "start_location": "nowhere"},
                 locations=[LOCATION],
+            )
+        )
+
+
+def test_loads_npcs_from_repository_content(content_dir: Path) -> None:
+    catalog = load_content_catalog(content_dir)
+    assert sorted(catalog.npcs) == ["caretaker", "mechanic", "scout"]
+    assert catalog.npc_definition("caretaker").initial_location == "base"
+    assert catalog.npc_definition("caretaker").goals
+    assert catalog.npc_definition("mechanic").initial_location == "old_station"
+
+
+def test_content_without_npcs_directory_is_valid(tmp_path: Path) -> None:
+    catalog = load_content_catalog(write_content(tmp_path / "c", locations=[LOCATION]))
+    assert catalog.npcs == {}
+
+
+def test_npc_with_unknown_initial_location_is_rejected(tmp_path: Path) -> None:
+    broken = dict(NPC, initial_location="nowhere")
+    with pytest.raises(ContentError, match="starts in unknown location"):
+        load_content_catalog(
+            write_content(tmp_path / "c", locations=[LOCATION], npcs=[broken])
+        )
+
+
+def test_duplicate_npc_key_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ContentError, match="duplicate npc key"):
+        load_content_catalog(
+            write_content(
+                tmp_path / "c",
+                locations=[LOCATION],
+                npcs=[NPC, dict(NPC, name="Дубль")],
             )
         )
