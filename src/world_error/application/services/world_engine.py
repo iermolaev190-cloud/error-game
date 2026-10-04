@@ -38,6 +38,10 @@ from world_error.application.commands.move_character import (
     MoveCharacterCommand,
     MoveCharacterHandler,
 )
+from world_error.application.commands.share_knowledge import (
+    ShareKnowledgeCommand,
+    ShareKnowledgeHandler,
+)
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
@@ -92,6 +96,11 @@ class WorldEngine:
             uow_factory=uow_factory,
             clock=self._clock,
             catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._share_knowledge = ShareKnowledgeHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
             new_event_id_factory=self._new_event_id,
         )
 
@@ -213,6 +222,30 @@ class WorldEngine:
                 world_instance_id=world_instance_id,
                 character_id=character_id,
                 target_key=target_key,
+                cause=cause,
+            )
+        )
+
+    def share_knowledge(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        sharer_id: CharacterId,
+        receiver_id: CharacterId,
+        information_key: str,
+        cause: str = "share",
+    ) -> ActionResult:
+        """Передать знание другому персонажу в той же локации (SHARE).
+
+        Каталог контента сюда не передаётся: claim берётся из знания sharer'а,
+        поэтому truth в этот путь попасть не может.
+        """
+        return self._share_knowledge.handle(
+            ShareKnowledgeCommand(
+                world_instance_id=world_instance_id,
+                sharer_id=sharer_id,
+                receiver_id=receiver_id,
+                information_key=information_key,
                 cause=cause,
             )
         )

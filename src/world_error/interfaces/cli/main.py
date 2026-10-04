@@ -88,6 +88,12 @@ def build_parser() -> argparse.ArgumentParser:
     inspect.add_argument("--character-id", dest="character_id", required=True)
     inspect.add_argument("--target", dest="target", required=True)
 
+    share = subparsers.add_parser("share", help="передать знание другому персонажу")
+    share.add_argument("--world-id", dest="world_id", required=True)
+    share.add_argument("--character-id", dest="character_id", required=True)
+    share.add_argument("--to-character-id", dest="to_character_id", required=True)
+    share.add_argument("--information", dest="information", required=True)
+
     show_character = subparsers.add_parser(
         "show-character", help="показать персонажа и его знание"
     )
@@ -187,6 +193,16 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
             )
         )
 
+    if args.command == "share":
+        return _print_action_result(
+            world_engine.share_knowledge(
+                WorldInstanceId(args.world_id),
+                sharer_id=CharacterId(args.character_id),
+                receiver_id=CharacterId(args.to_character_id),
+                information_key=args.information,
+            )
+        )
+
     if args.command == "show-character":
         world_instance_id = WorldInstanceId(args.world_id)
         character_id = CharacterId(args.character_id)
@@ -202,6 +218,10 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
         print(f"knowledge_total={len(knowledge)}")
         for item in knowledge:
             print(f"KNOWLEDGE {item.claim_type.value} {item.confidence.value} {item.claim}")
+            print(
+                f"KNOWLEDGE_PROVENANCE {item.claim_type.value} {item.source.value} "
+                f"{item.source_ref or '-'}"
+            )
         return 0
 
     raise SystemExit(f"unknown command: {args.command}")

@@ -94,11 +94,15 @@ python -m venv .venv
 .venv\Scripts\python -m world_error move --world-id <wi_id> --character-id <ch_id> --to forest
 .venv\Scripts\python -m world_error move --world-id <wi_id> --character-id <ch_id> --to old_station
 .venv\Scripts\python -m world_error inspect --world-id <wi_id> --character-id <ch_id> --target damaged_radio
+.venv\Scripts\python -m world_error share --world-id <wi_id> --character-id <ch_a> --to-character-id <ch_b> --information damaged_radio
 .venv\Scripts\python -m world_error show-character --world-id <wi_id> --character-id <ch_id>
 .venv\Scripts\python -m world_error events <wi_id>
 ```
 
 Канонический факт (`truth`) в интерфейс не выводится: игрок видит только знание персонажа.
+Для каждой записи знания `show-character` печатает строку `KNOWLEDGE_PROVENANCE <claim_type> <source> <source_ref>`,
+по которой видна цепочка происхождения: у наблюдения `source_ref` — сам наблюдатель, у переданного знания —
+тот, кто им поделился.
 
 ### Порядок работ
 
