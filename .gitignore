@@ -10,6 +10,3 @@ __pycache__/
 
 # --- local environment ---
 .env
-
-# --- local tooling (portable git и прочее, если понадобится) ---
-.tools/
