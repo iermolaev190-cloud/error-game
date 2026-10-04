@@ -18,6 +18,7 @@ KnowledgeId = NewType("KnowledgeId", str)
 NpcId = NewType("NpcId", str)
 RelationshipId = NewType("RelationshipId", str)
 ConsequenceId = NewType("ConsequenceId", str)
+ScheduledEventId = NewType("ScheduledEventId", str)
 LocationKey = NewType("LocationKey", str)
 
 
@@ -59,6 +60,11 @@ def new_relationship_id() -> RelationshipId:
 def new_consequence_id() -> ConsequenceId:
     """Новый идентификатор последствия."""
     return ConsequenceId(f"csq_{uuid.uuid4().hex}")
+
+
+def new_scheduled_event_id() -> ScheduledEventId:
+    """Новый идентификатор запланированного события."""
+    return ScheduledEventId(f"sev_{uuid.uuid4().hex}")
 
 
 class DiscoveryState(StrEnum):

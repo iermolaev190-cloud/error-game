@@ -28,9 +28,11 @@ from world_error.domain.shared.kernel import (
     InformationId,
     LocationKey,
     NpcId,
+    ScheduledEventId,
     WorldInstanceId,
 )
 from world_error.domain.world.instance import WorldInstance
+from world_error.domain.time.scheduled_event import ScheduledEvent
 
 
 class WorldInstanceRepository(Protocol):
@@ -201,6 +203,22 @@ class ConsequenceRepository(Protocol):
     def save(self, consequence: Consequence) -> None: ...
 
 
+class ScheduledEventRepository(Protocol):
+    def add(self, item: ScheduledEvent) -> None: ...
+
+    def get(
+        self, world_instance_id: WorldInstanceId, scheduled_event_id: ScheduledEventId
+    ) -> ScheduledEvent: ...
+
+    def find_by_idempotency_key(
+        self, world_instance_id: WorldInstanceId, idempotency_key: str
+    ) -> ScheduledEvent | None: ...
+
+    def list_pending(self, world_instance_id: WorldInstanceId) -> Sequence[ScheduledEvent]: ...
+
+    def save(self, item: ScheduledEvent) -> None: ...
+
+
 class UnitOfWork(Protocol):
     """Одна транзакция на один игровой запрос.
 
@@ -217,6 +235,7 @@ class UnitOfWork(Protocol):
     npcs: NpcRepository
     relationships: RelationshipRepository
     consequences: ConsequenceRepository
+    scheduled_events: ScheduledEventRepository
 
     def __enter__(self) -> "UnitOfWork": ...
 

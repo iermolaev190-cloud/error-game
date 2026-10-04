@@ -26,6 +26,7 @@ from enum import StrEnum
 
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.shared.kernel import DomainError, ErrorCode, WorldInstanceId
+from world_error.domain.time.world_time import WorldTime
 
 
 class InstanceLifecycle(StrEnum):
@@ -64,6 +65,11 @@ ACTION_EVENT_TYPES: frozenset[EventType] = frozenset(
         EventType.RELATIONSHIP_CHANGED,
         EventType.CONSEQUENCE_CREATED,
         EventType.CONSEQUENCE_FAILED,
+        EventType.CONSEQUENCE_CANCELLED,
+        EventType.CONSEQUENCE_TRANSFORMED,
+        EventType.TIME_POINT_RECORDED,
+        EventType.SCHEDULED_EVENT_CREATED,
+        EventType.SCHEDULED_EVENT_TRIGGERED,
     }
 )
 
@@ -93,6 +99,8 @@ class WorldInstance:
     lifecycle: InstanceLifecycle
     created_at: datetime
     state: WorldState
+    anchor_real_time: datetime
+    time_scale: float = 1.0
 
     @classmethod
     def create(
@@ -104,6 +112,7 @@ class WorldInstance:
         content_version: str,
         environment: InstanceEnvironment,
         now: datetime,
+        time_scale: float = 1.0,
     ) -> "WorldInstance":
         """Создать инстанс. ``state_version`` созданного инстанса равен 0."""
         return cls(
@@ -115,7 +124,14 @@ class WorldInstance:
             lifecycle=InstanceLifecycle.ACTIVE,
             created_at=now,
             state=WorldState(current_time=now, world_tick=0, state_version=0),
+            anchor_real_time=now,
+            time_scale=time_scale,
         )
+
+    def world_time_at(self, real_time: datetime) -> datetime:
+        return WorldTime(
+            self.state.current_time, self.anchor_real_time, self.time_scale
+        ).at(real_time, running=self.lifecycle is InstanceLifecycle.ACTIVE)
 
     def apply(self, event: Event) -> None:
         """Применить ИНСТАНС-событие к состоянию мира.
@@ -131,12 +147,18 @@ class WorldInstance:
             return
 
         if event.type is EventType.WORLD_TICK_ADVANCED:
+            if self.lifecycle is not InstanceLifecycle.ACTIVE:
+                raise DomainError(ErrorCode.INVALID_ACTION, "paused instance cannot advance time")
+            now = event.executed_at or event.created_at
+            self.state.current_time = self.world_time_at(now)
+            self.anchor_real_time = now
             self.state.world_tick += 1
             self.state.state_version += 1
             return
 
         if event.type is EventType.WORLD_INSTANCE_STATUS_CHANGED:
             target = InstanceLifecycle(event.payload["to"])
+            self._advance_or_freeze_time(target, event.executed_at or event.created_at)
             self._change_lifecycle(target)
             self.state.state_version += 1
             return
@@ -176,3 +198,10 @@ class WorldInstance:
                 f"illegal lifecycle transition: {self.lifecycle} -> {target}",
             )
         self.lifecycle = target
+
+    def _advance_or_freeze_time(self, target: InstanceLifecycle, real_time: datetime) -> None:
+        if self.lifecycle is InstanceLifecycle.ACTIVE and target is not InstanceLifecycle.ACTIVE:
+            self.state.current_time = self.world_time_at(real_time)
+            self.anchor_real_time = real_time
+        elif self.lifecycle is not InstanceLifecycle.ACTIVE and target is InstanceLifecycle.ACTIVE:
+            self.anchor_real_time = real_time

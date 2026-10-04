@@ -12,12 +12,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Mapping
 
 from world_error.domain.shared.kernel import EventId, WorldInstanceId
+from world_error.domain.time.time_point import TimePoint
 
 
 class EventType(StrEnum):
@@ -31,6 +32,9 @@ class EventType(StrEnum):
     WORLD_INSTANCE_CREATED = "WORLD_INSTANCE_CREATED"
     WORLD_TICK_ADVANCED = "WORLD_TICK_ADVANCED"
     WORLD_INSTANCE_STATUS_CHANGED = "WORLD_INSTANCE_STATUS_CHANGED"
+    TIME_POINT_RECORDED = "TIME_POINT_RECORDED"
+    SCHEDULED_EVENT_CREATED = "SCHEDULED_EVENT_CREATED"
+    SCHEDULED_EVENT_TRIGGERED = "SCHEDULED_EVENT_TRIGGERED"
 
     # --- события-действия ---
     CHARACTER_CREATED = "CHARACTER_CREATED"
@@ -43,6 +47,8 @@ class EventType(StrEnum):
     RELATIONSHIP_CHANGED = "RELATIONSHIP_CHANGED"
     CONSEQUENCE_CREATED = "CONSEQUENCE_CREATED"
     CONSEQUENCE_FAILED = "CONSEQUENCE_FAILED"
+    CONSEQUENCE_CANCELLED = "CONSEQUENCE_CANCELLED"
+    CONSEQUENCE_TRANSFORMED = "CONSEQUENCE_TRANSFORMED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,3 +65,16 @@ class Event:
     payload: Mapping[str, Any] = field(default_factory=dict)
     executed_at: datetime | None = None
     result: str | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def time_points(self) -> tuple[TimePoint, ...]:
+      values = self.metadata.get("time_points", ())
+      return tuple(TimePoint.from_metadata(value) for value in values)
+
+    def with_time_point(self, time_point: TimePoint) -> "Event":
+      metadata = dict(self.metadata)
+      values = list(metadata.get("time_points", ()))
+      values.append(time_point.to_metadata())
+      metadata["time_points"] = values
+      return replace(self, metadata=metadata)

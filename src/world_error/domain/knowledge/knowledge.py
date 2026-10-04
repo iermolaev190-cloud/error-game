@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 
 from world_error.domain.characters.character import Character
@@ -79,6 +79,7 @@ class Knowledge:
     source_ref: str | None
     confidence: KnowledgeConfidence
     acquired_at: datetime
+    document_date: date | None = None
 
     @classmethod
     def record(
@@ -95,6 +96,7 @@ class Knowledge:
         source_ref: str | None,
         confidence: KnowledgeConfidence,
         acquired_at: datetime,
+        document_date: date | None = None,
     ) -> "Knowledge":
         """Создать запись знания с валидацией.
 
@@ -125,6 +127,7 @@ class Knowledge:
             source_ref=source_ref,
             confidence=confidence,
             acquired_at=acquired_at,
+            document_date=document_date,
         )
 
     @classmethod
@@ -157,6 +160,7 @@ class Knowledge:
             source_ref=subject_id,
             confidence=KnowledgeConfidence.LIKELY,
             acquired_at=now,
+            document_date=definition.document_date,
         )
 
     @classmethod
@@ -231,4 +235,5 @@ class Knowledge:
             source_ref=str(sharer.id),
             confidence=KnowledgeConfidence.LIKELY,
             acquired_at=now,
+            document_date=sharer_knowledge.document_date,
         )

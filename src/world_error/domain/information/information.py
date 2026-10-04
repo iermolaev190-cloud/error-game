@@ -19,7 +19,7 @@ world-состояние на DISCOVERED и создаёт знание у ко�
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.shared.kernel import (
@@ -44,6 +44,7 @@ class InformationDefinition:
     access: str
     content: str
     truth: str
+    document_date: date | None = None
 
 
 @dataclass(slots=True)

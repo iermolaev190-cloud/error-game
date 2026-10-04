@@ -182,6 +182,33 @@ def test_status_transitions_are_idempotent() -> None:
     assert exc_info.value.code is ErrorCode.INVALID_ACTION
 
 
+def test_cancel_and_transform_only_close_pending_consequences() -> None:
+    cancelled = make_consequence()
+    assert cancelled.cancel(now=NOW) is True
+    assert cancelled.status is ConsequenceStatus.CANCELLED
+    assert cancelled.cancel(now=NOW) is False
+    with pytest.raises(DomainError) as exc_info:
+        cancelled.mark_transformed(now=NOW)
+    assert exc_info.value.code is ErrorCode.INVALID_ACTION
+
+    transformed = make_consequence()
+    assert transformed.mark_transformed(now=NOW) is True
+    assert transformed.status is ConsequenceStatus.TRANSFORMED
+    assert transformed.mark_transformed(now=NOW) is False
+    with pytest.raises(DomainError) as exc_info:
+        transformed.cancel(now=NOW)
+    assert exc_info.value.code is ErrorCode.INVALID_ACTION
+
+    applied = make_consequence()
+    applied.mark_applied(event_id=EventId("ev_applied"), now=NOW)
+    with pytest.raises(DomainError) as exc_info:
+        applied.cancel(now=NOW)
+    assert exc_info.value.code is ErrorCode.INVALID_ACTION
+    with pytest.raises(DomainError) as exc_info:
+        applied.mark_transformed(now=NOW)
+    assert exc_info.value.code is ErrorCode.INVALID_ACTION
+
+
 # --- происхождение (M10) ---------------------------------------------------
 
 

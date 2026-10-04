@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -92,8 +93,18 @@ def _load_information(directory: Path) -> dict[str, InformationDefinition]:
             access=_require_str(data, "access", path),
             content=_require_str(data, "content", path),
             truth=_require_str(data, "truth", path),
+            document_date=_optional_date(data.get("document_date")),
         )
     return items
+
+
+def _optional_date(value: Any) -> date | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def _load_npcs(directory: Path) -> dict[str, NpcDefinition]:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -55,7 +55,7 @@ def make_information() -> Information:
     )
 
 
-def make_definition() -> InformationDefinition:
+def make_definition(*, document_date: date | None = None) -> InformationDefinition:
     return InformationDefinition(
         key="damaged_radio",
         location_key=LocationKey("old_station"),
@@ -65,6 +65,7 @@ def make_definition() -> InformationDefinition:
         access="OPEN",
         content=CONTENT,
         truth=TRUTH,
+        document_date=document_date,
     )
 
 
@@ -102,6 +103,20 @@ def test_knowledge_metadata() -> None:
 
 def test_knowledge_belongs_to_character_world() -> None:
     assert make_discovered_knowledge().world_instance_id == WORLD_ID
+
+
+def test_document_date_is_knowledge_not_truth() -> None:
+    document_date = date(2024, 3, 15)
+    knowledge = Knowledge.from_discovery(
+        id=KnowledgeId("kn_dated"),
+        character=make_character(),
+        information=make_information(),
+        definition=make_definition(document_date=document_date),
+        now=NOW,
+    )
+    assert knowledge.document_date == document_date
+    assert knowledge.claim == CONTENT
+    assert TRUTH not in knowledge.claim
 
 
 # --- общая фабрика record (коммит 3a) --------------------------------------

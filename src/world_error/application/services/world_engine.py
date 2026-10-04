@@ -19,6 +19,8 @@
 from __future__ import annotations
 
 import secrets
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Callable, Mapping, Sequence
 
 from world_error.application.action_result import ActionResult
@@ -29,6 +31,10 @@ from world_error.application.commands.apply_significant_action import (
 from world_error.application.commands.change_relationship import (
     ChangeRelationshipCommand,
     ChangeRelationshipHandler,
+)
+from world_error.application.commands.cancel_consequence import (
+    CancelConsequenceCommand,
+    CancelConsequenceHandler,
 )
 from world_error.application.commands.create_character import (
     CreateCharacterCommand,
@@ -56,10 +62,19 @@ from world_error.application.commands.npc_observe_information import (
     NpcObserveInformationCommand,
     NpcObserveInformationHandler,
 )
+from world_error.application.commands.record_time_point import (
+    RecordTimePointCommand,
+    RecordTimePointHandler,
+)
 from world_error.application.commands.schedule_consequence import (
     ScheduleConsequenceCommand,
     ScheduleConsequenceHandler,
 )
+from world_error.application.commands.transform_consequence import (
+    TransformConsequenceCommand,
+    TransformConsequenceHandler,
+)
+from world_error.application.commands.schedule_event import ScheduleEventCommand, ScheduleEventHandler
 from world_error.application.commands.share_knowledge import (
     ShareKnowledgeCommand,
     ShareKnowledgeHandler,
@@ -69,6 +84,10 @@ from world_error.application.queries.location_view import LocationView, Location
 from world_error.application.services.consequence_engine import (
     ConsequenceEngine,
     PumpOutcome,
+)
+from world_error.application.services.scheduled_event_engine import (
+    ScheduledEventEngine,
+    ScheduledPumpOutcome,
 )
 from world_error.domain.consequences.consequence import Consequence, ConsequenceTrigger
 from world_error.domain.consequences.vocabulary import (
@@ -103,11 +122,14 @@ from world_error.domain.shared.kernel import (
     EventId,
     LocationKey,
     NpcId,
+    ScheduledEventId,
     SystemClock,
     WorldInstanceId,
     new_event_id,
 )
 from world_error.domain.world.instance import InstanceEnvironment, InstanceLifecycle, WorldInstance
+from world_error.domain.time.scheduled_event import ScheduledEvent, ScheduledTriggerKind
+from world_error.domain.time.time_point import TimePoint
 
 DEFAULT_SEED_BITS = 63
 
@@ -124,6 +146,19 @@ class _PumpedHandler:
 
     def handle(self, command: Any) -> ActionResult:
         return self._handle(command)
+
+
+@dataclass(frozen=True, slots=True)
+class WorldPumpOutcome:
+    scheduled: ScheduledPumpOutcome
+    consequences: PumpOutcome
+    event_ids: tuple[EventId, ...]
+    steps: int
+    limit_reached: bool
+
+    @property
+    def changed(self) -> bool:
+        return self.scheduled.changed or self.consequences.changed or bool(self.event_ids)
 
 
 class WorldEngine:
@@ -206,6 +241,31 @@ class WorldEngine:
             clock=self._clock,
             new_event_id_factory=self._new_event_id,
         )
+        self._cancel_consequence = CancelConsequenceHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._transform_consequence = TransformConsequenceHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._schedule_event_command = ScheduleEventHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._record_time_point = RecordTimePointHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._scheduled_events = ScheduledEventEngine(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
         self._consequences = ConsequenceEngine(
             uow_factory=uow_factory,
             catalog=catalog,
@@ -227,6 +287,10 @@ class WorldEngine:
         self._change_relationship = self._pumped(self._change_relationship)
         self._apply_significant_action = self._pumped(self._apply_significant_action)
         self._schedule_consequence = self._pumped(self._schedule_consequence)
+        self._cancel_consequence = self._pumped(self._cancel_consequence)
+        self._transform_consequence = self._pumped(self._transform_consequence)
+        self._schedule_event_command = self._pumped(self._schedule_event_command)
+        self._record_time_point = self._pumped(self._record_time_point)
 
     # --- насос последствий --------------------------------------------------
 
@@ -242,7 +306,7 @@ class WorldEngine:
     def _pump_into_result(
         self, result: ActionResult, world_instance_id: WorldInstanceId
     ) -> ActionResult:
-        outcome = self._consequences.pump(world_instance_id)
+        outcome = self._pump_world(world_instance_id)
         if outcome.limit_reached:
             # M1: уже применённые последствия остаются применёнными, отката нет.
             return ActionResult.failure(
@@ -256,16 +320,95 @@ class WorldEngine:
         if not outcome.changed:
             return result
         payload = dict(result.payload)
-        if outcome.applied:
-            payload["consequences_applied"] = len(outcome.applied)
-        if outcome.failed:
-            payload["consequences_failed"] = len(outcome.failed)
-        if outcome.failed_rules:
-            payload["consequence_rules_failed"] = outcome.failed_rules
+        if outcome.scheduled.applied:
+            payload["scheduled_events_applied"] = len(outcome.scheduled.applied)
+        if outcome.consequences.applied:
+            payload["consequences_applied"] = len(outcome.consequences.applied)
+        if outcome.consequences.failed:
+            payload["consequences_failed"] = len(outcome.consequences.failed)
+        if outcome.consequences.failed_rules:
+            payload["consequence_rules_failed"] = outcome.consequences.failed_rules
         return ActionResult.success(
             result.action,
             event_ids=tuple(result.event_ids) + outcome.event_ids,
             payload=payload,
+        )
+
+    def _pump_world(self, world_instance_id: WorldInstanceId) -> WorldPumpOutcome:
+        instance = self.get_instance(world_instance_id)
+        if instance.lifecycle is not InstanceLifecycle.ACTIVE:
+            return WorldPumpOutcome(
+                scheduled=ScheduledPumpOutcome(),
+                consequences=PumpOutcome(),
+                event_ids=(),
+                steps=0,
+                limit_reached=False,
+            )
+
+        max_steps = self._consequences.max_cascade_steps
+        steps = 0
+        scheduled_ids: list[ScheduledEventId] = []
+        consequence_ids = []
+        failed_ids = []
+        scheduled_event_ids: list[EventId] = []
+        consequence_event_ids: list[EventId] = []
+        event_ids: list[EventId] = []
+        failed_rules: list[str] = []
+        limit_reached = False
+
+        while True:
+            remaining = max_steps - steps
+            scheduled = self._scheduled_events.pump(
+                world_instance_id, max_steps=max(0, remaining)
+            )
+            scheduled_ids.extend(scheduled.applied)
+            event_ids.extend(scheduled.event_ids)
+            scheduled_event_ids.extend(scheduled.event_ids)
+            steps += scheduled.steps
+
+            consequences = self._consequences.pump(
+                world_instance_id, max_steps=max(0, max_steps - steps)
+            )
+            consequence_ids.extend(consequences.applied)
+            failed_ids.extend(consequences.failed)
+            event_ids.extend(consequences.event_ids)
+            consequence_event_ids.extend(consequences.event_ids)
+            failed_rules.extend(consequences.failed_rules)
+            steps += consequences.steps
+
+            if scheduled.limit_reached or consequences.limit_reached:
+                limit_reached = True
+                break
+            if steps >= max_steps:
+                limit_reached = self._scheduled_events.has_due(
+                    world_instance_id
+                ) or self._consequences.has_due(world_instance_id)
+                break
+            if not (
+                scheduled.changed
+                or consequences.applied
+                or consequences.failed
+                or consequences.event_ids
+            ):
+                break
+
+        return WorldPumpOutcome(
+            scheduled=ScheduledPumpOutcome(
+                applied=tuple(scheduled_ids),
+                event_ids=tuple(scheduled_event_ids),
+                limit_reached=limit_reached,
+            ),
+            consequences=PumpOutcome(
+                applied=tuple(consequence_ids),
+                failed=tuple(failed_ids),
+                event_ids=tuple(consequence_event_ids),
+                failed_rules=tuple(dict.fromkeys(failed_rules)),
+                limit_reached=limit_reached,
+                steps=steps,
+            ),
+            event_ids=tuple(dict.fromkeys(event_ids)),
+            steps=steps,
+            limit_reached=limit_reached,
         )
 
     # --- команды коммита 1 (инстанс-события) -------------------------------
@@ -318,7 +461,7 @@ class WorldEngine:
                 "to_tick": instance.state.world_tick + 1,
             },
         )
-        outcome = self._consequences.pump(world_instance_id)
+        outcome = self._pump_world(world_instance_id)
         if outcome.limit_reached:
             raise DomainError(
                 ErrorCode.CASCADE_LIMIT,
@@ -340,13 +483,17 @@ class WorldEngine:
         путей в обход транзакции нет.
         """
         target = InstanceLifecycle(to)
-        return self._apply(
+        instance = self._apply(
             world_instance_id,
             EventType.WORLD_INSTANCE_STATUS_CHANGED,
             cause=cause,
             target=str(world_instance_id),
             payload_factory=lambda instance: {"from": instance.lifecycle.value, "to": target.value},
         )
+        outcome = self._pump_world(world_instance_id)
+        if outcome.limit_reached:
+            raise DomainError(ErrorCode.CASCADE_LIMIT, "world pump cascade limit reached")
+        return instance
 
     # --- команды коммита 2 -------------------------------------------------
 
@@ -581,9 +728,96 @@ class WorldEngine:
             )
         )
 
+    def cancel_consequence(
+        self,
+        world_instance_id: WorldInstanceId,
+        consequence_id: ConsequenceId,
+        *,
+        actor: str = "system",
+    ) -> ActionResult:
+        return self._cancel_consequence.handle(
+            CancelConsequenceCommand(
+                world_instance_id=world_instance_id,
+                consequence_id=consequence_id,
+                actor=actor,
+            )
+        )
+
+    def transform_consequence(
+        self,
+        world_instance_id: WorldInstanceId,
+        consequence_id: ConsequenceId,
+        *,
+        type: ConsequenceType,
+        scale: ConsequenceScale,
+        visibility: ConsequenceVisibility,
+        trigger: ConsequenceTrigger,
+        effect: ConsequenceEffect,
+        payload: Mapping[str, Any],
+        actor: str = "system",
+    ) -> ActionResult:
+        return self._transform_consequence.handle(
+            TransformConsequenceCommand(
+                world_instance_id=world_instance_id,
+                consequence_id=consequence_id,
+                type=type,
+                scale=scale,
+                visibility=visibility,
+                trigger=trigger,
+                effect=effect,
+                payload=dict(payload),
+                actor=actor,
+            )
+        )
+
+    def schedule_event(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        cause_event_id: EventId,
+        event_key: str,
+        idempotency_key: str,
+        trigger_kind: ScheduledTriggerKind | str,
+        payload: Mapping[str, Any] | None = None,
+        due_tick: int | None = None,
+        due_time: datetime | None = None,
+        trigger_event_type: EventType | str | None = None,
+        actor: str = "system",
+    ) -> ActionResult:
+        return self._schedule_event_command.handle(
+            ScheduleEventCommand(
+                world_instance_id=world_instance_id,
+                cause_event_id=cause_event_id,
+                event_key=event_key,
+                idempotency_key=idempotency_key,
+                trigger_kind=ScheduledTriggerKind(trigger_kind),
+                payload=dict(payload or {}),
+                due_tick=due_tick,
+                due_time=due_time,
+                trigger_event_type=(
+                    None if trigger_event_type is None else EventType(trigger_event_type)
+                ),
+                actor=actor,
+            )
+        )
+
+    def record_time_point(
+        self, world_instance_id: WorldInstanceId, *, time_point: TimePoint
+    ) -> ActionResult:
+        return self._record_time_point.handle(
+            RecordTimePointCommand(world_instance_id=world_instance_id, time_point=time_point)
+        )
+
+    def pump_time(self, world_instance_id: WorldInstanceId) -> WorldPumpOutcome:
+        return self._pump_world(world_instance_id)
+
     def pump_consequences(self, world_instance_id: WorldInstanceId) -> PumpOutcome:
-        """Прогнать насос вручную (тесты, диагностика). Обычно он идёт сам."""
-        return self._consequences.pump(world_instance_id)
+        """Прогнать оба насоса с общим лимитом (тесты, диагностика)."""
+        return self._pump_world(world_instance_id).consequences
+
+    def pump_scheduled_events(self, world_instance_id: WorldInstanceId) -> ScheduledPumpOutcome:
+        """Прогнать общий pump cycle и вернуть результат scheduled events."""
+        return self._pump_world(world_instance_id).scheduled
 
     def get_consequence(
         self, world_instance_id: WorldInstanceId, consequence_id: ConsequenceId
@@ -591,6 +825,20 @@ class WorldEngine:
         with self._uow_factory() as uow:
             uow.world_instances.get(world_instance_id)
             return uow.consequences.get(world_instance_id, consequence_id)
+
+    def get_scheduled_event(
+        self, world_instance_id: WorldInstanceId, scheduled_event_id: ScheduledEventId
+    ) -> ScheduledEvent:
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return uow.scheduled_events.get(world_instance_id, scheduled_event_id)
+
+    def list_scheduled_events(
+        self, world_instance_id: WorldInstanceId
+    ) -> Sequence[ScheduledEvent]:
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return list(uow.scheduled_events.list_pending(world_instance_id))
 
     def list_consequences(
         self, world_instance_id: WorldInstanceId
@@ -639,10 +887,25 @@ class WorldEngine:
         with self._uow_factory() as uow:
             return uow.world_instances.get(world_instance_id)
 
+    def get_world_time(self, world_instance_id: WorldInstanceId) -> datetime:
+        instance = self.get_instance(world_instance_id)
+        return instance.world_time_at(self._clock.now())
+
     def get_events(self, world_instance_id: WorldInstanceId) -> Sequence[Event]:
         with self._uow_factory() as uow:
             uow.world_instances.get(world_instance_id)  # NOT_FOUND вместо пустого списка
             return list(uow.events.list_for_instance(world_instance_id))
+
+    def get_time_points(
+        self, world_instance_id: WorldInstanceId, event_id: EventId
+    ) -> Sequence[TimePoint]:
+        events = self.get_events(world_instance_id)
+        return tuple(
+            point
+            for event in events
+            for point in event.time_points
+            if point.event_id == event_id
+        )
 
     def get_character(self, world_instance_id: WorldInstanceId, character_id: CharacterId):
         with self._uow_factory() as uow:

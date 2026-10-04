@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -80,6 +81,36 @@ def test_loads_minimal_content(tmp_path: Path) -> None:
     assert catalog.start_location == "base"
     assert catalog.location("base").name == "Лагерь"
     assert catalog.information_definition("clue").content == "Корпус вскрыт."
+
+
+@pytest.mark.parametrize(
+    ("raw_date", "expected"),
+    [
+        ("2024-03-15", date(2024, 3, 15)),
+        ("not-a-date", None),
+        (None, None),
+    ],
+)
+def test_document_date_is_optional_and_lenient(
+    tmp_path: Path, raw_date: str | None, expected: date | None
+) -> None:
+    information = dict(INFORMATION)
+    if raw_date is not None:
+        information["document_date"] = raw_date
+    catalog = load_content_catalog(
+        write_content(tmp_path / "content", locations=[LOCATION], information=[information])
+    )
+    assert catalog.information_definition("clue").document_date == expected
+
+
+def test_conflicting_document_dates_are_preserved(tmp_path: Path) -> None:
+    first = dict(INFORMATION, document_date="2024-03-15")
+    second = dict(INFORMATION, key="other_clue", document_date="2024-03-16")
+    catalog = load_content_catalog(
+        write_content(tmp_path / "content", locations=[LOCATION], information=[first, second])
+    )
+    assert catalog.information_definition("clue").document_date == date(2024, 3, 15)
+    assert catalog.information_definition("other_clue").document_date == date(2024, 3, 16)
 
 
 def test_connection_to_unknown_location_is_rejected(tmp_path: Path) -> None:

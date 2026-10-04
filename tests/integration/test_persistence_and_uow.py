@@ -53,6 +53,7 @@ def test_alembic_upgrade_head_on_clean_database(
         "knowledge",
         "npcs",
         "relationships",
+        "scheduled_events",
         "consequences",
         "consequence_causes",
     } <= tables

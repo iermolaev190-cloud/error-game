@@ -18,8 +18,10 @@ from __future__ import annotations
 from sqlalchemy import (
     JSON,
     BigInteger,
+    CheckConstraint,
     Column,
     DateTime,
+    Date,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -28,6 +30,7 @@ from sqlalchemy import (
     String,
     Table,
     UniqueConstraint,
+    Float,
 )
 
 metadata = MetaData()
@@ -42,6 +45,8 @@ world_instances = Table(
     Column("environment", String(16), nullable=False),
     Column("lifecycle", String(16), nullable=False),
     Column("current_time", DateTime(timezone=True), nullable=False),
+    Column("anchor_real_time", DateTime(timezone=True), nullable=False),
+    Column("time_scale", Float, nullable=False, server_default="1.0"),
     Column("world_tick", Integer, nullable=False),
     Column("state_version", Integer, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
@@ -64,6 +69,7 @@ events = Table(
     Column("target", String(128), nullable=True),
     Column("cause", String(255), nullable=True),
     Column("payload", JSON, nullable=False),
+    Column("metadata", JSON, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("executed_at", DateTime(timezone=True), nullable=True),
     Column("result", String(64), nullable=True),
@@ -159,6 +165,7 @@ knowledge = Table(
     Column("source_ref", String(64), nullable=True),
     Column("confidence", String(16), nullable=False),
     Column("acquired_at", DateTime(timezone=True), nullable=False),
+    Column("document_date", Date, nullable=True),
     UniqueConstraint(
         "world_instance_id",
         "subject_type",
@@ -301,4 +308,67 @@ consequence_causes = Table(
         "world_instance_id",
         "event_id",
     ),
+)
+
+scheduled_events = Table(
+    "scheduled_events",
+    metadata,
+    Column("seq", Integer, primary_key=True, autoincrement=True),
+    Column("id", String(64), nullable=False),
+    Column(
+        "world_instance_id",
+        String(64),
+        ForeignKey("world_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("cause_event_id", String(64), nullable=False),
+    Column("created_event_id", String(64), nullable=False),
+    Column("trigger_kind", String(16), nullable=False),
+    Column("due_tick", Integer, nullable=True),
+    Column("due_time", DateTime(timezone=True), nullable=True),
+    Column("trigger_event_type", String(64), nullable=True),
+    Column("event_key", String(128), nullable=False),
+    Column("idempotency_key", String(128), nullable=False),
+    Column("payload", JSON, nullable=False),
+    Column("metadata", JSON, nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("applied_at", DateTime(timezone=True), nullable=True),
+    Column("triggered_event_id", String(64), nullable=True),
+    UniqueConstraint("world_instance_id", "id", name="uq_scheduled_events_instance_id"),
+    UniqueConstraint(
+        "world_instance_id", "idempotency_key", name="uq_scheduled_events_idempotency"
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "cause_event_id"],
+        ["events.world_instance_id", "events.id"],
+        name="fk_scheduled_events_cause_event",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "created_event_id"],
+        ["events.world_instance_id", "events.id"],
+        name="fk_scheduled_events_created_event",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "triggered_event_id"],
+        ["events.world_instance_id", "events.id"],
+        name="fk_scheduled_events_triggered_event",
+    ),
+    CheckConstraint(
+        "(due_tick IS NOT NULL AND due_time IS NULL) OR "
+        "(due_tick IS NULL AND due_time IS NOT NULL)",
+        name="ck_scheduled_events_one_due_value",
+    ),
+    CheckConstraint(
+        "(trigger_kind = 'AT_TIME' AND due_time IS NOT NULL AND due_tick IS NULL) OR "
+        "(trigger_kind != 'AT_TIME' AND due_time IS NULL AND due_tick IS NOT NULL)",
+        name="ck_scheduled_events_due_matches_trigger",
+    ),
+    CheckConstraint(
+        "(trigger_kind = 'ON_EVENT_TYPE' AND trigger_event_type IS NOT NULL) OR "
+        "(trigger_kind != 'ON_EVENT_TYPE' AND trigger_event_type IS NULL)",
+        name="ck_scheduled_events_event_trigger_type",
+    ),
+    Index("ix_scheduled_events_tick", "world_instance_id", "status", "due_tick"),
+    Index("ix_scheduled_events_time", "world_instance_id", "status", "due_time"),
 )

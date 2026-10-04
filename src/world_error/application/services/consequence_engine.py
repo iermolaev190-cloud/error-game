@@ -86,6 +86,7 @@ class PumpOutcome:
     event_ids: tuple[EventId, ...] = ()
     failed_rules: tuple[str, ...] = ()
     limit_reached: bool = False
+    steps: int = 0
 
     @property
     def changed(self) -> bool:
@@ -118,13 +119,18 @@ class ConsequenceEngine:
 
     # --- основной цикл ------------------------------------------------------
 
-    def pump(self, world_instance_id: WorldInstanceId) -> PumpOutcome:
+    def pump(
+        self, world_instance_id: WorldInstanceId, *, max_steps: int | None = None
+    ) -> PumpOutcome:
         applied: list[ConsequenceId] = []
         failed: list[ConsequenceId] = []
         event_ids: list[EventId] = []
         failed_rules: list[str] = []
         steps = 0
         limit_reached = False
+        step_limit = self._max_cascade_steps if max_steps is None else min(
+            self._max_cascade_steps, max(0, max_steps)
+        )
 
         while True:
             progressed = False
@@ -134,6 +140,10 @@ class ConsequenceEngine:
                 event_ids.extend(created)
                 progressed = True
             failed_rules.extend(rule_failures)
+
+            if steps >= step_limit:
+                limit_reached = self._has_due(world_instance_id)
+                break
 
             outcome = self._apply_next_due(world_instance_id)
             if outcome is not None:
@@ -146,7 +156,7 @@ class ConsequenceEngine:
 
             if not progressed:
                 break
-            if steps >= self._max_cascade_steps:
+            if steps >= step_limit:
                 limit_reached = self._has_due(world_instance_id)
                 break
 
@@ -156,7 +166,11 @@ class ConsequenceEngine:
             event_ids=tuple(event_ids),
             failed_rules=tuple(failed_rules),
             limit_reached=limit_reached,
+            steps=steps,
         )
+
+    def has_due(self, world_instance_id: WorldInstanceId) -> bool:
+        return self._has_due(world_instance_id)
 
     # --- правила ------------------------------------------------------------
 

@@ -58,6 +58,8 @@ class ConsequenceStatus(StrEnum):
     PENDING = "PENDING"
     APPLIED = "APPLIED"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    TRANSFORMED = "TRANSFORMED"
 
 
 class TriggerKind(StrEnum):

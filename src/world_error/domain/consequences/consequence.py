@@ -228,5 +228,29 @@ class Consequence:
         self.applied_at = now
         return True
 
+    def cancel(self, *, now: datetime) -> bool:
+        if self.status is ConsequenceStatus.CANCELLED:
+            return False
+        if self.status is not ConsequenceStatus.PENDING:
+            raise DomainError(
+                ErrorCode.INVALID_ACTION,
+                f"only PENDING consequences can be cancelled (got {self.status.value})",
+            )
+        self.status = ConsequenceStatus.CANCELLED
+        self.applied_at = now
+        return True
+
+    def mark_transformed(self, *, now: datetime) -> bool:
+        if self.status is ConsequenceStatus.TRANSFORMED:
+            return False
+        if self.status is not ConsequenceStatus.PENDING:
+            raise DomainError(
+                ErrorCode.INVALID_ACTION,
+                f"only PENDING consequences can be transformed (got {self.status.value})",
+            )
+        self.status = ConsequenceStatus.TRANSFORMED
+        self.applied_at = now
+        return True
+
     def has_cause(self, event_id: EventId) -> bool:
         return any(cause.event_id == event_id for cause in self.causes)

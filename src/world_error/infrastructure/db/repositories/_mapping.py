@@ -50,7 +50,14 @@ from world_error.domain.shared.kernel import (
     LocationKey,
     NpcId,
     RelationshipId,
+    ScheduledEventId,
     WorldInstanceId,
+)
+from world_error.domain.time.scheduled_event import (
+    ScheduledEvent,
+    ScheduledEventStatus,
+    ScheduledEventTrigger,
+    ScheduledTriggerKind,
 )
 from world_error.domain.world.instance import (
     InstanceEnvironment,
@@ -83,6 +90,8 @@ def instance_row(instance: WorldInstance) -> dict[str, object]:
         "environment": instance.environment.value,
         "lifecycle": instance.lifecycle.value,
         "current_time": instance.state.current_time,
+        "anchor_real_time": instance.anchor_real_time,
+        "time_scale": instance.time_scale,
         "world_tick": instance.state.world_tick,
         "state_version": instance.state.state_version,
         "created_at": instance.created_at,
@@ -103,6 +112,8 @@ def instance_from_row(row: dict) -> WorldInstance:
             world_tick=row["world_tick"],
             state_version=row["state_version"],
         ),
+        anchor_real_time=as_utc(row["anchor_real_time"]),
+        time_scale=row["time_scale"],
     )
 
 
@@ -118,6 +129,7 @@ def event_row(event: Event) -> dict[str, object]:
         "target": event.target,
         "cause": event.cause,
         "payload": dict(event.payload),
+        "metadata": dict(event.metadata),
         "created_at": event.created_at,
         "executed_at": event.executed_at,
         "result": event.result,
@@ -136,6 +148,61 @@ def event_from_row(row: dict) -> Event:
         payload=dict(row["payload"] or {}),
         executed_at=as_utc_optional(row["executed_at"]),
         result=row["result"],
+        metadata=dict(row["metadata"] or {}),
+    )
+
+
+def scheduled_event_row(item: ScheduledEvent) -> dict[str, object]:
+    return {
+        "id": str(item.id),
+        "world_instance_id": str(item.world_instance_id),
+        "cause_event_id": str(item.cause_event_id),
+        "created_event_id": str(item.created_event_id),
+        "trigger_kind": item.trigger.kind.value,
+        "due_tick": item.trigger.due_tick,
+        "due_time": item.trigger.due_time,
+        "trigger_event_type": (
+            None if item.trigger.event_type is None else item.trigger.event_type.value
+        ),
+        "event_key": item.event_key,
+        "idempotency_key": item.idempotency_key,
+        "payload": dict(item.payload),
+        "metadata": dict(item.metadata),
+        "status": item.status.value,
+        "created_at": item.created_at,
+        "applied_at": item.applied_at,
+        "triggered_event_id": (
+            None if item.triggered_event_id is None else str(item.triggered_event_id)
+        ),
+    }
+
+
+def scheduled_event_from_row(row: dict) -> ScheduledEvent:
+    return ScheduledEvent(
+        id=ScheduledEventId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        cause_event_id=EventId(row["cause_event_id"]),
+        created_event_id=EventId(row["created_event_id"]),
+        idempotency_key=row["idempotency_key"],
+        trigger=ScheduledEventTrigger(
+            kind=ScheduledTriggerKind(row["trigger_kind"]),
+            due_tick=row["due_tick"],
+            due_time=as_utc_optional(row["due_time"]),
+            event_type=(
+                None
+                if row["trigger_event_type"] is None
+                else EventType(row["trigger_event_type"])
+            ),
+        ),
+        event_key=row["event_key"],
+        payload=dict(row["payload"] or {}),
+        created_at=as_utc(row["created_at"]),
+        status=ScheduledEventStatus(row["status"]),
+        triggered_event_id=(
+            None if row["triggered_event_id"] is None else EventId(row["triggered_event_id"])
+        ),
+        applied_at=as_utc_optional(row["applied_at"]),
+        metadata=dict(row["metadata"] or {}),
     )
 
 
@@ -238,6 +305,7 @@ def knowledge_row(knowledge: Knowledge) -> dict[str, object]:
         "source_ref": knowledge.source_ref,
         "confidence": knowledge.confidence.value,
         "acquired_at": knowledge.acquired_at,
+        "document_date": knowledge.document_date,
     }
 
 
@@ -254,6 +322,7 @@ def knowledge_from_row(row: dict) -> Knowledge:
         source_ref=row["source_ref"],
         confidence=KnowledgeConfidence(row["confidence"]),
         acquired_at=as_utc(row["acquired_at"]),
+        document_date=row["document_date"],
     )
 
 

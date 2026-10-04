@@ -94,6 +94,9 @@ class InspectInformationHandler:
                             "claim": known.claim,
                             "claim_type": known.claim_type.value,
                             "confidence": known.confidence.value,
+                            "document_date": (
+                                None if known.document_date is None else known.document_date.isoformat()
+                            ),
                             "world_tick": instance.state.world_tick,
                             "state_version": instance.state.state_version,
                         },
@@ -145,6 +148,11 @@ class InspectInformationHandler:
                     "claim_type": knowledge.claim_type.value,
                     "source": knowledge.source.value,
                     "confidence": knowledge.confidence.value,
+                    "document_date": (
+                        None
+                        if knowledge.document_date is None
+                        else knowledge.document_date.isoformat()
+                    ),
                     "world_tick": instance.state.world_tick,
                     "state_version": instance.state.state_version,
                 },
