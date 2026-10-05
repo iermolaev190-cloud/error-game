@@ -17,6 +17,8 @@ import sys
 from typing import Sequence
 
 from world_error.application.action_result import ActionResult
+from world_error.application.ai.interpreter import IntentContext
+from world_error.application.ai.registry import INTENT_HANDLERS
 from world_error.bootstrap.config import Settings
 from world_error.bootstrap.container import Container
 from world_error.domain.consequences.consequence import ConsequenceTrigger
@@ -45,6 +47,7 @@ from world_error.domain.relationships.rules import SignificantAction
 from world_error.domain.shared.kernel import (
     CharacterId,
     DomainError,
+    ErrorCode,
     EventId,
     ItemId,
     LocationKey,
@@ -115,6 +118,11 @@ def build_parser() -> argparse.ArgumentParser:
     inspect.add_argument("--world-id", dest="world_id", required=True)
     inspect.add_argument("--character-id", dest="character_id", required=True)
     inspect.add_argument("--target", dest="target", required=True)
+
+    interpret = subparsers.add_parser("interpret", help="распознать естественный ввод как player intent")
+    interpret.add_argument("--world-id", dest="world_id", required=True)
+    interpret.add_argument("--character-id", dest="character_id", required=True)
+    interpret.add_argument("--text", dest="text", required=True)
 
     share = subparsers.add_parser("share", help="передать знание другому персонажу")
     share.add_argument("--world-id", dest="world_id", required=True)
@@ -366,6 +374,42 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
                 character_id=CharacterId(args.character_id),
                 target_key=args.target,
             )
+        )
+
+    if args.command == "interpret":
+        world_instance_id = WorldInstanceId(args.world_id)
+        character_id = CharacterId(args.character_id)
+        character = world_engine.get_character(world_instance_id, character_id)
+        location = world_engine.view_location(
+            world_instance_id,
+            observer_id=character_id,
+            location_key=character.location_key,
+        )
+        context = IntentContext(
+            player_id=character.player_id,
+            character_id=character_id,
+            location_id=str(character.location_key),
+            visible_objects=tuple(
+                [presence.character_id for presence in location.characters]
+                + [presence.npc_id for presence in location.npcs]
+                + [item.key for item in location.items]
+            ),
+            allowed_actions=tuple(intent_type.value for intent_type in INTENT_HANDLERS),
+        )
+        intent = container.intent_interpreter.interpret(args.text, context)
+        if intent is None:
+            return _print_action_result(
+                ActionResult.failure(
+                    "INTERPRET",
+                    DomainError(ErrorCode.INVALID_ACTION, "input could not be interpreted as a supported intent"),
+                )
+            )
+        print(
+            f"intent={intent.type.value} actor_id={intent.actor_id} "
+            f"target={intent.target} params={dict(intent.params)}"
+        )
+        return _print_action_result(
+            world_engine.handle_intent(world_instance_id, character_id, intent)
         )
 
     if args.command == "share":

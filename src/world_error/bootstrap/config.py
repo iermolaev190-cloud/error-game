@@ -6,6 +6,7 @@ pydantic используется только здесь и в интерфей
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,3 +23,4 @@ class Settings(BaseSettings):
     env: InstanceEnvironment = InstanceEnvironment.DEV
     db_url: str = "sqlite+pysqlite:///./world_error.db"
     content_dir: Path = Path("content")
+    ai_provider: Literal["stub", "mock"] = "stub"

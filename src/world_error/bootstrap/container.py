@@ -9,6 +9,10 @@ from typing import Callable
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
+from world_error.application.ai.command_parser import CommandIntentParser
+from world_error.application.ai.interpreter import FallbackIntentInterpreter, IntentInterpreter
+from world_error.application.ai.providers.mock import MockIntentProvider
+from world_error.application.ai.providers.stub import StubIntentProvider
 from world_error.application.services.world_engine import WorldEngine
 from world_error.bootstrap.config import Settings
 from world_error.domain.content.catalog import ContentCatalog
@@ -25,6 +29,7 @@ class Container:
     catalog: ContentCatalog
     uow_factory: Callable[[], SqlAlchemyUnitOfWork]
     world_engine: WorldEngine
+    intent_interpreter: IntentInterpreter
 
     @classmethod
     def build(cls, settings: Settings | None = None) -> "Container":
@@ -36,6 +41,16 @@ class Container:
         def uow_factory() -> SqlAlchemyUnitOfWork:
             return SqlAlchemyUnitOfWork(session_factory)
 
+        provider = (
+            MockIntentProvider()
+            if settings.ai_provider == "mock"
+            else StubIntentProvider()
+        )
+        intent_interpreter = FallbackIntentInterpreter(
+            provider=provider,
+            fallback=CommandIntentParser(),
+        )
+
         return cls(
             settings=settings,
             engine=engine,
@@ -43,6 +58,7 @@ class Container:
             catalog=catalog,
             uow_factory=uow_factory,
             world_engine=WorldEngine(uow_factory=uow_factory, catalog=catalog),
+            intent_interpreter=intent_interpreter,
         )
 
     def dispose(self) -> None:

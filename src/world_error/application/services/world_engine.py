@@ -24,6 +24,7 @@ from datetime import datetime
 from typing import Any, Callable, Mapping, Sequence
 
 from world_error.application.action_result import ActionResult
+from world_error.application.ai.registry import resolve_handler
 from world_error.application.commands.apply_significant_action import (
     ApplySignificantActionCommand,
     ApplySignificantActionHandler,
@@ -666,6 +667,31 @@ class WorldEngine:
         if outcome.limit_reached:
             raise DomainError(ErrorCode.CASCADE_LIMIT, "world pump cascade limit reached")
         return instance
+
+    def handle_intent(
+        self,
+        world_instance_id: WorldInstanceId,
+        actor_id: CharacterId,
+        intent,
+    ) -> ActionResult:  # noqa: ANN001
+        resolved = resolve_handler(intent.type)
+        if resolved is None:
+            return ActionResult.failure(
+                "HANDLE_INTENT",
+                DomainError(ErrorCode.INVALID_ACTION, f"unsupported player intent: {intent.type}"),
+            )
+        if intent.actor_id != actor_id:
+            return ActionResult.failure(
+                "HANDLE_INTENT",
+                DomainError(ErrorCode.NOT_ALLOWED, "intent actor does not match request actor"),
+            )
+
+        parameters = dict(intent.params)
+        parameters[resolved.actor_param] = actor_id
+        if intent.target is not None and resolved.target_param is not None:
+            parameters[resolved.target_param] = intent.target
+        handler = getattr(self, resolved.method_name)
+        return handler(world_instance_id, **parameters)
 
     # --- команды коммита 2 -------------------------------------------------
 
