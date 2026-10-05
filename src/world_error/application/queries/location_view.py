@@ -2,7 +2,8 @@
 
 Что видит любой, кто физически находится в локации: сама локация (имя, тип,
 описание из контента), её `discovery_state` как факт мира, присутствующие
-персонажи (имя и активность) и присутствующие NPC (имя и статус).
+персонажи (имя и активность), NPC (имя и статус) и публичные предметы (имя/key).
+Скрытые предметы и ownership в проекцию не попадают.
 
 Чего в проекции нет и не может быть: знания, целей NPC и канонической истины.
 Это структурная гарантия, а не соглашение — в `LocationView`, `CharacterPresence`
@@ -24,6 +25,7 @@ from typing import Callable
 
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.content.catalog import ContentCatalog
+from world_error.domain.items.item import ItemVisibility
 from world_error.domain.npcs.npc import NpcStatus
 from world_error.domain.shared.kernel import (
     CharacterId,
@@ -56,6 +58,14 @@ class NpcPresence:
 
 
 @dataclass(frozen=True, slots=True)
+class ItemPresence:
+    """Public item presence only: no owner or hidden definition details."""
+
+    key: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
 class LocationView:
     """Публичные факты локации. Ни знания, ни truth здесь нет по построению."""
 
@@ -67,6 +77,7 @@ class LocationView:
     discovery_state: str
     characters: tuple[CharacterPresence, ...]
     npcs: tuple[NpcPresence, ...]
+    items: tuple[ItemPresence, ...]
 
 
 class LocationViewQuery:
@@ -115,6 +126,11 @@ class LocationViewQuery:
                 for npc in uow.npcs.list_in_location(instance.id, location_key)
                 if npc.status is NpcStatus.ACTIVE
             )
+            items_here = tuple(
+                ItemPresence(key=item.key, name=self._catalog.item_definition(item.key).name)
+                for item in uow.items.list_at_location(instance.id, location_key)
+                if self._catalog.item_definition(item.key).visibility is ItemVisibility.PUBLIC
+            )
 
             return LocationView(
                 world_instance_id=str(instance.id),
@@ -125,4 +141,5 @@ class LocationViewQuery:
                 discovery_state=location_state.discovery_state.value,
                 characters=players_here,
                 npcs=npcs_here,
+                items=items_here,
             )

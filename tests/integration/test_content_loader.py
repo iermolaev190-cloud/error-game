@@ -49,6 +49,17 @@ FACTION: dict[str, Any] = {
     "hidden_goal": "Скрыть результаты.",
 }
 
+ITEM: dict[str, Any] = {
+    "key": "medkit",
+    "name": "Аптечка",
+    "description": "Расходуемый медицинский набор.",
+    "weight": 250,
+    "type": "CONSUMABLE",
+    "stackable": True,
+    "unique": False,
+    "visibility": "PUBLIC",
+}
+
 
 def write_content(
     root: Path,
@@ -58,6 +69,7 @@ def write_content(
     information: list[dict[str, Any]] | None = None,
     npcs: list[dict[str, Any]] | None = None,
     factions: list[dict[str, Any]] | None = None,
+    items: list[dict[str, Any]] | None = None,
 ) -> Path:
     (root / "locations").mkdir(parents=True, exist_ok=True)
     (root / "information").mkdir(parents=True, exist_ok=True)
@@ -81,6 +93,13 @@ def write_content(
             (root / "factions" / name).write_text(
                 json.dumps(item, ensure_ascii=False), encoding="utf-8"
             )
+    if items is not None:
+        (root / "items").mkdir(parents=True, exist_ok=True)
+        for index, item in enumerate(items):
+            name = f"{index:02d}_{item.get('key', 'item')}.json"
+            (root / "items" / name).write_text(
+                json.dumps(item, ensure_ascii=False), encoding="utf-8"
+            )
     return root
 
 
@@ -99,6 +118,72 @@ def test_loads_minimal_content(tmp_path: Path) -> None:
     assert catalog.start_location == "base"
     assert catalog.location("base").name == "Лагерь"
     assert catalog.information_definition("clue").content == "Корпус вскрыт."
+
+
+def test_content_without_item_definitions_or_spawns_is_valid(tmp_path: Path) -> None:
+    catalog = load_content_catalog(write_content(tmp_path / "c", locations=[LOCATION]))
+    assert catalog.items == {}
+    assert catalog.location("base").items == ()
+
+
+def test_loads_item_definitions_and_location_spawns(content_dir: Path) -> None:
+    catalog = load_content_catalog(content_dir)
+
+    assert set(catalog.items) == {"credits", "flashlight", "medkit"}
+    assert catalog.item_definition("credits").stackable is True
+    assert catalog.item_definition("credits").weight == 0
+    assert catalog.item_definition("flashlight").stackable is False
+    assert catalog.location("base").items == ("credits", "medkit")
+    assert catalog.location("forest").items == ("medkit", "flashlight")
+    assert catalog.location("old_station").items == ("flashlight", "credits")
+
+
+def test_location_spawn_with_unknown_item_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ContentError, match="references unknown item"):
+        load_content_catalog(
+            write_content(
+                tmp_path / "c",
+                locations=[dict(LOCATION, items=["missing_item"])],
+                items=[ITEM],
+            )
+        )
+
+
+def test_unique_item_cannot_be_materialized_twice(tmp_path: Path) -> None:
+    unique_item = dict(
+        ITEM,
+        key="key_a17",
+        type="OTHER",
+        stackable=False,
+        unique=True,
+    )
+    with pytest.raises(ContentError, match="unique item .* materialized more than once"):
+        load_content_catalog(
+            write_content(
+                tmp_path / "c",
+                locations=[dict(LOCATION, items=["key_a17", "key_a17"])],
+                items=[unique_item],
+            )
+        )
+
+
+def test_duplicate_item_definition_key_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ContentError, match="duplicate item key"):
+        load_content_catalog(
+            write_content(
+                tmp_path / "c",
+                locations=[LOCATION],
+                items=[ITEM, dict(ITEM, name="Дубликат")],
+            )
+        )
+
+
+def test_unique_item_definition_cannot_be_stackable(tmp_path: Path) -> None:
+    broken = dict(ITEM, key="unique_key", stackable=True, unique=True)
+    with pytest.raises(ContentError, match="unique items cannot be stackable"):
+        load_content_catalog(
+            write_content(tmp_path / "c", locations=[LOCATION], items=[broken])
+        )
 
 
 @pytest.mark.parametrize(

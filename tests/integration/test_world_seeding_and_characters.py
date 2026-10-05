@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Callable
+
 import pytest
 
 from world_error.application.services.world_engine import WorldEngine
@@ -12,9 +14,13 @@ from world_error.domain.shared.kernel import (
     ErrorCode,
     LocationKey,
 )
+from world_error.domain.items.item import ItemOwnerType
+from world_error.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 
 
-def test_world_creation_seeds_locations_and_information(world_engine: WorldEngine) -> None:
+def test_world_creation_seeds_locations_and_information(
+    world_engine: WorldEngine, uow_factory: Callable[[], SqlAlchemyUnitOfWork]
+) -> None:
     instance = world_engine.create_instance(telegram_chat_id=-1001, seed=42)
 
     assert instance.content_version == "v1"
@@ -33,6 +39,15 @@ def test_world_creation_seeds_locations_and_information(world_engine: WorldEngin
     assert {faction.key for faction in factions} == {"council", "expedition", "union"}
     expedition = next(faction for faction in factions if faction.key == "expedition")
     assert expedition.location_keys == (LocationKey("base"), LocationKey("forest"))
+
+    with uow_factory() as uow:
+        base_items = uow.items.list_at_location(instance.id, LocationKey("base"))
+        forest_items = uow.items.list_at_location(instance.id, LocationKey("forest"))
+        station_items = uow.items.list_at_location(instance.id, LocationKey("old_station"))
+    assert {item.key for item in base_items} == {"credits", "medkit"}
+    assert {item.key for item in forest_items} == {"medkit", "flashlight"}
+    assert {item.key for item in station_items} == {"credits", "flashlight"}
+    assert all(item.owner_type is ItemOwnerType.LOCATION for item in base_items + forest_items + station_items)
 
     events = world_engine.get_events(instance.id)
     assert [event.type.value for event in events] == ["WORLD_INSTANCE_CREATED"]

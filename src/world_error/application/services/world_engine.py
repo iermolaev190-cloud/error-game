@@ -37,6 +37,7 @@ from world_error.application.commands.change_faction_status import (
     ChangeFactionStatusCommand,
     ChangeFactionStatusHandler,
 )
+from world_error.application.commands.drop_item import DropItemCommand, DropItemHandler
 from world_error.application.commands.kill_character import (
     KillCharacterCommand,
     KillCharacterHandler,
@@ -91,6 +92,8 @@ from world_error.application.commands.transform_consequence import (
     TransformConsequenceCommand,
     TransformConsequenceHandler,
 )
+from world_error.application.commands.take_item import TakeItemCommand, TakeItemHandler
+from world_error.application.commands.trade_items import TradeItemsCommand, TradeItemsHandler
 from world_error.application.commands.schedule_event import ScheduleEventCommand, ScheduleEventHandler
 from world_error.application.commands.share_knowledge import (
     ShareKnowledgeCommand,
@@ -99,6 +102,7 @@ from world_error.application.commands.share_knowledge import (
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.application.queries.location_view import LocationView, LocationViewQuery
 from world_error.application.queries.faction_view import FactionView, FactionViewQuery
+from world_error.application.queries.inventory_view import InventoryView, InventoryViewQuery
 from world_error.application.services.consequence_engine import (
     ConsequenceEngine,
     PumpOutcome,
@@ -141,6 +145,7 @@ from world_error.domain.shared.kernel import (
     ErrorCode,
     EventId,
     FactionId,
+    ItemId,
     LocationKey,
     LegacyDocumentId,
     NpcId,
@@ -248,6 +253,25 @@ class WorldEngine:
         )
         self._location_view = LocationViewQuery(uow_factory=uow_factory, catalog=catalog)
         self._faction_view = FactionViewQuery(uow_factory=uow_factory, catalog=catalog)
+        self._inventory_view = InventoryViewQuery(uow_factory=uow_factory, catalog=catalog)
+        self._take_item = TakeItemHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._drop_item = DropItemHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._trade_items = TradeItemsHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
         self._change_relationship = ChangeRelationshipHandler(
             uow_factory=uow_factory,
             clock=self._clock,
@@ -339,6 +363,9 @@ class WorldEngine:
         self._npc_observe = self._pumped(self._npc_observe)
         self._npc_change_status = self._pumped(self._npc_change_status)
         self._change_relationship = self._pumped(self._change_relationship)
+        self._take_item = self._pumped(self._take_item)
+        self._drop_item = self._pumped(self._drop_item)
+        self._trade_items = self._pumped(self._trade_items)
         self._apply_significant_action = self._pumped(self._apply_significant_action)
         self._schedule_consequence = self._pumped(self._schedule_consequence)
         self._cancel_consequence = self._pumped(self._cancel_consequence)
@@ -737,6 +764,81 @@ class WorldEngine:
             )
         )
 
+    def take_item(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        character_id: CharacterId,
+        item_id: ItemId,
+        quantity: int | None = None,
+    ) -> ActionResult:
+        return self._take_item.handle(
+            TakeItemCommand(
+                world_instance_id=world_instance_id,
+                character_id=character_id,
+                item_id=item_id,
+                quantity=quantity,
+            )
+        )
+
+    def drop_item(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        character_id: CharacterId,
+        item_id: ItemId,
+        quantity: int | None = None,
+    ) -> ActionResult:
+        return self._drop_item.handle(
+            DropItemCommand(
+                world_instance_id=world_instance_id,
+                character_id=character_id,
+                item_id=item_id,
+                quantity=quantity,
+            )
+        )
+
+    def trade_items(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        initiator_id: CharacterId,
+        counterparty_id: CharacterId,
+        offered_item_id: ItemId,
+        offered_quantity: int | None = None,
+        requested_item_id: ItemId | None = None,
+        requested_quantity: int | None = None,
+    ) -> ActionResult:
+        return self._trade_items.handle(
+            TradeItemsCommand(
+                world_instance_id=world_instance_id,
+                initiator_id=initiator_id,
+                counterparty_id=counterparty_id,
+                offered_item_id=offered_item_id,
+                offered_quantity=offered_quantity,
+                requested_item_id=requested_item_id,
+                requested_quantity=requested_quantity,
+            )
+        )
+
+    def give_item(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        giver_id: CharacterId,
+        receiver_id: CharacterId,
+        item_id: ItemId,
+        quantity: int | None = None,
+    ) -> ActionResult:
+        """One-way GIVE uses ITEM_TRANSFERRED without a requested counter-item."""
+        return self.trade_items(
+            world_instance_id,
+            initiator_id=giver_id,
+            counterparty_id=receiver_id,
+            offered_item_id=item_id,
+            offered_quantity=quantity,
+        )
+
     # --- команды NPC (коммит 4) --------------------------------------------
 
     def npc_move(
@@ -1108,6 +1210,11 @@ class WorldEngine:
                     world_instance_id, SubjectType.CHARACTER, str(character_id)
                 )
             )
+
+    def get_inventory(
+        self, world_instance_id: WorldInstanceId, character_id: CharacterId
+    ) -> InventoryView:
+        return self._inventory_view.get(world_instance_id, character_id)
 
     def get_npc(self, world_instance_id: WorldInstanceId, npc_id: NpcId) -> Npc:
         with self._uow_factory() as uow:

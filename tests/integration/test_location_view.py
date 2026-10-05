@@ -9,12 +9,14 @@ import pytest
 
 from world_error.application.queries.location_view import (
     CharacterPresence,
+    ItemPresence,
     LocationView,
     NpcPresence,
 )
 from world_error.application.services.world_engine import WorldEngine
 from world_error.domain.characters.character import CharacterActivity, CharacterLifecycle
 from world_error.domain.content.catalog import ContentCatalog
+from world_error.domain.items.item import ItemVisibility
 from world_error.domain.npcs.npc import NpcStatus
 from world_error.domain.shared.kernel import (
     CharacterId,
@@ -91,6 +93,9 @@ def test_location_view_contains_public_facts(world_engine: WorldEngine) -> None:
     assert {presence.character_id for presence in view.characters} == {str(first), str(second)}
     assert all(presence.activity == "ACTIVE" for presence in view.characters)
     assert all(presence.name for presence in view.characters)
+    assert {item.key for item in view.items} == {"flashlight", "credits"}
+    assert all(item.name for item in view.items)
+    assert all(not hasattr(item, "owner_id") for item in view.items)
 
 
 def test_location_view_has_no_knowledge_or_truth_fields(
@@ -106,6 +111,7 @@ def test_location_view_has_no_knowledge_or_truth_fields(
         "discovery_state",
         "characters",
         "npcs",
+        "items",
     }
     assert {field.name for field in dataclasses.fields(CharacterPresence)} == {
         "character_id",
@@ -117,6 +123,7 @@ def test_location_view_has_no_knowledge_or_truth_fields(
         "name",
         "status",
     }
+    assert {field.name for field in dataclasses.fields(ItemPresence)} == {"key", "name"}
 
     definition = catalog.information_definition("damaged_radio")
     instance = make_world(world_engine)
@@ -131,6 +138,32 @@ def test_location_view_has_no_knowledge_or_truth_fields(
     assert definition.truth not in rendered
     assert definition.content not in rendered
     assert TRUTH_FRAGMENT not in rendered
+
+
+def test_location_view_hides_secret_items_and_owner_fields(
+    uow_factory: Callable[[], SqlAlchemyUnitOfWork], catalog: ContentCatalog
+) -> None:
+    from dataclasses import replace
+
+    secret_catalog = replace(
+        catalog,
+        items={
+            **catalog.items,
+            "flashlight": replace(catalog.item_definition("flashlight"), visibility=ItemVisibility.SECRET),
+        },
+    )
+    world_engine = WorldEngine(uow_factory=uow_factory, catalog=secret_catalog)
+    instance = make_world(world_engine)
+    observer = make_character(world_engine, instance, "player-a")
+    assert world_engine.move_character(
+        instance.id, character_id=observer, to_location_key=FOREST
+    ).ok is True
+
+    view = world_engine.view_location(instance.id, observer_id=observer, location_key=FOREST)
+
+    assert {item.key for item in view.items} == {"medkit"}
+    assert {field.name for field in dataclasses.fields(ItemPresence)} == {"key", "name"}
+    assert "owner_id" not in repr(view)
 
 
 def test_location_view_requires_observer_in_location(world_engine: WorldEngine) -> None:

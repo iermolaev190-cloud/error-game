@@ -25,6 +25,7 @@ from world_error.domain.consequences.vocabulary import (
 from world_error.domain.events.event import EventType
 from world_error.domain.factions.faction import FactionDefinition
 from world_error.domain.information.information import InformationDefinition
+from world_error.domain.items.item import ItemDefinition, ItemType, ItemVisibility
 from world_error.domain.locations.location import LocationDefinition
 from world_error.domain.npcs.npc import NpcDefinition
 from world_error.domain.shared.kernel import DomainError, LocationKey
@@ -32,6 +33,7 @@ from world_error.domain.shared.kernel import DomainError, LocationKey
 MANIFEST_FILE = "manifest.json"
 LOCATIONS_DIR = "locations"
 INFORMATION_DIR = "information"
+ITEMS_DIR = "items"
 NPCS_DIR = "npcs"
 FACTIONS_DIR = "factions"
 CONSEQUENCES_DIR = "consequences"
@@ -44,6 +46,7 @@ def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
 
     locations = _load_locations(root / LOCATIONS_DIR)
     information = _load_information(root / INFORMATION_DIR)
+    items = _load_items(root / ITEMS_DIR)
     npcs = _load_npcs(root / NPCS_DIR)
     factions = _load_factions(root / FACTIONS_DIR)
     rules = _load_consequences(root / CONSEQUENCES_DIR)
@@ -53,6 +56,7 @@ def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
         start_location=LocationKey(_require_str(manifest, "start_location", manifest_path)),
         locations=locations,
         information=information,
+        items=items,
         npcs=npcs,
         factions=factions,
         rules=rules,
@@ -69,12 +73,19 @@ def _load_locations(directory: Path) -> dict[LocationKey, LocationDefinition]:
         connections = frozenset(
             LocationKey(str(item)) for item in _require_list(data, "connections", path)
         )
+        raw_items = data.get("items", [])
+        if not isinstance(raw_items, list):
+            raise ContentError(f"content file {path} field 'items' must be a list")
+        item_keys = tuple(
+            _require_string_value(item, "location item key", path) for item in raw_items
+        )
         locations[key] = LocationDefinition(
             key=key,
             name=_require_str(data, "name", path),
             type=_require_str(data, "type", path),
             description=_require_str(data, "description", path),
             connections=connections,
+            items=item_keys,
         )
     return locations
 
@@ -99,6 +110,32 @@ def _load_information(directory: Path) -> dict[str, InformationDefinition]:
             truth=_require_str(data, "truth", path),
             document_date=_optional_date(data.get("document_date")),
         )
+    return items
+
+
+def _load_items(directory: Path) -> dict[str, ItemDefinition]:
+    """Load immutable item definitions; an empty or absent catalog is valid."""
+    items: dict[str, ItemDefinition] = {}
+    if not directory.is_dir():
+        return items
+    for path in _json_files(directory, require_any=False):
+        data = _read_object(path)
+        key = _require_str(data, "key", path)
+        if key in items:
+            raise ContentError(f"duplicate item key {key!r} ({path})")
+        try:
+            items[key] = ItemDefinition(
+                key=key,
+                name=_require_str(data, "name", path),
+                description=_require_str(data, "description", path),
+                weight=_require_int(data, "weight", path),
+                type=ItemType(_require_str(data, "type", path)),
+                stackable=_require_bool(data, "stackable", path),
+                unique=_require_bool(data, "unique", path),
+                visibility=ItemVisibility(data.get("visibility", ItemVisibility.PUBLIC.value)),
+            )
+        except (TypeError, ValueError) as exc:
+            raise ContentError(f"invalid item definition {key!r}: {exc} ({path})") from exc
     return items
 
 
@@ -236,4 +273,24 @@ def _require_list(data: dict[str, Any], field: str, path: Path) -> list[Any]:
     value = data.get(field)
     if not isinstance(value, list):
         raise ContentError(f"content file {path} must define list field {field!r}")
+    return value
+
+
+def _require_string_value(value: Any, field: str, path: Path) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ContentError(f"content file {path} field {field!r} must be a non-empty string")
+    return value
+
+
+def _require_int(data: dict[str, Any], field: str, path: Path) -> int:
+    value = data.get(field)
+    if type(value) is not int:
+        raise ContentError(f"content file {path} field {field!r} must be an integer")
+    return value
+
+
+def _require_bool(data: dict[str, Any], field: str, path: Path) -> bool:
+    value = data.get(field)
+    if type(value) is not bool:
+        raise ContentError(f"content file {path} field {field!r} must be a boolean")
     return value

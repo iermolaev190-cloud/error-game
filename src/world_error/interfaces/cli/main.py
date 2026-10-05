@@ -46,6 +46,7 @@ from world_error.domain.shared.kernel import (
     CharacterId,
     DomainError,
     EventId,
+    ItemId,
     LocationKey,
     NpcId,
     WorldInstanceId,
@@ -125,6 +126,31 @@ def build_parser() -> argparse.ArgumentParser:
     show_location.add_argument("--world-id", dest="world_id", required=True)
     show_location.add_argument("--character-id", dest="character_id", required=True)
     show_location.add_argument("--location", dest="location", required=True)
+
+    show_inventory = subparsers.add_parser(
+        "show-inventory", help="показать инвентарь персонажа (dev CLI, без identity check)"
+    )
+    show_inventory.add_argument("--world-id", dest="world_id", required=True)
+    show_inventory.add_argument("--character-id", dest="character_id", required=True)
+
+    for command_name, help_text in (
+        ("take", "взять предмет из текущей локации"),
+        ("drop", "положить свой предмет в текущую локацию"),
+    ):
+        item_action = subparsers.add_parser(command_name, help=help_text)
+        item_action.add_argument("--world-id", dest="world_id", required=True)
+        item_action.add_argument("--character-id", dest="character_id", required=True)
+        item_action.add_argument("--item-id", dest="item_id", required=True)
+        item_action.add_argument("--quantity", dest="quantity", type=int, default=None)
+
+    trade = subparsers.add_parser("trade", help="обменяться предметами/credits в одной локации")
+    trade.add_argument("--world-id", dest="world_id", required=True)
+    trade.add_argument("--character-id", dest="character_id", required=True)
+    trade.add_argument("--to-character-id", dest="to_character_id", required=True)
+    trade.add_argument("--offer-item-id", dest="offer_item_id", required=True)
+    trade.add_argument("--offer-quantity", dest="offer_quantity", type=int, default=None)
+    trade.add_argument("--request-item-id", dest="request_item_id", default=None)
+    trade.add_argument("--request-quantity", dest="request_quantity", type=int, default=None)
 
     npc_move = subparsers.add_parser("npc-move", help="переместить NPC")
     npc_move.add_argument("--world-id", dest="world_id", required=True)
@@ -369,7 +395,55 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
         print(f"npcs_total={len(view.npcs)}")
         for npc_presence in view.npcs:
             print(f"NPC {npc_presence.npc_id} {npc_presence.name} {npc_presence.status}")
+        print(f"items_total={len(view.items)}")
+        for item in view.items:
+            print(f"ITEM {item.key} {item.name}")
         return 0
+
+    if args.command == "show-inventory":
+        view = world_engine.get_inventory(
+            WorldInstanceId(args.world_id), CharacterId(args.character_id)
+        )
+        print(f"world_instance_id={view.world_instance_id}")
+        print(f"items_total={len(view.items)}")
+        for item in view.items:
+            print(f"ITEM {item.key} {item.name} quantity={item.quantity}")
+        return 0
+
+    if args.command == "take":
+        return _print_action_result(
+            world_engine.take_item(
+                WorldInstanceId(args.world_id),
+                character_id=CharacterId(args.character_id),
+                item_id=ItemId(args.item_id),
+                quantity=args.quantity,
+            )
+        )
+
+    if args.command == "drop":
+        return _print_action_result(
+            world_engine.drop_item(
+                WorldInstanceId(args.world_id),
+                character_id=CharacterId(args.character_id),
+                item_id=ItemId(args.item_id),
+                quantity=args.quantity,
+            )
+        )
+
+    if args.command == "trade":
+        return _print_action_result(
+            world_engine.trade_items(
+                WorldInstanceId(args.world_id),
+                initiator_id=CharacterId(args.character_id),
+                counterparty_id=CharacterId(args.to_character_id),
+                offered_item_id=ItemId(args.offer_item_id),
+                offered_quantity=args.offer_quantity,
+                requested_item_id=(
+                    None if args.request_item_id is None else ItemId(args.request_item_id)
+                ),
+                requested_quantity=args.request_quantity,
+            )
+        )
 
     if args.command == "npc-move":
         return _print_action_result(

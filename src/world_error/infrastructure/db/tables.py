@@ -332,6 +332,52 @@ legacy_items = Table(
     Index("ix_legacy_items_location", "world_instance_id", "location_key"),
 )
 
+items = Table(
+    "items",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column(
+        "world_instance_id",
+        String(64),
+        ForeignKey("world_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("key", String(64), nullable=False),
+    Column("owner_type", String(16), nullable=False),
+    Column("owner_id", String(64), nullable=True),
+    Column("location_key", String(64), nullable=True),
+    Column("quantity", Integer, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_items_instance_id"),
+    CheckConstraint(
+        "owner_type IN ('CHARACTER', 'LOCATION', 'NONE')",
+        name="ck_items_owner_type",
+    ),
+    CheckConstraint(
+        "quantity > 0",
+        name="ck_items_positive_quantity",
+    ),
+    CheckConstraint(
+        "(owner_type = 'CHARACTER' AND owner_id IS NOT NULL AND location_key IS NULL) OR "
+        "(owner_type = 'LOCATION' AND owner_id IS NULL AND location_key IS NOT NULL) OR "
+        "(owner_type = 'NONE' AND owner_id IS NULL)",
+        name="ck_items_owner_shape",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "location_key"],
+        ["location_states.world_instance_id", "location_states.key"],
+        name="fk_items_location",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "owner_id"],
+        ["characters.world_instance_id", "characters.id"],
+        name="fk_items_character_owner",
+    ),
+    Index("ix_items_owner", "world_instance_id", "owner_type", "owner_id"),
+    Index("ix_items_location", "world_instance_id", "location_key"),
+)
+
 consequences = Table(
     "consequences",
     metadata,

@@ -17,6 +17,7 @@ InformationId = NewType("InformationId", str)
 KnowledgeId = NewType("KnowledgeId", str)
 NpcId = NewType("NpcId", str)
 FactionId = NewType("FactionId", str)
+ItemId = NewType("ItemId", str)
 RelationshipId = NewType("RelationshipId", str)
 ConsequenceId = NewType("ConsequenceId", str)
 ScheduledEventId = NewType("ScheduledEventId", str)
@@ -57,6 +58,11 @@ def new_npc_id() -> NpcId:
 def new_faction_id() -> FactionId:
     """Новый идентификатор фракции."""
     return FactionId(f"fac_{uuid.uuid4().hex}")
+
+
+def new_item_id() -> ItemId:
+    """Новый идентификатор экземпляра предмета."""
+    return ItemId(f"itm_{uuid.uuid4().hex}")
 
 
 def new_relationship_id() -> RelationshipId:

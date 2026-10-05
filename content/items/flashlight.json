@@ -1,0 +1,10 @@
+{
+  "key": "flashlight",
+  "name": "Фонарик",
+  "description": "Простой переносной фонарь.",
+  "weight": 300,
+  "type": "TOOL",
+  "stackable": false,
+  "unique": false,
+  "visibility": "PUBLIC"
+}

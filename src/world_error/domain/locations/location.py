@@ -40,6 +40,7 @@ class LocationDefinition:
     type: str
     description: str
     connections: frozenset[LocationKey]
+    items: tuple[str, ...] = ()
 
 
 @dataclass(slots=True)

@@ -45,7 +45,10 @@ def test_alembic_upgrade_head_on_clean_database(
         tables = set(inspector.get_table_names())
         character_columns = {column["name"] for column in inspector.get_columns("characters")}
         relationship_columns = {column["name"] for column in inspector.get_columns("relationships")}
+        item_columns = {column["name"] for column in inspector.get_columns("items")}
         character_checks = {check["name"] for check in inspector.get_check_constraints("characters")}
+        item_checks = {check["name"] for check in inspector.get_check_constraints("items")}
+        item_foreign_keys = inspector.get_foreign_keys("items")
     finally:
         db_engine.dispose()
 
@@ -66,8 +69,14 @@ def test_alembic_upgrade_head_on_clean_database(
         "legacy_items",
         "factions",
         "faction_locations",
+        "items",
     } <= tables
     assert "visibility" in relationship_columns
+    assert {"owner_type", "owner_id", "location_key", "quantity"} <= item_columns
+    assert {"ck_items_owner_type", "ck_items_positive_quantity", "ck_items_owner_shape"} <= item_checks
+    item_fk_columns = {tuple(foreign_key["constrained_columns"]) for foreign_key in item_foreign_keys}
+    assert ("world_instance_id", "location_key") in item_fk_columns
+    assert ("world_instance_id", "owner_id") in item_fk_columns
     assert {"death_event_id", "death_cause_event_id"} <= character_columns
     assert "ck_characters_death_references" in character_checks
 

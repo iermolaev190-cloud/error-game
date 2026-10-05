@@ -26,6 +26,7 @@ from world_error.domain.consequences.vocabulary import (
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.factions.faction import Faction, FactionStatus
 from world_error.domain.information.information import Information
+from world_error.domain.items.item import Item, ItemOwnerType
 from world_error.domain.knowledge.knowledge import (
     ClaimType,
     Knowledge,
@@ -50,6 +51,7 @@ from world_error.domain.shared.kernel import (
     EventId,
     FactionId,
     InformationId,
+    ItemId,
     KnowledgeId,
     LocationKey,
     LegacyDocumentId,
@@ -417,6 +419,37 @@ def faction_from_row(row: dict, location_keys: tuple[LocationKey, ...] = ()) -> 
         key=row["key"],
         status=FactionStatus(row["status"]),
         location_keys=location_keys,
+        created_at=as_utc(row["created_at"]),
+        updated_at=as_utc(row["updated_at"]),
+    )
+
+
+# --- item -----------------------------------------------------------------
+
+
+def item_row(item: Item) -> dict[str, object]:
+    return {
+        "id": str(item.id),
+        "world_instance_id": str(item.world_instance_id),
+        "key": item.key,
+        "owner_type": item.owner_type.value,
+        "owner_id": item.owner_id,
+        "location_key": None if item.location_key is None else str(item.location_key),
+        "quantity": item.quantity,
+        "created_at": item.created_at,
+        "updated_at": item.updated_at,
+    }
+
+
+def item_from_row(row: dict) -> Item:
+    return Item(
+        id=ItemId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        key=row["key"],
+        owner_type=ItemOwnerType(row["owner_type"]),
+        owner_id=row["owner_id"],
+        location_key=(None if row["location_key"] is None else LocationKey(row["location_key"])),
+        quantity=row["quantity"],
         created_at=as_utc(row["created_at"]),
         updated_at=as_utc(row["updated_at"]),
     )

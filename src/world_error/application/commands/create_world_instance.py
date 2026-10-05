@@ -6,17 +6,21 @@
 При создании мира из контента материализуется instance-состояние:
 * ``LocationState`` для каждой локации (UNDISCOVERED);
 * ``Information`` для каждого информационного объекта (UNDISCOVERED);
-* ``Npc`` для каждого NPC (ACTIVE, в стартовой локации).
+* ``Npc`` для каждого NPC (ACTIVE, в стартовой локации);
+* ``Faction`` для каждой faction definition;
+* ``Item`` instances из item keys в ``LocationDefinition.items``.
 
 Информация и NPC существуют в мире независимо от того, нашёл их кто-то или нет
 (19_MVP §16 design; 05_NPCS §1), поэтому они создаются здесь, а не в момент
-первого взаимодействия. Материализация — часть создания мира, поэтому
+первого взаимодействия. Items создаются только там, где на них ссылается
+content локации; персонажи стартуют с пустым инвентарём. Материализация — часть создания мира, поэтому
 отдельного события не требует: её покрывает ``WORLD_INSTANCE_CREATED``, и
 ``state_version`` остаётся 0.
 """
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import Callable
 
@@ -24,6 +28,7 @@ from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.factions.faction import Faction
+from world_error.domain.items.item import Item, ItemOwnerType
 from world_error.domain.information.information import Information
 from world_error.domain.locations.location import LocationState
 from world_error.domain.npcs.npc import Npc
@@ -31,11 +36,13 @@ from world_error.domain.shared.kernel import (
     Clock,
     EventId,
     FactionId,
+    ItemId,
     InformationId,
     NpcId,
     WorldInstanceId,
     new_event_id,
     new_faction_id,
+    new_item_id,
     new_information_id,
     new_npc_id,
     new_world_instance_id,
@@ -62,6 +69,7 @@ class CreateWorldInstanceHandler:
         new_information_id_factory: Callable[[], InformationId] = new_information_id,
         new_npc_id_factory: Callable[[], NpcId] = new_npc_id,
         new_faction_id_factory: Callable[[], FactionId] = new_faction_id,
+        new_item_id_factory: Callable[[], ItemId] = new_item_id,
     ) -> None:
         self._uow_factory = uow_factory
         self._clock = clock
@@ -71,6 +79,7 @@ class CreateWorldInstanceHandler:
         self._new_information_id = new_information_id_factory
         self._new_npc_id = new_npc_id_factory
         self._new_faction_id = new_faction_id_factory
+        self._new_item_id = new_item_id_factory
 
     def handle(self, command: CreateWorldInstanceCommand) -> WorldInstance:
         now = self._clock.now()
@@ -142,6 +151,24 @@ class CreateWorldInstanceHandler:
                         now=now,
                     )
                 )
+            for location_definition in self._catalog.locations.values():
+                spawn_counts = Counter(location_definition.items)
+                for item_key, count in spawn_counts.items():
+                    item_definition = self._catalog.item_definition(item_key)
+                    quantities = (count,) if item_definition.stackable else (1,) * count
+                    for quantity in quantities:
+                        uow.items.add(
+                            Item.create(
+                                id=self._new_item_id(),
+                                world_instance_id=instance.id,
+                                definition=item_definition,
+                                owner_type=ItemOwnerType.LOCATION,
+                                owner_id=None,
+                                location_key=location_definition.key,
+                                quantity=quantity,
+                                now=now,
+                            )
+                        )
             uow.events.append(event)
             uow.commit()
         return instance

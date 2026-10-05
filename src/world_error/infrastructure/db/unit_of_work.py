@@ -14,6 +14,7 @@ from world_error.infrastructure.db.repositories import (
     SqlEventLogRepository,
     SqlFactionRepository,
     SqlInformationRepository,
+    SqlItemRepository,
     SqlKnowledgeRepository,
     SqlLegacyDocumentRepository,
     SqlLocationStateRepository,
@@ -34,6 +35,7 @@ class SqlAlchemyUnitOfWork:
         self.characters: SqlCharacterRepository
         self.locations: SqlLocationStateRepository
         self.information: SqlInformationRepository
+        self.items: SqlItemRepository
         self.knowledge: SqlKnowledgeRepository
         self.legacy_documents: SqlLegacyDocumentRepository
         self.npcs: SqlNpcRepository
@@ -49,6 +51,7 @@ class SqlAlchemyUnitOfWork:
         self.characters = SqlCharacterRepository(self._session)
         self.locations = SqlLocationStateRepository(self._session)
         self.information = SqlInformationRepository(self._session)
+        self.items = SqlItemRepository(self._session)
         self.knowledge = SqlKnowledgeRepository(self._session)
         self.legacy_documents = SqlLegacyDocumentRepository(self._session)
         self.npcs = SqlNpcRepository(self._session)

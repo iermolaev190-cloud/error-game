@@ -14,6 +14,7 @@ from world_error.domain.consequences.consequence import Consequence
 from world_error.domain.events.log import EventLog
 from world_error.domain.factions.faction import Faction
 from world_error.domain.information.information import Information
+from world_error.domain.items.item import Item, ItemOwnerType
 from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
 from world_error.domain.locations.location import LocationState
 from world_error.domain.legacy.legacy_document import LegacyDocument
@@ -29,6 +30,7 @@ from world_error.domain.shared.kernel import (
     EventId,
     FactionId,
     InformationId,
+    ItemId,
     LocationKey,
     LegacyDocumentId,
     NpcId,
@@ -156,6 +158,36 @@ class FactionRepository(Protocol):
     def list_for_instance(self, world_instance_id: WorldInstanceId) -> Sequence[Faction]: ...
 
     def save(self, faction: Faction) -> None: ...
+
+
+class ItemRepository(Protocol):
+    def add(self, item: Item) -> None: ...
+
+    def get(self, world_instance_id: WorldInstanceId, item_id: ItemId) -> Item: ...
+
+    def list_by_owner(
+        self,
+        world_instance_id: WorldInstanceId,
+        owner_type: ItemOwnerType,
+        owner_id: str | None,
+    ) -> Sequence[Item]: ...
+
+    def list_at_location(
+        self, world_instance_id: WorldInstanceId, location_key: LocationKey
+    ) -> Sequence[Item]: ...
+
+    def find_stack(
+        self,
+        world_instance_id: WorldInstanceId,
+        key: str,
+        owner_type: ItemOwnerType,
+        owner_id: str | None,
+        location_key: LocationKey | None,
+    ) -> Item | None: ...
+
+    def save(self, item: Item) -> None: ...
+
+    def delete(self, item: Item) -> None: ...
 
 
 class RelationshipRepository(Protocol):

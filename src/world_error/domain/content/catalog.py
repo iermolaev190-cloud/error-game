@@ -17,6 +17,7 @@ from world_error.domain.consequences.rules import ConsequenceRule
 from world_error.domain.consequences.vocabulary import ConsequenceEffect
 from world_error.domain.factions.faction import FactionDefinition
 from world_error.domain.information.information import InformationDefinition
+from world_error.domain.items.item import ItemDefinition
 from world_error.domain.knowledge.knowledge import SubjectType
 from world_error.domain.locations.location import LocationDefinition
 from world_error.domain.npcs.npc import NpcDefinition
@@ -36,6 +37,7 @@ class ContentCatalog:
     start_location: LocationKey
     locations: Mapping[LocationKey, LocationDefinition]
     information: Mapping[str, InformationDefinition]
+    items: Mapping[str, ItemDefinition]
     npcs: Mapping[str, NpcDefinition]
     factions: Mapping[str, FactionDefinition]
     rules: Mapping[str, ConsequenceRule]
@@ -48,6 +50,7 @@ class ContentCatalog:
         start_location: LocationKey,
         locations: Mapping[LocationKey, LocationDefinition],
         information: Mapping[str, InformationDefinition],
+        items: Mapping[str, ItemDefinition] | None = None,
         npcs: Mapping[str, NpcDefinition] | None = None,
         factions: Mapping[str, FactionDefinition] | None = None,
         rules: Mapping[str, ConsequenceRule] | None = None,
@@ -70,6 +73,21 @@ class ContentCatalog:
                     f"information {information_definition.key!r} is placed in unknown location "
                     f"{information_definition.location_key!r}"
                 )
+        item_definitions = dict(items or {})
+        unique_spawns: set[str] = set()
+        for location in locations.values():
+            for item_key in location.items:
+                item_definition = item_definitions.get(item_key)
+                if item_definition is None:
+                    raise ContentError(
+                        f"location {location.key!r} references unknown item {item_key!r}"
+                    )
+                if item_definition.unique:
+                    if item_key in unique_spawns:
+                        raise ContentError(
+                            f"unique item {item_key!r} is materialized more than once"
+                        )
+                    unique_spawns.add(item_key)
         npc_definitions = dict(npcs or {})
         for npc_definition in npc_definitions.values():
             if npc_definition.initial_location not in locations:
@@ -93,6 +111,7 @@ class ContentCatalog:
             start_location=start_location,
             locations=dict(locations),
             information=dict(information),
+            items=item_definitions,
             npcs=npc_definitions,
             factions=faction_definitions,
             rules=rule_items,
@@ -112,6 +131,12 @@ class ContentCatalog:
             return self.information[key]
         except KeyError as exc:
             raise DomainError(ErrorCode.NOT_FOUND, f"unknown information: {key}") from exc
+
+    def item_definition(self, key: str) -> ItemDefinition:
+        try:
+            return self.items[key]
+        except KeyError as exc:
+            raise DomainError(ErrorCode.NOT_FOUND, f"unknown item: {key}") from exc
 
     def npc_definition(self, key: str) -> NpcDefinition:
         try:

@@ -23,6 +23,7 @@ def test_inspect_exposes_document_date_without_exposing_truth(
         start_location=catalog.start_location,
         locations=catalog.locations,
         information=information,
+        items=catalog.items,
         npcs=catalog.npcs,
         rules=catalog.rules,
     )
