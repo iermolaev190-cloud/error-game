@@ -21,9 +21,9 @@ Telegram не содержит игровой логики.
 
 ## Состояние
 
-HEAD: e6fe130 — feat(ai): add intent interpreter layer (коммит 12, Phase 21), завершён.
-Тесты: 455 passed, exit 0.
-Коммит 12 завершён; это обновление PROJECT_STATE.md подготовлено отдельно и не закоммичено.
+HEAD: 7545f15 — feat(ai): add NPC dialogue layer (коммит 13, Phase 22), завершён.
+Тесты: 472 passed, exit 0.
+Коммит 13 завершён; обновление PROJECT_STATE.md будет отдельным chore(state).
 
 Следующий этап — AI NPC dialogue (Phase 22).
 
@@ -60,6 +60,7 @@ HEAD: e6fe130 — feat(ai): add intent interpreter layer (коммит 12, Phase
 - 68acef9 коммит 10 — Simple economy (Phase 19)
 - коммит 11 — Investigation engine (Phase 20)
 - e6fe130 коммит 12 — AI intent interpreter (Phase 21)
+- 7545f15 коммит 13 — AI NPC dialogue (Phase 22)
 
 Миграции: 0001-0010.
 
@@ -143,11 +144,22 @@ HEAD: e6fe130 — feat(ai): add intent interpreter layer (коммит 12, Phase
 - Container собирает interpreter с command-parser fallback.
 - F1/F2/F3 проверены фальсификациями; полный набор: 455 passed.
 
+## Коммит 13: AI NPC dialogue (Phase 22)
+
+- Добавлены `NpcDialogueContext` и builder со scoped knowledge только выбранного NPC; `world_instance_id`, цели без visibility metadata и чужое знание в контекст не передаются.
+- Добавлен `NpcDialogueProvider` с stub/mock/template реализациями; template fallback отвечает нейтрально и без фактов.
+- `WorldEngine.talk_to_npc` проверяет активность Character/NPC и совпадение локаций, возвращает реплику через `ActionResult`; world state, knowledge, tick и events не меняются.
+- `TALK` добавлен как 19-й player intent; CLI получил подкоманду `talk`.
+- `NPC_TALKED` не вводится: диалог read-only и не является изменением мира.
+- F1–F4 подтверждены; полный набор: 472 passed.
+
 ## TODO
 
 - MASTER_SPEC §13: проверить и исправить устаревшую нумерацию ссылки на правила/границы AI.
 - Уточнить для INSPECT различие FACT vs CLAIM и привести реализацию/документацию к единому правилу.
 - Сверить ссылки на фазу AI NPC dialogue: в `19_MVP_V1_FOR_AI.txt` §21 описывает AI interface flow, §22 — Telegram; в `20_TECH_ARCHITECTURE_V1_FOR_AI.txt` §§40–43 не являются разделами AI gateway (AI provider/interpreter/generator находятся в §§17–19).
+- `NpcDefinition.goals` пока не имеет маркировки public/hidden; не передавать цели NPC в AI context до отдельной модели видимости.
+- AI-generated dialogue не проверяется на hallucination; разработать grounding/validation отдельной фазой.
 
 ## Правила работы
 
