@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Callable, Protocol, Sequence
 
+from world_error.application.ports.chat_bindings import ChatBindingRepository
 from world_error.domain.characters.character import Character
 from world_error.domain.investigations.case import (
     Case,
@@ -84,6 +85,10 @@ class CharacterRepository(Protocol):
     ) -> Character | None:
         """Живой персонаж игрока в этом мире (один аккаунт — один персонаж)."""
         ...
+
+    def find_by_instance_and_player(
+        self, world_instance_id: WorldInstanceId, player_id: str
+    ) -> Character | None: ...
 
     def list_by_location(
         self, world_instance_id: WorldInstanceId, location_key: LocationKey
@@ -350,6 +355,7 @@ class UnitOfWork(Protocol):
     """
 
     world_instances: WorldInstanceRepository
+    chat_bindings: ChatBindingRepository
     events: EventLog
     characters: CharacterRepository
     locations: LocationStateRepository

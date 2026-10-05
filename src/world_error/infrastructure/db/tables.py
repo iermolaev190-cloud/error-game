@@ -52,6 +52,20 @@ world_instances = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
+chat_bindings = Table(
+    "chat_bindings",
+    metadata,
+    Column("telegram_chat_id", BigInteger, primary_key=True),
+    Column(
+        "world_instance_id",
+        String(64),
+        ForeignKey("world_instances.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    ),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
 events = Table(
     "events",
     metadata,

@@ -25,3 +25,4 @@ class Settings(BaseSettings):
     content_dir: Path = Path("content")
     ai_provider: Literal["stub", "mock"] = "stub"
     npc_dialogue_provider: Literal["stub", "mock", "template"] = "template"
+    telegram_bot_token: str = ""

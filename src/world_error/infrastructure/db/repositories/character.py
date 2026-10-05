@@ -5,7 +5,11 @@ from __future__ import annotations
 from sqlalchemy import insert, select, update
 from sqlalchemy.orm import Session
 
-from world_error.domain.characters.character import Character, CharacterLifecycle
+from world_error.domain.characters.character import (
+    Character,
+    CharacterActivity,
+    CharacterLifecycle,
+)
 from world_error.domain.shared.kernel import CharacterId, DomainError, ErrorCode, WorldInstanceId
 from world_error.infrastructure.db.repositories._mapping import (
     character_from_row,
@@ -46,6 +50,25 @@ class SqlCharacterRepository:
                     characters.c.player_id == player_id,
                     characters.c.lifecycle == CharacterLifecycle.ALIVE.value,
                 )
+            )
+            .mappings()
+            .first()
+        )
+        return None if row is None else character_from_row(dict(row))
+
+    def find_by_instance_and_player(
+        self, world_instance_id: WorldInstanceId, player_id: str
+    ) -> Character | None:
+        row = (
+            self._session.execute(
+                select(characters)
+                .where(
+                    characters.c.world_instance_id == str(world_instance_id),
+                    characters.c.player_id == player_id,
+                    characters.c.lifecycle == CharacterLifecycle.ALIVE.value,
+                    characters.c.activity == CharacterActivity.ACTIVE.value,
+                )
+                .order_by(characters.c.created_at.desc(), characters.c.id)
             )
             .mappings()
             .first()

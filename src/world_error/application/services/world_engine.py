@@ -147,6 +147,7 @@ from world_error.domain.consequences.vocabulary import (
     ConsequenceType,
     ConsequenceVisibility,
 )
+from world_error.domain.characters.character import Character
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.factions.faction import Faction, FactionStatus
@@ -1501,6 +1502,13 @@ class WorldEngine:
     def get_character(self, world_instance_id: WorldInstanceId, character_id: CharacterId):
         with self._uow_factory() as uow:
             return uow.characters.get(world_instance_id, character_id)
+
+    def find_active_character_for_player(
+        self, world_instance_id: WorldInstanceId, player_id: str
+    ) -> Character | None:
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return uow.characters.find_by_instance_and_player(world_instance_id, player_id)
 
     def get_locations(self, world_instance_id: WorldInstanceId):
         with self._uow_factory() as uow:

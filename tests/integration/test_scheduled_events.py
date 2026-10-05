@@ -108,7 +108,7 @@ def test_scheduled_event_waits_for_matching_event_type(world_engine: WorldEngine
 
 def test_scheduled_events_are_instance_scoped(world_engine: WorldEngine) -> None:
     world_one = make_world(world_engine)
-    world_two = make_world(world_engine)
+    world_two = world_engine.create_instance(telegram_chat_id=-1002, seed=42)
     cause = world_engine.get_events(world_one.id)[-1].id
     result = world_engine.schedule_event(
         world_one.id,

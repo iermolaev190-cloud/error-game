@@ -24,6 +24,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Callable
 
+from world_error.application.ports.chat_bindings import ChatBinding
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
@@ -122,6 +123,13 @@ class CreateWorldInstanceHandler:
 
         with self._uow_factory() as uow:
             uow.world_instances.add(instance)
+            uow.chat_bindings.add(
+                ChatBinding(
+                    telegram_chat_id=command.telegram_chat_id,
+                    world_instance_id=instance.id,
+                    created_at=now,
+                )
+            )
             for location_definition in self._catalog.locations.values():
                 uow.locations.add(
                     LocationState(

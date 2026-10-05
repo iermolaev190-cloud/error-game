@@ -8,6 +8,7 @@
 
 from world_error.infrastructure.db.repositories.character import SqlCharacterRepository
 from world_error.infrastructure.db.repositories.case import SqlCaseRepository
+from world_error.infrastructure.db.repositories.chat_binding import SqlChatBindingRepository
 from world_error.infrastructure.db.repositories.consequence import SqlConsequenceRepository
 from world_error.infrastructure.db.repositories.event_log import SqlEventLogRepository
 from world_error.infrastructure.db.repositories.faction import SqlFactionRepository
@@ -23,6 +24,7 @@ from world_error.infrastructure.db.repositories.world_instance import SqlWorldIn
 
 __all__ = [
     "SqlCharacterRepository",
+    "SqlChatBindingRepository",
     "SqlCaseRepository",
     "SqlConsequenceRepository",
     "SqlEventLogRepository",

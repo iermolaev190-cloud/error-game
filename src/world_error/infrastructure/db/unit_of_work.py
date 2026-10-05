@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from world_error.infrastructure.db.repositories import (
     SqlCharacterRepository,
     SqlCaseRepository,
+    SqlChatBindingRepository,
     SqlConsequenceRepository,
     SqlEventLogRepository,
     SqlFactionRepository,
@@ -31,6 +32,7 @@ class SqlAlchemyUnitOfWork:
         self._session_factory = session_factory
         self._session: Session | None = None
         self.world_instances: SqlWorldInstanceRepository
+        self.chat_bindings: SqlChatBindingRepository
         self.events: SqlEventLogRepository
         self.factions: SqlFactionRepository
         self.characters: SqlCharacterRepository
@@ -48,6 +50,7 @@ class SqlAlchemyUnitOfWork:
     def __enter__(self) -> "SqlAlchemyUnitOfWork":
         self._session = self._session_factory()
         self.world_instances = SqlWorldInstanceRepository(self._session)
+        self.chat_bindings = SqlChatBindingRepository(self._session)
         self.events = SqlEventLogRepository(self._session)
         self.factions = SqlFactionRepository(self._session)
         self.characters = SqlCharacterRepository(self._session)
