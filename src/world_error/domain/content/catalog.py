@@ -16,6 +16,7 @@ from typing import Mapping
 from world_error.domain.consequences.rules import ConsequenceRule
 from world_error.domain.consequences.vocabulary import ConsequenceEffect
 from world_error.domain.factions.faction import FactionDefinition
+from world_error.domain.investigations.case import CaseDefinition
 from world_error.domain.information.information import InformationDefinition
 from world_error.domain.items.item import ItemDefinition
 from world_error.domain.knowledge.knowledge import SubjectType
@@ -40,6 +41,7 @@ class ContentCatalog:
     items: Mapping[str, ItemDefinition]
     npcs: Mapping[str, NpcDefinition]
     factions: Mapping[str, FactionDefinition]
+    cases: Mapping[str, CaseDefinition]
     rules: Mapping[str, ConsequenceRule]
 
     @classmethod
@@ -53,6 +55,7 @@ class ContentCatalog:
         items: Mapping[str, ItemDefinition] | None = None,
         npcs: Mapping[str, NpcDefinition] | None = None,
         factions: Mapping[str, FactionDefinition] | None = None,
+        cases: Mapping[str, CaseDefinition] | None = None,
         rules: Mapping[str, ConsequenceRule] | None = None,
     ) -> "ContentCatalog":
         if not locations:
@@ -103,6 +106,14 @@ class ContentCatalog:
                         f"faction {faction_definition.key!r} references unknown location "
                         f"{location_key!r}"
                     )
+        case_definitions = dict(cases or {})
+        for case_definition in case_definitions.values():
+            for evidence in case_definition.initial_evidence:
+                if evidence.information_key not in information:
+                    raise ContentError(
+                        f"case {case_definition.key!r} references unknown information "
+                        f"{evidence.information_key!r}"
+                    )
         rule_items = dict(rules or {})
         for rule in rule_items.values():
             _validate_rule(rule, npc_definitions, information, locations)
@@ -114,6 +125,7 @@ class ContentCatalog:
             items=item_definitions,
             npcs=npc_definitions,
             factions=faction_definitions,
+            cases=case_definitions,
             rules=rule_items,
         )
 
@@ -149,6 +161,12 @@ class ContentCatalog:
             return self.factions[key]
         except KeyError as exc:
             raise DomainError(ErrorCode.NOT_FOUND, f"unknown faction: {key}") from exc
+
+    def case_definition(self, key: str) -> CaseDefinition:
+        try:
+            return self.cases[key]
+        except KeyError as exc:
+            raise DomainError(ErrorCode.NOT_FOUND, f"unknown case: {key}") from exc
 
     def is_connected(self, source: LocationKey, target: LocationKey) -> bool:
         definition = self.locations.get(source)

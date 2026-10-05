@@ -30,10 +30,13 @@ from world_error.domain.events.event import Event, EventType
 from world_error.domain.factions.faction import Faction
 from world_error.domain.items.item import Item, ItemOwnerType
 from world_error.domain.information.information import Information
+from world_error.domain.investigations.case import Case, CaseEvidenceLink
 from world_error.domain.locations.location import LocationState
 from world_error.domain.npcs.npc import Npc
 from world_error.domain.shared.kernel import (
     Clock,
+    CaseEvidenceLinkId,
+    CaseId,
     EventId,
     FactionId,
     ItemId,
@@ -41,6 +44,8 @@ from world_error.domain.shared.kernel import (
     NpcId,
     WorldInstanceId,
     new_event_id,
+    new_case_evidence_link_id,
+    new_case_id,
     new_faction_id,
     new_item_id,
     new_information_id,
@@ -70,6 +75,8 @@ class CreateWorldInstanceHandler:
         new_npc_id_factory: Callable[[], NpcId] = new_npc_id,
         new_faction_id_factory: Callable[[], FactionId] = new_faction_id,
         new_item_id_factory: Callable[[], ItemId] = new_item_id,
+        new_case_id_factory: Callable[[], CaseId] = new_case_id,
+        new_case_evidence_link_id_factory: Callable[[], CaseEvidenceLinkId] = new_case_evidence_link_id,
     ) -> None:
         self._uow_factory = uow_factory
         self._clock = clock
@@ -80,6 +87,8 @@ class CreateWorldInstanceHandler:
         self._new_npc_id = new_npc_id_factory
         self._new_faction_id = new_faction_id_factory
         self._new_item_id = new_item_id_factory
+        self._new_case_id = new_case_id_factory
+        self._new_case_evidence_link_id = new_case_evidence_link_id_factory
 
     def handle(self, command: CreateWorldInstanceCommand) -> WorldInstance:
         now = self._clock.now()
@@ -169,6 +178,30 @@ class CreateWorldInstanceHandler:
                                 now=now,
                             )
                         )
+            for case_definition in self._catalog.cases.values():
+                case = Case.open(
+                    id=self._new_case_id(),
+                    world_instance_id=instance.id,
+                    definition=case_definition,
+                    now=now,
+                )
+                uow.cases.add(case)
+                for initial_evidence in case_definition.initial_evidence:
+                    information = uow.information.get_by_key(
+                        instance.id, initial_evidence.information_key
+                    )
+                    uow.cases.add_evidence_link(
+                        CaseEvidenceLink(
+                            id=self._new_case_evidence_link_id(),
+                            world_instance_id=instance.id,
+                            case_id=case.id,
+                            information_id=information.id,
+                            knowledge_id=None,
+                            relevance=initial_evidence.relevance,
+                            added_by=None,
+                            added_at=now,
+                        )
+                    )
             uow.events.append(event)
             uow.commit()
         return instance

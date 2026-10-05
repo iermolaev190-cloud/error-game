@@ -18,6 +18,13 @@ KnowledgeId = NewType("KnowledgeId", str)
 NpcId = NewType("NpcId", str)
 FactionId = NewType("FactionId", str)
 ItemId = NewType("ItemId", str)
+CaseId = NewType("CaseId", str)
+CaseEvidenceLinkId = NewType("CaseEvidenceLinkId", str)
+CaseTheoryId = NewType("CaseTheoryId", str)
+CaseContradictionLinkId = NewType("CaseContradictionLinkId", str)
+CaseSuspectLinkId = NewType("CaseSuspectLinkId", str)
+CaseNoteId = NewType("CaseNoteId", str)
+CaseQuestionId = NewType("CaseQuestionId", str)
 RelationshipId = NewType("RelationshipId", str)
 ConsequenceId = NewType("ConsequenceId", str)
 ScheduledEventId = NewType("ScheduledEventId", str)
@@ -63,6 +70,34 @@ def new_faction_id() -> FactionId:
 def new_item_id() -> ItemId:
     """Новый идентификатор экземпляра предмета."""
     return ItemId(f"itm_{uuid.uuid4().hex}")
+
+
+def new_case_id() -> CaseId:
+    return CaseId(f"case_{uuid.uuid4().hex}")
+
+
+def new_case_evidence_link_id() -> CaseEvidenceLinkId:
+    return CaseEvidenceLinkId(f"ev_{uuid.uuid4().hex}")
+
+
+def new_case_theory_id() -> CaseTheoryId:
+    return CaseTheoryId(f"th_{uuid.uuid4().hex}")
+
+
+def new_case_contradiction_link_id() -> CaseContradictionLinkId:
+    return CaseContradictionLinkId(f"ctr_{uuid.uuid4().hex}")
+
+
+def new_case_suspect_link_id() -> CaseSuspectLinkId:
+    return CaseSuspectLinkId(f"sus_{uuid.uuid4().hex}")
+
+
+def new_case_note_id() -> CaseNoteId:
+    return CaseNoteId(f"note_{uuid.uuid4().hex}")
+
+
+def new_case_question_id() -> CaseQuestionId:
+    return CaseQuestionId(f"q_{uuid.uuid4().hex}")
 
 
 def new_relationship_id() -> RelationshipId:

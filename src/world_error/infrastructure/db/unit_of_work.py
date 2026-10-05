@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from world_error.infrastructure.db.repositories import (
     SqlCharacterRepository,
+    SqlCaseRepository,
     SqlConsequenceRepository,
     SqlEventLogRepository,
     SqlFactionRepository,
@@ -33,6 +34,7 @@ class SqlAlchemyUnitOfWork:
         self.events: SqlEventLogRepository
         self.factions: SqlFactionRepository
         self.characters: SqlCharacterRepository
+        self.cases: SqlCaseRepository
         self.locations: SqlLocationStateRepository
         self.information: SqlInformationRepository
         self.items: SqlItemRepository
@@ -49,6 +51,7 @@ class SqlAlchemyUnitOfWork:
         self.events = SqlEventLogRepository(self._session)
         self.factions = SqlFactionRepository(self._session)
         self.characters = SqlCharacterRepository(self._session)
+        self.cases = SqlCaseRepository(self._session)
         self.locations = SqlLocationStateRepository(self._session)
         self.information = SqlInformationRepository(self._session)
         self.items = SqlItemRepository(self._session)

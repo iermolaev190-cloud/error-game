@@ -24,6 +24,13 @@ from world_error.domain.consequences.vocabulary import (
 )
 from world_error.domain.events.event import EventType
 from world_error.domain.factions.faction import FactionDefinition
+from world_error.domain.investigations.case import (
+    CaseDefinition,
+    CaseEvidenceRelevance,
+    CaseTheoryConfidence,
+    InitialEvidenceDefinition,
+    ResolutionCriteria,
+)
 from world_error.domain.information.information import InformationDefinition
 from world_error.domain.items.item import ItemDefinition, ItemType, ItemVisibility
 from world_error.domain.locations.location import LocationDefinition
@@ -36,6 +43,7 @@ INFORMATION_DIR = "information"
 ITEMS_DIR = "items"
 NPCS_DIR = "npcs"
 FACTIONS_DIR = "factions"
+CASES_DIR = "cases"
 CONSEQUENCES_DIR = "consequences"
 
 
@@ -49,6 +57,7 @@ def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
     items = _load_items(root / ITEMS_DIR)
     npcs = _load_npcs(root / NPCS_DIR)
     factions = _load_factions(root / FACTIONS_DIR)
+    cases = _load_cases(root / CASES_DIR)
     rules = _load_consequences(root / CONSEQUENCES_DIR)
 
     return ContentCatalog.build(
@@ -59,6 +68,7 @@ def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
         items=items,
         npcs=npcs,
         factions=factions,
+        cases=cases,
         rules=rules,
     )
 
@@ -196,6 +206,62 @@ def _load_factions(directory: Path) -> dict[str, FactionDefinition]:
     return items
 
 
+def _load_cases(directory: Path) -> dict[str, CaseDefinition]:
+    """Load authored investigation definitions; per-instance Case is seeded later."""
+    items: dict[str, CaseDefinition] = {}
+    if not directory.is_dir():
+        return items
+    for path in _json_files(directory, require_any=False):
+        data = _read_object(path)
+        key = _require_str(data, "key", path)
+        if key in items:
+            raise ContentError(f"duplicate case key {key!r} ({path})")
+        raw_evidence = _require_list(data, "initial_evidence", path)
+        initial_evidence: list[InitialEvidenceDefinition] = []
+        try:
+            for raw_link in raw_evidence:
+                if not isinstance(raw_link, dict):
+                    raise ContentError(f"case {key!r} initial_evidence entries must be objects")
+                initial_evidence.append(
+                    InitialEvidenceDefinition(
+                        information_key=_require_str(raw_link, "information_key", path),
+                        relevance=CaseEvidenceRelevance(
+                            raw_link.get("relevance", CaseEvidenceRelevance.UNKNOWN.value)
+                        ),
+                    )
+                )
+            criteria_data = data.get("resolution_criteria", {})
+            if not isinstance(criteria_data, dict):
+                raise ContentError(f"case {key!r} resolution_criteria must be an object")
+            min_confidence_value = criteria_data.get("required_theory_min_confidence")
+            criteria = ResolutionCriteria(
+                required_evidence_count=_optional_int(criteria_data, "required_evidence_count", path),
+                required_theory_count=_optional_int(criteria_data, "required_theory_count", path),
+                required_theory_min_confidence=(
+                    None
+                    if min_confidence_value is None
+                    else CaseTheoryConfidence(str(min_confidence_value))
+                ),
+                required_distinct_contributors=_optional_int(
+                    criteria_data, "required_distinct_contributors", path
+                ),
+                required_actions=tuple(
+                    _require_string_value(action, "required action", path)
+                    for action in _require_list(criteria_data, "required_actions", path)
+                ) if "required_actions" in criteria_data else (),
+            )
+            items[key] = CaseDefinition(
+                key=key,
+                question=_require_str(data, "question", path),
+                opening_hint=_require_str(data, "opening_hint", path),
+                initial_evidence=tuple(initial_evidence),
+                resolution_criteria=criteria,
+            )
+        except (TypeError, ValueError, DomainError) as exc:
+            raise ContentError(f"invalid case definition {key!r}: {exc} ({path})") from exc
+    return items
+
+
 def _load_consequences(directory: Path) -> dict[str, ConsequenceRule]:
     """Правила последствий. Каталог может отсутствовать: мир без правил допустим."""
     items: dict[str, ConsequenceRule] = {}
@@ -287,6 +353,12 @@ def _require_int(data: dict[str, Any], field: str, path: Path) -> int:
     if type(value) is not int:
         raise ContentError(f"content file {path} field {field!r} must be an integer")
     return value
+
+
+def _optional_int(data: dict[str, Any], field: str, path: Path) -> int:
+    if field not in data:
+        return 0
+    return _require_int(data, field, path)
 
 
 def _require_bool(data: dict[str, Any], field: str, path: Path) -> bool:

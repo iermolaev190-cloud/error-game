@@ -28,6 +28,11 @@ from world_error.application.commands.apply_significant_action import (
     ApplySignificantActionCommand,
     ApplySignificantActionHandler,
 )
+from world_error.application.commands.add_case_note import AddCaseNoteCommand, AddCaseNoteHandler
+from world_error.application.commands.add_case_question import (
+    AddCaseQuestionCommand,
+    AddCaseQuestionHandler,
+)
 from world_error.application.commands.begin_travel import BeginTravelCommand, BeginTravelHandler
 from world_error.application.commands.change_relationship import (
     ChangeRelationshipCommand,
@@ -54,6 +59,8 @@ from world_error.application.commands.cancel_consequence import (
     CancelConsequenceCommand,
     CancelConsequenceHandler,
 )
+from world_error.application.commands.close_case import CloseCaseCommand, CloseCaseHandler
+from world_error.application.commands.create_theory import CreateTheoryCommand, CreateTheoryHandler
 from world_error.application.commands.create_character import (
     CreateCharacterCommand,
     CreateCharacterHandler,
@@ -66,6 +73,16 @@ from world_error.application.commands.inspect_information import (
     InspectInformationCommand,
     InspectInformationHandler,
 )
+from world_error.application.commands.link_evidence import LinkEvidenceCommand, LinkEvidenceHandler
+from world_error.application.commands.link_theory_evidence import (
+    LinkTheoryEvidenceCommand,
+    LinkTheoryEvidenceHandler,
+)
+from world_error.application.commands.mark_contradiction import (
+    MarkContradictionCommand,
+    MarkContradictionHandler,
+)
+from world_error.application.commands.mark_suspect import MarkSuspectCommand, MarkSuspectHandler
 from world_error.application.commands.move_character import (
     MoveCharacterCommand,
     MoveCharacterHandler,
@@ -103,6 +120,14 @@ from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.application.queries.location_view import LocationView, LocationViewQuery
 from world_error.application.queries.faction_view import FactionView, FactionViewQuery
 from world_error.application.queries.inventory_view import InventoryView, InventoryViewQuery
+from world_error.application.queries.case_view import (
+    CaseEvidenceView,
+    CaseNoteView,
+    CaseSuspectView,
+    CaseTheoryView,
+    CaseView,
+    CaseViewQuery,
+)
 from world_error.application.services.consequence_engine import (
     ConsequenceEngine,
     PumpOutcome,
@@ -121,6 +146,14 @@ from world_error.domain.consequences.vocabulary import (
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.factions.faction import Faction, FactionStatus
+from world_error.domain.investigations.case import (
+    CaseEvidenceRelevance,
+    CaseNoteVisibility,
+    CaseSuspectStatus,
+    CaseTheoryConfidence,
+    CaseTheoryEvidenceStance,
+    CaseVisibility,
+)
 from world_error.domain.knowledge.knowledge import (
     ClaimType,
     Knowledge,
@@ -139,6 +172,9 @@ from world_error.domain.relationships.relationship import (
 from world_error.domain.relationships.rules import SignificantAction
 from world_error.domain.shared.kernel import (
     CharacterId,
+    CaseEvidenceLinkId,
+    CaseId,
+    CaseTheoryId,
     Clock,
     ConsequenceId,
     DomainError,
@@ -146,6 +182,8 @@ from world_error.domain.shared.kernel import (
     EventId,
     FactionId,
     ItemId,
+    InformationId,
+    KnowledgeId,
     LocationKey,
     LegacyDocumentId,
     NpcId,
@@ -254,6 +292,7 @@ class WorldEngine:
         self._location_view = LocationViewQuery(uow_factory=uow_factory, catalog=catalog)
         self._faction_view = FactionViewQuery(uow_factory=uow_factory, catalog=catalog)
         self._inventory_view = InventoryViewQuery(uow_factory=uow_factory, catalog=catalog)
+        self._case_view = CaseViewQuery(uow_factory=uow_factory, catalog=catalog)
         self._take_item = TakeItemHandler(
             uow_factory=uow_factory,
             clock=self._clock,
@@ -270,6 +309,47 @@ class WorldEngine:
             uow_factory=uow_factory,
             clock=self._clock,
             catalog=catalog,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._link_evidence = LinkEvidenceHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._create_theory = CreateTheoryHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._link_theory_evidence = LinkTheoryEvidenceHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._mark_contradiction = MarkContradictionHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._mark_suspect = MarkSuspectHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._add_case_note = AddCaseNoteHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._add_case_question = AddCaseQuestionHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._close_case = CloseCaseHandler(
+            uow_factory=uow_factory,
+            catalog=catalog,
+            clock=self._clock,
             new_event_id_factory=self._new_event_id,
         )
         self._change_relationship = ChangeRelationshipHandler(
@@ -366,6 +446,14 @@ class WorldEngine:
         self._take_item = self._pumped(self._take_item)
         self._drop_item = self._pumped(self._drop_item)
         self._trade_items = self._pumped(self._trade_items)
+        self._link_evidence = self._pumped(self._link_evidence)
+        self._create_theory = self._pumped(self._create_theory)
+        self._link_theory_evidence = self._pumped(self._link_theory_evidence)
+        self._mark_contradiction = self._pumped(self._mark_contradiction)
+        self._mark_suspect = self._pumped(self._mark_suspect)
+        self._add_case_note = self._pumped(self._add_case_note)
+        self._add_case_question = self._pumped(self._add_case_question)
+        self._close_case = self._pumped(self._close_case)
         self._apply_significant_action = self._pumped(self._apply_significant_action)
         self._schedule_consequence = self._pumped(self._schedule_consequence)
         self._cancel_consequence = self._pumped(self._cancel_consequence)
@@ -839,6 +927,158 @@ class WorldEngine:
             offered_quantity=quantity,
         )
 
+    def link_evidence(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        case_id: CaseId,
+        actor_id: CharacterId,
+        information_id: InformationId,
+        relevance: CaseEvidenceRelevance | None = None,
+    ) -> ActionResult:
+        return self._link_evidence.handle(
+            LinkEvidenceCommand(
+                world_instance_id=world_instance_id,
+                case_id=case_id,
+                actor_id=actor_id,
+                information_id=information_id,
+                relevance=relevance,
+            )
+        )
+
+    def create_theory(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        case_id: CaseId,
+        author_id: CharacterId,
+        claim: str,
+        confidence: CaseTheoryConfidence = CaseTheoryConfidence.SPECULATIVE,
+        visibility: CaseVisibility = CaseVisibility.PRIVATE,
+    ) -> ActionResult:
+        return self._create_theory.handle(
+            CreateTheoryCommand(
+                world_instance_id=world_instance_id,
+                case_id=case_id,
+                author_id=author_id,
+                claim=claim,
+                confidence=confidence,
+                visibility=visibility,
+            )
+        )
+
+    def link_theory_evidence(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        case_id: CaseId,
+        actor_id: CharacterId,
+        theory_id: CaseTheoryId,
+        evidence_link_id: CaseEvidenceLinkId,
+        stance: CaseTheoryEvidenceStance,
+    ) -> ActionResult:
+        return self._link_theory_evidence.handle(
+            LinkTheoryEvidenceCommand(
+                world_instance_id=world_instance_id,
+                case_id=case_id,
+                actor_id=actor_id,
+                theory_id=theory_id,
+                evidence_link_id=evidence_link_id,
+                stance=stance,
+            )
+        )
+
+    def mark_contradiction(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        case_id: CaseId,
+        actor_id: CharacterId,
+        evidence_a_id: CaseEvidenceLinkId,
+        evidence_b_id: CaseEvidenceLinkId,
+        note: str,
+    ) -> ActionResult:
+        return self._mark_contradiction.handle(
+            MarkContradictionCommand(
+                world_instance_id=world_instance_id,
+                case_id=case_id,
+                actor_id=actor_id,
+                evidence_a_id=evidence_a_id,
+                evidence_b_id=evidence_b_id,
+                note=note,
+            )
+        )
+
+    def mark_suspect(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        case_id: CaseId,
+        actor_id: CharacterId,
+        subject_type: SubjectType,
+        subject_id: str,
+        reason: str,
+        status: CaseSuspectStatus = CaseSuspectStatus.SUSPECTED,
+    ) -> ActionResult:
+        return self._mark_suspect.handle(
+            MarkSuspectCommand(
+                world_instance_id=world_instance_id,
+                case_id=case_id,
+                actor_id=actor_id,
+                subject_type=subject_type,
+                subject_id=subject_id,
+                reason=reason,
+                status=status,
+            )
+        )
+
+    def add_case_note(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        case_id: CaseId,
+        author_id: CharacterId,
+        text: str,
+        visibility: CaseNoteVisibility = CaseNoteVisibility.PRIVATE,
+    ) -> ActionResult:
+        return self._add_case_note.handle(
+            AddCaseNoteCommand(
+                world_instance_id=world_instance_id,
+                case_id=case_id,
+                author_id=author_id,
+                text=text,
+                visibility=visibility,
+            )
+        )
+
+    def add_case_question(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        case_id: CaseId,
+        added_by: CharacterId,
+        text: str,
+    ) -> ActionResult:
+        return self._add_case_question.handle(
+            AddCaseQuestionCommand(
+                world_instance_id=world_instance_id,
+                case_id=case_id,
+                added_by=added_by,
+                text=text,
+            )
+        )
+
+    def close_case(
+        self, world_instance_id: WorldInstanceId, *, case_id: CaseId, actor_id: CharacterId
+    ) -> ActionResult:
+        return self._close_case.handle(
+            CloseCaseCommand(
+                world_instance_id=world_instance_id,
+                case_id=case_id,
+                actor_id=actor_id,
+            )
+        )
+
     # --- команды NPC (коммит 4) --------------------------------------------
 
     def npc_move(
@@ -1236,6 +1476,42 @@ class WorldEngine:
 
     def view_factions(self, world_instance_id: WorldInstanceId) -> Sequence[FactionView]:
         return self._faction_view.list_for_instance(world_instance_id)
+
+    def get_case(
+        self, world_instance_id: WorldInstanceId, case_id: CaseId, *, viewer_id: CharacterId
+    ) -> CaseView:
+        return self._case_view.get_case(world_instance_id, case_id, viewer_id=viewer_id)
+
+    def list_cases(
+        self, world_instance_id: WorldInstanceId, *, viewer_id: CharacterId
+    ) -> Sequence[CaseView]:
+        return self._case_view.list_cases(world_instance_id, viewer_id=viewer_id)
+
+    def get_case_evidence(
+        self, world_instance_id: WorldInstanceId, case_id: CaseId, *, viewer_id: CharacterId
+    ) -> Sequence[CaseEvidenceView]:
+        return self._case_view.get_case_evidence(
+            world_instance_id, case_id, viewer_id=viewer_id
+        )
+
+    def get_case_theories(
+        self, world_instance_id: WorldInstanceId, case_id: CaseId, *, viewer_id: CharacterId
+    ) -> Sequence[CaseTheoryView]:
+        return self._case_view.get_case_theories(
+            world_instance_id, case_id, viewer_id=viewer_id
+        )
+
+    def get_case_notes(
+        self, world_instance_id: WorldInstanceId, case_id: CaseId, *, viewer_id: CharacterId
+    ) -> Sequence[CaseNoteView]:
+        return self._case_view.get_case_notes(world_instance_id, case_id, viewer_id=viewer_id)
+
+    def get_case_suspects(
+        self, world_instance_id: WorldInstanceId, case_id: CaseId, *, viewer_id: CharacterId
+    ) -> Sequence[CaseSuspectView]:
+        return self._case_view.get_case_suspects(
+            world_instance_id, case_id, viewer_id=viewer_id
+        )
 
     def get_faction_relations(
         self,

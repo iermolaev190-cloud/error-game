@@ -6,7 +6,7 @@ from sqlalchemy import insert, select
 from sqlalchemy.orm import Session
 
 from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
-from world_error.domain.shared.kernel import InformationId, WorldInstanceId
+from world_error.domain.shared.kernel import InformationId, KnowledgeId, DomainError, ErrorCode, WorldInstanceId
 from world_error.infrastructure.db.repositories._mapping import (
     knowledge_from_row,
     knowledge_row,
@@ -20,6 +20,21 @@ class SqlKnowledgeRepository:
 
     def add(self, item: Knowledge) -> None:
         self._session.execute(insert(knowledge).values(**knowledge_row(item)))
+
+    def get(self, world_instance_id: WorldInstanceId, knowledge_id: KnowledgeId) -> Knowledge:
+        row = (
+            self._session.execute(
+                select(knowledge).where(
+                    knowledge.c.world_instance_id == str(world_instance_id),
+                    knowledge.c.id == str(knowledge_id),
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise DomainError(ErrorCode.NOT_FOUND, f"knowledge not found: {knowledge_id}")
+        return knowledge_from_row(dict(row))
 
     def find(
         self,

@@ -25,6 +25,24 @@ from world_error.domain.consequences.vocabulary import (
 )
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.factions.faction import Faction, FactionStatus
+from world_error.domain.investigations.case import (
+    Case,
+    CaseContradictionLink,
+    CaseEvidenceLink,
+    CaseEvidenceRelevance,
+    CaseNote,
+    CaseNoteVisibility,
+    CaseQuestion,
+    CaseStatus,
+    CaseSuspectLink,
+    CaseSuspectStatus,
+    CaseTheory,
+    CaseTheoryConfidence,
+    CaseTheoryEvidenceLink,
+    CaseTheoryEvidenceStance,
+    CaseTheoryStatus,
+    CaseVisibility,
+)
 from world_error.domain.information.information import Information
 from world_error.domain.items.item import Item, ItemOwnerType
 from world_error.domain.knowledge.knowledge import (
@@ -46,6 +64,13 @@ from world_error.domain.relationships.relationship import (
 )
 from world_error.domain.shared.kernel import (
     CharacterId,
+    CaseContradictionLinkId,
+    CaseEvidenceLinkId,
+    CaseId,
+    CaseNoteId,
+    CaseQuestionId,
+    CaseSuspectLinkId,
+    CaseTheoryId,
     ConsequenceId,
     DiscoveryState,
     EventId,
@@ -452,6 +477,211 @@ def item_from_row(row: dict) -> Item:
         quantity=row["quantity"],
         created_at=as_utc(row["created_at"]),
         updated_at=as_utc(row["updated_at"]),
+    )
+
+
+# --- investigation --------------------------------------------------------
+
+
+def case_row(case: Case) -> dict[str, object]:
+    return {
+        "id": str(case.id),
+        "world_instance_id": str(case.world_instance_id),
+        "key": case.key,
+        "status": case.status.value,
+        "current_question": case.current_question,
+        "created_at": case.created_at,
+        "updated_at": case.updated_at,
+    }
+
+
+def case_from_row(row: dict) -> Case:
+    return Case(
+        id=CaseId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        key=row["key"],
+        status=CaseStatus(row["status"]),
+        current_question=row["current_question"],
+        created_at=as_utc(row["created_at"]),
+        updated_at=as_utc(row["updated_at"]),
+    )
+
+
+def case_evidence_link_row(link: CaseEvidenceLink) -> dict[str, object]:
+    return {
+        "id": str(link.id),
+        "world_instance_id": str(link.world_instance_id),
+        "case_id": str(link.case_id),
+        "information_id": str(link.information_id),
+        "knowledge_id": None if link.knowledge_id is None else str(link.knowledge_id),
+        "relevance": link.relevance.value,
+        "added_by": None if link.added_by is None else str(link.added_by),
+        "added_at": link.added_at,
+    }
+
+
+def case_evidence_link_from_row(row: dict) -> CaseEvidenceLink:
+    return CaseEvidenceLink(
+        id=CaseEvidenceLinkId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        case_id=CaseId(row["case_id"]),
+        information_id=InformationId(row["information_id"]),
+        knowledge_id=(None if row["knowledge_id"] is None else KnowledgeId(row["knowledge_id"])),
+        relevance=CaseEvidenceRelevance(row["relevance"]),
+        added_by=(None if row["added_by"] is None else CharacterId(row["added_by"])),
+        added_at=as_utc(row["added_at"]),
+    )
+
+
+def case_theory_row(theory: CaseTheory) -> dict[str, object]:
+    return {
+        "id": str(theory.id),
+        "world_instance_id": str(theory.world_instance_id),
+        "case_id": str(theory.case_id),
+        "author_id": str(theory.author_id),
+        "claim": theory.claim,
+        "confidence": theory.confidence.value,
+        "visibility": theory.visibility.value,
+        "status": theory.status.value,
+        "created_at": theory.created_at,
+        "updated_at": theory.updated_at,
+    }
+
+
+def case_theory_from_row(row: dict) -> CaseTheory:
+    return CaseTheory(
+        id=CaseTheoryId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        case_id=CaseId(row["case_id"]),
+        author_id=CharacterId(row["author_id"]),
+        claim=row["claim"],
+        confidence=CaseTheoryConfidence(row["confidence"]),
+        visibility=CaseVisibility(row["visibility"]),
+        status=CaseTheoryStatus(row["status"]),
+        created_at=as_utc(row["created_at"]),
+        updated_at=as_utc(row["updated_at"]),
+    )
+
+
+def case_theory_evidence_link_row(link: CaseTheoryEvidenceLink) -> dict[str, object]:
+    return {
+        "world_instance_id": str(link.world_instance_id),
+        "theory_id": str(link.theory_id),
+        "evidence_link_id": str(link.evidence_link_id),
+        "stance": link.stance.value,
+        "added_by": str(link.added_by),
+        "added_at": link.added_at,
+    }
+
+
+def case_theory_evidence_link_from_row(row: dict) -> CaseTheoryEvidenceLink:
+    return CaseTheoryEvidenceLink(
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        theory_id=CaseTheoryId(row["theory_id"]),
+        evidence_link_id=CaseEvidenceLinkId(row["evidence_link_id"]),
+        stance=CaseTheoryEvidenceStance(row["stance"]),
+        added_by=CharacterId(row["added_by"]),
+        added_at=as_utc(row["added_at"]),
+    )
+
+
+def case_contradiction_link_row(link: CaseContradictionLink) -> dict[str, object]:
+    return {
+        "id": str(link.id),
+        "world_instance_id": str(link.world_instance_id),
+        "case_id": str(link.case_id),
+        "evidence_a_id": str(link.evidence_a_id),
+        "evidence_b_id": str(link.evidence_b_id),
+        "note": link.note,
+        "marked_by": str(link.marked_by),
+        "marked_at": link.marked_at,
+    }
+
+
+def case_contradiction_link_from_row(row: dict) -> CaseContradictionLink:
+    return CaseContradictionLink(
+        id=CaseContradictionLinkId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        case_id=CaseId(row["case_id"]),
+        evidence_a_id=CaseEvidenceLinkId(row["evidence_a_id"]),
+        evidence_b_id=CaseEvidenceLinkId(row["evidence_b_id"]),
+        note=row["note"],
+        marked_by=CharacterId(row["marked_by"]),
+        marked_at=as_utc(row["marked_at"]),
+    )
+
+
+def case_suspect_link_row(link: CaseSuspectLink) -> dict[str, object]:
+    return {
+        "id": str(link.id),
+        "world_instance_id": str(link.world_instance_id),
+        "case_id": str(link.case_id),
+        "subject_type": link.subject_type.value,
+        "subject_id": link.subject_id,
+        "reason": link.reason,
+        "marked_by": str(link.marked_by),
+        "status": link.status.value,
+        "marked_at": link.marked_at,
+    }
+
+
+def case_suspect_link_from_row(row: dict) -> CaseSuspectLink:
+    return CaseSuspectLink(
+        id=CaseSuspectLinkId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        case_id=CaseId(row["case_id"]),
+        subject_type=SubjectType(row["subject_type"]),
+        subject_id=row["subject_id"],
+        reason=row["reason"],
+        marked_by=CharacterId(row["marked_by"]),
+        status=CaseSuspectStatus(row["status"]),
+        marked_at=as_utc(row["marked_at"]),
+    )
+
+
+def case_note_row(note: CaseNote) -> dict[str, object]:
+    return {
+        "id": str(note.id),
+        "world_instance_id": str(note.world_instance_id),
+        "case_id": str(note.case_id),
+        "author_id": str(note.author_id),
+        "text": note.text,
+        "visibility": note.visibility.value,
+        "created_at": note.created_at,
+    }
+
+
+def case_note_from_row(row: dict) -> CaseNote:
+    return CaseNote(
+        id=CaseNoteId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        case_id=CaseId(row["case_id"]),
+        author_id=CharacterId(row["author_id"]),
+        text=row["text"],
+        visibility=CaseNoteVisibility(row["visibility"]),
+        created_at=as_utc(row["created_at"]),
+    )
+
+
+def case_question_row(question: CaseQuestion) -> dict[str, object]:
+    return {
+        "id": str(question.id),
+        "world_instance_id": str(question.world_instance_id),
+        "case_id": str(question.case_id),
+        "text": question.text,
+        "added_by": str(question.added_by),
+        "created_at": question.created_at,
+    }
+
+
+def case_question_from_row(row: dict) -> CaseQuestion:
+    return CaseQuestion(
+        id=CaseQuestionId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        case_id=CaseId(row["case_id"]),
+        text=row["text"],
+        added_by=CharacterId(row["added_by"]),
+        created_at=as_utc(row["created_at"]),
     )
 
 

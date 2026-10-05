@@ -151,6 +151,7 @@ information = Table(
     Column("discovered_by", String(64), nullable=True),
     Column("discovered_at", DateTime(timezone=True), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_information_instance_id"),
     UniqueConstraint("world_instance_id", "key", name="uq_information_instance_key"),
     ForeignKeyConstraint(
         ["world_instance_id", "location_key"],
@@ -184,6 +185,7 @@ knowledge = Table(
     Column("confidence", String(16), nullable=False),
     Column("acquired_at", DateTime(timezone=True), nullable=False),
     Column("document_date", Date, nullable=True),
+    UniqueConstraint("world_instance_id", "id", name="uq_knowledge_instance_id"),
     UniqueConstraint(
         "world_instance_id",
         "subject_type",
@@ -192,6 +194,273 @@ knowledge = Table(
         name="uq_knowledge_subject_information",
     ),
     Index("ix_knowledge_subject", "world_instance_id", "subject_id"),
+)
+
+cases = Table(
+    "cases",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column(
+        "world_instance_id",
+        String(64),
+        ForeignKey("world_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("key", String(64), nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("current_question", String(1000), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_cases_instance_id"),
+    UniqueConstraint("world_instance_id", "key", name="uq_cases_instance_key"),
+    CheckConstraint(
+        "status IN ('OPEN', 'CLOSED', 'ABANDONED', 'UNRESOLVED')",
+        name="ck_cases_status",
+    ),
+)
+
+case_questions = Table(
+    "case_questions",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("world_instance_id", String(64), nullable=False),
+    Column("case_id", String(64), nullable=False),
+    Column("text", String(1000), nullable=False),
+    Column("added_by", String(64), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_case_questions_instance_id"),
+    ForeignKeyConstraint(
+        ["world_instance_id", "case_id"],
+        ["cases.world_instance_id", "cases.id"],
+        name="fk_case_questions_case",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "added_by"],
+        ["characters.world_instance_id", "characters.id"],
+        name="fk_case_questions_author",
+    ),
+    Index("ix_case_questions_case", "world_instance_id", "case_id", "created_at"),
+)
+
+case_evidence_links = Table(
+    "case_evidence_links",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("world_instance_id", String(64), nullable=False),
+    Column("case_id", String(64), nullable=False),
+    Column("information_id", String(64), nullable=False),
+    Column("knowledge_id", String(64), nullable=True),
+    Column("relevance", String(16), nullable=False),
+    Column("added_by", String(64), nullable=True),
+    Column("added_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_case_evidence_links_instance_id"),
+    UniqueConstraint(
+        "world_instance_id", "case_id", "information_id", name="uq_case_evidence_case_information"
+    ),
+    CheckConstraint(
+        "relevance IN ('SUPPORTING', 'CONTRADICTING', 'NEUTRAL', 'UNKNOWN')",
+        name="ck_case_evidence_relevance",
+    ),
+    CheckConstraint(
+        "(knowledge_id IS NULL AND added_by IS NULL) OR "
+        "(knowledge_id IS NOT NULL AND added_by IS NOT NULL)",
+        name="ck_case_evidence_authorship",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "case_id"],
+        ["cases.world_instance_id", "cases.id"],
+        name="fk_case_evidence_case",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "information_id"],
+        ["information.world_instance_id", "information.id"],
+        name="fk_case_evidence_information",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "knowledge_id"],
+        ["knowledge.world_instance_id", "knowledge.id"],
+        name="fk_case_evidence_knowledge",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "added_by"],
+        ["characters.world_instance_id", "characters.id"],
+        name="fk_case_evidence_author",
+    ),
+    Index("ix_case_evidence_case", "world_instance_id", "case_id"),
+)
+
+case_theories = Table(
+    "case_theories",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("world_instance_id", String(64), nullable=False),
+    Column("case_id", String(64), nullable=False),
+    Column("author_id", String(64), nullable=False),
+    Column("claim", String(1000), nullable=False),
+    Column("confidence", String(16), nullable=False),
+    Column("visibility", String(16), nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_case_theories_instance_id"),
+    CheckConstraint(
+        "confidence IN ('SPECULATIVE', 'PLAUSIBLE', 'SUPPORTED', 'CONFIRMED')",
+        name="ck_case_theories_confidence",
+    ),
+    CheckConstraint(
+        "visibility IN ('PRIVATE', 'CASE_SHARED')", name="ck_case_theories_visibility"
+    ),
+    CheckConstraint(
+        "status IN ('ACTIVE', 'REJECTED', 'CONFIRMED', 'UNRESOLVED')",
+        name="ck_case_theories_status",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "case_id"],
+        ["cases.world_instance_id", "cases.id"],
+        name="fk_case_theories_case",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "author_id"],
+        ["characters.world_instance_id", "characters.id"],
+        name="fk_case_theories_author",
+    ),
+    Index("ix_case_theories_case", "world_instance_id", "case_id"),
+)
+
+case_theory_evidence_links = Table(
+    "case_theory_evidence_links",
+    metadata,
+    Column("world_instance_id", String(64), primary_key=True),
+    Column("theory_id", String(64), primary_key=True),
+    Column("evidence_link_id", String(64), primary_key=True),
+    Column("stance", String(16), nullable=False),
+    Column("added_by", String(64), nullable=False),
+    Column("added_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "stance IN ('SUPPORTING', 'CONTRADICTING')", name="ck_case_theory_evidence_stance"
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "theory_id"],
+        ["case_theories.world_instance_id", "case_theories.id"],
+        name="fk_case_theory_evidence_theory",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "evidence_link_id"],
+        ["case_evidence_links.world_instance_id", "case_evidence_links.id"],
+        name="fk_case_theory_evidence_link",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "added_by"],
+        ["characters.world_instance_id", "characters.id"],
+        name="fk_case_theory_evidence_author",
+    ),
+)
+
+case_contradiction_links = Table(
+    "case_contradiction_links",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("world_instance_id", String(64), nullable=False),
+    Column("case_id", String(64), nullable=False),
+    Column("evidence_a_id", String(64), nullable=False),
+    Column("evidence_b_id", String(64), nullable=False),
+    Column("note", String(1000), nullable=False),
+    Column("marked_by", String(64), nullable=False),
+    Column("marked_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_case_contradictions_instance_id"),
+    CheckConstraint("evidence_a_id != evidence_b_id", name="ck_case_contradiction_distinct_evidence"),
+    ForeignKeyConstraint(
+        ["world_instance_id", "case_id"],
+        ["cases.world_instance_id", "cases.id"],
+        name="fk_case_contradictions_case",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "evidence_a_id"],
+        ["case_evidence_links.world_instance_id", "case_evidence_links.id"],
+        name="fk_case_contradictions_evidence_a",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "evidence_b_id"],
+        ["case_evidence_links.world_instance_id", "case_evidence_links.id"],
+        name="fk_case_contradictions_evidence_b",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "marked_by"],
+        ["characters.world_instance_id", "characters.id"],
+        name="fk_case_contradictions_author",
+    ),
+)
+
+case_suspect_links = Table(
+    "case_suspect_links",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("world_instance_id", String(64), nullable=False),
+    Column("case_id", String(64), nullable=False),
+    Column("subject_type", String(16), nullable=False),
+    Column("subject_id", String(64), nullable=False),
+    Column("reason", String(1000), nullable=False),
+    Column("marked_by", String(64), nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("marked_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_case_suspects_instance_id"),
+    UniqueConstraint(
+        "world_instance_id", "case_id", "subject_type", "subject_id", name="uq_case_suspects_subject"
+    ),
+    CheckConstraint(
+        "subject_type IN ('CHARACTER', 'NPC', 'FACTION')", name="ck_case_suspects_subject_type"
+    ),
+    CheckConstraint(
+        "status IN ('SUSPECTED', 'CLEARED', 'CONFIRMED', 'UNKNOWN')",
+        name="ck_case_suspects_status",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "case_id"],
+        ["cases.world_instance_id", "cases.id"],
+        name="fk_case_suspects_case",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "marked_by"],
+        ["characters.world_instance_id", "characters.id"],
+        name="fk_case_suspects_author",
+    ),
+)
+
+case_notes = Table(
+    "case_notes",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("world_instance_id", String(64), nullable=False),
+    Column("case_id", String(64), nullable=False),
+    Column("author_id", String(64), nullable=False),
+    Column("text", String(2000), nullable=False),
+    Column("visibility", String(16), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_case_notes_instance_id"),
+    CheckConstraint(
+        "visibility IN ('PRIVATE', 'CASE_SHARED')", name="ck_case_notes_visibility"
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "case_id"],
+        ["cases.world_instance_id", "cases.id"],
+        name="fk_case_notes_case",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "author_id"],
+        ["characters.world_instance_id", "characters.id"],
+        name="fk_case_notes_author",
+    ),
+    Index("ix_case_notes_case", "world_instance_id", "case_id"),
 )
 
 npcs = Table(

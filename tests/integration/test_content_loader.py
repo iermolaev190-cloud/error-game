@@ -60,6 +60,20 @@ ITEM: dict[str, Any] = {
     "visibility": "PUBLIC",
 }
 
+CASE: dict[str, Any] = {
+    "key": "station_signal",
+    "question": "Почему пропала связь со станцией?",
+    "opening_hint": "Связь пропала во время выхода исследователя.",
+    "initial_evidence": [{"information_key": "clue", "relevance": "UNKNOWN"}],
+    "resolution_criteria": {
+        "required_evidence_count": 1,
+        "required_theory_count": 1,
+        "required_theory_min_confidence": "PLAUSIBLE",
+        "required_distinct_contributors": 2,
+        "required_actions": ["mark_suspect"],
+    },
+}
+
 
 def write_content(
     root: Path,
@@ -70,6 +84,7 @@ def write_content(
     npcs: list[dict[str, Any]] | None = None,
     factions: list[dict[str, Any]] | None = None,
     items: list[dict[str, Any]] | None = None,
+    cases: list[dict[str, Any]] | None = None,
 ) -> Path:
     (root / "locations").mkdir(parents=True, exist_ok=True)
     (root / "information").mkdir(parents=True, exist_ok=True)
@@ -100,6 +115,13 @@ def write_content(
             (root / "items" / name).write_text(
                 json.dumps(item, ensure_ascii=False), encoding="utf-8"
             )
+    if cases is not None:
+        (root / "cases").mkdir(parents=True, exist_ok=True)
+        for index, item in enumerate(cases):
+            name = f"{index:02d}_{item.get('key', 'case')}.json"
+            (root / "cases" / name).write_text(
+                json.dumps(item, ensure_ascii=False), encoding="utf-8"
+            )
     return root
 
 
@@ -107,8 +129,14 @@ def test_loads_repository_content(content_dir: Path) -> None:
     catalog = load_content_catalog(content_dir)
     assert catalog.version == "v1"
     assert set(catalog.locations) == {"base", "forest", "old_station"}
-    assert set(catalog.information) == {"damaged_radio"}
+    assert set(catalog.information) == {
+        "damaged_radio",
+        "dispatch_log",
+        "station_test_log",
+    }
     assert catalog.information_definition("damaged_radio").truth.endswith("инструментом.")
+    assert set(catalog.cases) == {"station_signal"}
+    assert catalog.case_definition("station_signal").initial_evidence[0].information_key == "damaged_radio"
 
 
 def test_loads_minimal_content(tmp_path: Path) -> None:
@@ -124,6 +152,39 @@ def test_content_without_item_definitions_or_spawns_is_valid(tmp_path: Path) -> 
     catalog = load_content_catalog(write_content(tmp_path / "c", locations=[LOCATION]))
     assert catalog.items == {}
     assert catalog.location("base").items == ()
+
+
+def test_content_without_cases_directory_is_valid(tmp_path: Path) -> None:
+    catalog = load_content_catalog(write_content(tmp_path / "c", locations=[LOCATION]))
+    assert catalog.cases == {}
+
+
+def test_case_with_unknown_initial_information_is_rejected(tmp_path: Path) -> None:
+    broken = dict(
+        CASE,
+        initial_evidence=[{"information_key": "missing_information"}],
+    )
+    with pytest.raises(ContentError, match="case .* references unknown information"):
+        load_content_catalog(
+            write_content(
+                tmp_path / "c",
+                locations=[LOCATION],
+                information=[INFORMATION],
+                cases=[broken],
+            )
+        )
+
+
+def test_duplicate_case_key_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ContentError, match="duplicate case key"):
+        load_content_catalog(
+            write_content(
+                tmp_path / "c",
+                locations=[LOCATION],
+                information=[INFORMATION],
+                cases=[CASE, dict(CASE, question="Duplicate")],
+            )
+        )
 
 
 def test_loads_item_definitions_and_location_spawns(content_dir: Path) -> None:

@@ -1,0 +1,10 @@
+{
+  "key": "dispatch_log",
+  "location_key": "base",
+  "type": "DOCUMENT",
+  "source": "RADIO_LOG",
+  "authenticity": "UNVERIFIED",
+  "access": "OPEN",
+  "content": "Журнал лагеря отмечает последний принятый вызов со старой станции в 18:40.",
+  "truth": "Часы приемника отставали; фактическое время вызова неизвестно."
+}

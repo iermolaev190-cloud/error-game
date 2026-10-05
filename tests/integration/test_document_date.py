@@ -25,6 +25,7 @@ def test_inspect_exposes_document_date_without_exposing_truth(
         information=information,
         items=catalog.items,
         npcs=catalog.npcs,
+            cases=catalog.cases,
         rules=catalog.rules,
     )
     world_engine = WorldEngine(uow_factory=uow_factory, catalog=dated_catalog)

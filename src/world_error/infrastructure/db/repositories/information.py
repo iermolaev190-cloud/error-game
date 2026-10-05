@@ -6,7 +6,7 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.orm import Session
 
 from world_error.domain.information.information import Information
-from world_error.domain.shared.kernel import DomainError, ErrorCode, WorldInstanceId
+from world_error.domain.shared.kernel import DomainError, ErrorCode, InformationId, WorldInstanceId
 from world_error.infrastructure.db.repositories._mapping import (
     information_from_row,
     information_row,
@@ -20,6 +20,21 @@ class SqlInformationRepository:
 
     def add(self, item: Information) -> None:
         self._session.execute(insert(information).values(**information_row(item)))
+
+    def get(self, world_instance_id: WorldInstanceId, information_id: InformationId) -> Information:
+        row = (
+            self._session.execute(
+                select(information).where(
+                    information.c.world_instance_id == str(world_instance_id),
+                    information.c.id == str(information_id),
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise DomainError(ErrorCode.NOT_FOUND, f"information not found: {information_id}")
+        return information_from_row(dict(row))
 
     def get_by_key(self, world_instance_id: WorldInstanceId, key: str) -> Information:
         row = (
