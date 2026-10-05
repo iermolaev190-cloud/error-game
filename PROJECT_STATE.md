@@ -21,11 +21,11 @@ Telegram не содержит игровой логики.
 
 ## Состояние
 
-HEAD: коммит 11 — Investigation engine (Phase 20), завершён.
-Тесты: 436 passed, exit 0.
-Рабочее дерево чистое.
+HEAD: e6fe130 — feat(ai): add intent interpreter layer (коммит 12, Phase 21), завершён.
+Тесты: 455 passed, exit 0.
+Коммит 12 завершён; это обновление PROJECT_STATE.md подготовлено отдельно и не закоммичено.
 
-Следующий этап — AI interpreter (Phase 21).
+Следующий этап — AI NPC dialogue (Phase 22).
 
 ## Порядок чтения для нового AI
 
@@ -59,6 +59,7 @@ HEAD: коммит 11 — Investigation engine (Phase 20), завершён.
 - d027945 фикс F2 CLI test
 - 68acef9 коммит 10 — Simple economy (Phase 19)
 - коммит 11 — Investigation engine (Phase 20)
+- e6fe130 коммит 12 — AI intent interpreter (Phase 21)
 
 Миграции: 0001-0010.
 
@@ -130,6 +131,23 @@ HEAD: коммит 11 — Investigation engine (Phase 20), завершён.
 - Case/evidence/theory/note/question/relation операции проверены на event persistence, idempotency, restart и A/B isolation.
 - Integration: F1 обнаруживает утечку при удалённом viewer-filter; F2 обнаруживает подтверждение теории без guard.
 - Полный набор: 436 passed.
+
+## Коммит 12: AI intent interpreter (Phase 21)
+
+- Добавлен `application/ai/`: Intent, IntentInterpreter, provider-интерфейсы и mock/stub реализации, CommandIntentParser и реестр player intents.
+- `Intent` описывает только действие игрока; `world_instance_id` не включён.
+- `INTENT_HANDLERS` содержит ровно 18 player intents; системные/world-controlled методы не доступны через реестр.
+- `WorldEngine.handle_intent` — тонкий диспетчер через `resolve_handler` и `getattr`; не импортирует `IntentType` и не содержит логики действий.
+- CLI получил отдельную подкоманду `interpret`; существующие команды действий сохранены.
+- `ai_provider` настраивается как `stub` или `mock`; реального LLM-провайдера нет.
+- Container собирает interpreter с command-parser fallback.
+- F1/F2/F3 проверены фальсификациями; полный набор: 455 passed.
+
+## TODO
+
+- MASTER_SPEC §13: проверить и исправить устаревшую нумерацию ссылки на правила/границы AI.
+- Уточнить для INSPECT различие FACT vs CLAIM и привести реализацию/документацию к единому правилу.
+- Сверить ссылки на фазу AI NPC dialogue: в `19_MVP_V1_FOR_AI.txt` §21 описывает AI interface flow, §22 — Telegram; в `20_TECH_ARCHITECTURE_V1_FOR_AI.txt` §§40–43 не являются разделами AI gateway (AI provider/interpreter/generator находятся в §§17–19).
 
 ## Правила работы
 
