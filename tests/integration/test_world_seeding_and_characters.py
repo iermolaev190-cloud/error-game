@@ -29,6 +29,11 @@ def test_world_creation_seeds_locations_and_information(world_engine: WorldEngin
     assert information.discovered_by is None
     assert information.discovered_at is None
 
+    factions = world_engine.get_factions(instance.id)
+    assert {faction.key for faction in factions} == {"council", "expedition", "union"}
+    expedition = next(faction for faction in factions if faction.key == "expedition")
+    assert expedition.location_keys == (LocationKey("base"), LocationKey("forest"))
+
     events = world_engine.get_events(instance.id)
     assert [event.type.value for event in events] == ["WORLD_INSTANCE_CREATED"]
 

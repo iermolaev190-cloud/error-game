@@ -12,6 +12,7 @@ from typing import Callable, Protocol, Sequence
 from world_error.domain.characters.character import Character
 from world_error.domain.consequences.consequence import Consequence
 from world_error.domain.events.log import EventLog
+from world_error.domain.factions.faction import Faction
 from world_error.domain.information.information import Information
 from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
 from world_error.domain.locations.location import LocationState
@@ -26,6 +27,7 @@ from world_error.domain.shared.kernel import (
     CharacterId,
     ConsequenceId,
     EventId,
+    FactionId,
     InformationId,
     LocationKey,
     LegacyDocumentId,
@@ -142,6 +144,18 @@ class NpcRepository(Protocol):
         ...
 
     def save(self, npc: Npc) -> None: ...
+
+
+class FactionRepository(Protocol):
+    def add(self, faction: Faction) -> None: ...
+
+    def get(self, world_instance_id: WorldInstanceId, faction_id: FactionId) -> Faction: ...
+
+    def get_by_key(self, world_instance_id: WorldInstanceId, key: str) -> Faction: ...
+
+    def list_for_instance(self, world_instance_id: WorldInstanceId) -> Sequence[Faction]: ...
+
+    def save(self, faction: Faction) -> None: ...
 
 
 class RelationshipRepository(Protocol):

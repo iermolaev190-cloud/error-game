@@ -38,6 +38,8 @@ class RelationshipKind(StrEnum):
 
     TRUST = "TRUST"
     SUSPICION = "SUSPICION"
+    STANDING = "STANDING"
+    MEMBERSHIP = "MEMBERSHIP"
 
 
 class TrustLevel(StrEnum):
@@ -55,6 +57,27 @@ class SuspicionLevel(StrEnum):
     HIGH = "HIGH"
 
 
+class StandingLevel(StrEnum):
+    ALLIED = "ALLIED"
+    COOPERATE = "COOPERATE"
+    NEUTRAL = "NEUTRAL"
+    COMPETITIVE = "COMPETITIVE"
+    HOSTILE = "HOSTILE"
+    AT_WAR = "AT_WAR"
+
+
+class MembershipLevel(StrEnum):
+    OUTSIDER = "OUTSIDER"
+    SYMPATHISER = "SYMPATHISER"
+    MEMBER = "MEMBER"
+    OFFICER = "OFFICER"
+
+
+class RelationshipVisibility(StrEnum):
+    PUBLIC = "PUBLIC"
+    SECRET = "SECRET"
+
+
 class RelationshipDirection(StrEnum):
     """Шаг по лестнице вида: на ступень вверх или вниз. Без очков и чисел."""
 
@@ -62,7 +85,7 @@ class RelationshipDirection(StrEnum):
     DECREASE = "DECREASE"
 
 
-RelationshipLevel = TrustLevel | SuspicionLevel
+RelationshipLevel = TrustLevel | SuspicionLevel | StandingLevel | MembershipLevel
 
 _LADDERS: Mapping[RelationshipKind, tuple[RelationshipLevel, ...]] = {
     RelationshipKind.TRUST: (
@@ -78,14 +101,30 @@ _LADDERS: Mapping[RelationshipKind, tuple[RelationshipLevel, ...]] = {
         SuspicionLevel.MEDIUM,
         SuspicionLevel.HIGH,
     ),
+    RelationshipKind.STANDING: (
+        StandingLevel.ALLIED,
+        StandingLevel.COOPERATE,
+        StandingLevel.NEUTRAL,
+        StandingLevel.COMPETITIVE,
+        StandingLevel.HOSTILE,
+        StandingLevel.AT_WAR,
+    ),
+    RelationshipKind.MEMBERSHIP: (
+        MembershipLevel.OUTSIDER,
+        MembershipLevel.SYMPATHISER,
+        MembershipLevel.MEMBER,
+        MembershipLevel.OFFICER,
+    ),
 }
 
 _BASELINES: Mapping[RelationshipKind, RelationshipLevel] = {
     RelationshipKind.TRUST: TrustLevel.NEUTRAL,
     RelationshipKind.SUSPICION: SuspicionLevel.NONE,
+    RelationshipKind.STANDING: StandingLevel.NEUTRAL,
+    RelationshipKind.MEMBERSHIP: MembershipLevel.OUTSIDER,
 }
 
-SUPPORTED_SUBJECT_TYPES = (SubjectType.CHARACTER, SubjectType.NPC)
+SUPPORTED_SUBJECT_TYPES = (SubjectType.CHARACTER, SubjectType.NPC, SubjectType.FACTION)
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,12 +136,26 @@ class SubjectRef:
 
 
 def ensure_supported_subject_type(subject: SubjectRef) -> None:
-    """FACTION в отношениях появится вместе с фракциями (Phase 18)."""
+    """Проверить, что тип субъекта поддержан отношениями Phase 18."""
     if subject.type not in SUPPORTED_SUBJECT_TYPES:
         raise DomainError(
             ErrorCode.INVALID_ACTION,
             f"unsupported relationship subject type: {subject.type}",
         )
+
+
+def ensure_relationship_kind_subjects(
+    kind: RelationshipKind, holder: SubjectRef, subject: SubjectRef
+) -> None:
+    if kind is RelationshipKind.STANDING:
+        if holder.type is not SubjectType.FACTION or subject.type is not SubjectType.FACTION:
+            raise DomainError(ErrorCode.INVALID_ACTION, "STANDING requires two FACTION subjects")
+    elif kind is RelationshipKind.MEMBERSHIP:
+        if holder.type is not SubjectType.FACTION or subject.type is not SubjectType.CHARACTER:
+            raise DomainError(
+                ErrorCode.INVALID_ACTION,
+                "MEMBERSHIP requires a FACTION holder and CHARACTER subject",
+            )
 
 
 def baseline_level(kind: RelationshipKind) -> RelationshipLevel:
@@ -151,6 +204,7 @@ class Relationship:
     level: RelationshipLevel
     created_at: datetime
     updated_at: datetime
+    visibility: RelationshipVisibility = RelationshipVisibility.PUBLIC
 
     @classmethod
     def create(
@@ -164,9 +218,11 @@ class Relationship:
         kind: RelationshipKind,
         now: datetime,
         level: RelationshipLevel | None = None,
+        visibility: RelationshipVisibility = RelationshipVisibility.PUBLIC,
     ) -> "Relationship":
         ensure_supported_subject_type(holder)
         ensure_supported_subject_type(subject)
+        ensure_relationship_kind_subjects(kind, holder, subject)
         if holder_instance_id != subject_instance_id:
             raise DomainError(
                 ErrorCode.NOT_ALLOWED,
@@ -186,6 +242,7 @@ class Relationship:
             level=coerce_level(kind, level if level is not None else baseline_level(kind)),
             created_at=now,
             updated_at=now,
+            visibility=visibility,
         )
 
     def apply(self, event: Event) -> None:
@@ -202,6 +259,8 @@ class Relationship:
         if (
             str(payload.get("holder_id")) != self.holder.id
             or str(payload.get("subject_id")) != self.subject.id
+            or str(payload.get("holder_type")) != self.holder.type.value
+            or str(payload.get("subject_type")) != self.subject.type.value
         ):
             raise DomainError(
                 ErrorCode.NOT_ALLOWED,
@@ -216,16 +275,35 @@ class Relationship:
             ),
             None,
         )
-        if change is None:
-            return  # этот вид отношения в событии не менялся
+        new_level = self.level
+        if change is not None:
+            if str(change.get("from")) != self.level.value:
+                raise DomainError(
+                    ErrorCode.INVALID_ACTION,
+                    f"relationship event has stale from-level: {change.get('from')}",
+                )
+            new_level = coerce_level(self.kind, str(change.get("to")))
+            current_index = level_index(self.kind, self.level)
+            new_index = level_index(self.kind, new_level)
+            distance = abs(new_index - current_index)
+            if distance > 1 or (distance == 0 and "visibility" not in payload):
+                raise DomainError(
+                    ErrorCode.INVALID_ACTION,
+                    f"illegal relationship transition: {self.level} -> {new_level}",
+                )
 
-        new_level = coerce_level(self.kind, str(change.get("to")))
-        current_index = level_index(self.kind, self.level)
-        new_index = level_index(self.kind, new_level)
-        if abs(new_index - current_index) != 1:
-            raise DomainError(
-                ErrorCode.INVALID_ACTION,
-                f"illegal relationship step: {self.level} -> {new_level}",
-            )
+        new_visibility = self.visibility
+        if "visibility" in payload:
+            try:
+                new_visibility = RelationshipVisibility(str(payload["visibility"]))
+            except ValueError as exc:
+                raise DomainError(ErrorCode.INVALID_ACTION, "unknown relationship visibility") from exc
+
+        if change is None and new_visibility is self.visibility:
+            return
+        if new_level is self.level and new_visibility is self.visibility:
+            raise DomainError(ErrorCode.INVALID_ACTION, "relationship event has no effect")
+
         self.level = new_level
+        self.visibility = new_visibility
         self.updated_at = event.executed_at or event.created_at

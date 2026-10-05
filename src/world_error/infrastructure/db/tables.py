@@ -218,6 +218,44 @@ npcs = Table(
     Index("ix_npcs_instance_location", "world_instance_id", "location_key"),
 )
 
+factions = Table(
+    "factions",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column(
+        "world_instance_id",
+        String(64),
+        ForeignKey("world_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("key", String(64), nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("world_instance_id", "id", name="uq_factions_instance_id"),
+    UniqueConstraint("world_instance_id", "key", name="uq_factions_instance_key"),
+)
+
+faction_locations = Table(
+    "faction_locations",
+    metadata,
+    Column("world_instance_id", String(64), primary_key=True),
+    Column("faction_id", String(64), primary_key=True),
+    Column("location_key", String(64), primary_key=True),
+    ForeignKeyConstraint(
+        ["world_instance_id", "faction_id"],
+        ["factions.world_instance_id", "factions.id"],
+        name="fk_faction_locations_faction",
+        ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "location_key"],
+        ["location_states.world_instance_id", "location_states.key"],
+        name="fk_faction_locations_location",
+        ondelete="CASCADE",
+    ),
+)
+
 relationships = Table(
     "relationships",
     metadata,
@@ -234,6 +272,7 @@ relationships = Table(
     Column("subject_id", String(64), nullable=False),
     Column("kind", String(16), nullable=False),
     Column("level", String(16), nullable=False),
+    Column("visibility", String(16), nullable=False, server_default="PUBLIC"),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
     UniqueConstraint(

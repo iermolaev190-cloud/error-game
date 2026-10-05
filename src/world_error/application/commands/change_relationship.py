@@ -21,6 +21,7 @@ from world_error.domain.relationships.relationship import (
     Relationship,
     RelationshipDirection,
     RelationshipKind,
+    RelationshipVisibility,
     SubjectRef,
     baseline_level,
     step_level,
@@ -44,6 +45,7 @@ class ChangeRelationshipCommand:
     subject: SubjectRef
     kind: RelationshipKind
     direction: RelationshipDirection
+    visibility: RelationshipVisibility | None = None
     reason: str = "manual"
     cause: str = "change_relationship"
 
@@ -84,8 +86,13 @@ class ChangeRelationshipHandler:
                 )
                 current_level = existing.level if existing is not None else baseline_level(command.kind)
                 new_level = step_level(command.kind, current_level, command.direction)
+                current_visibility = (
+                    existing.visibility if existing is not None else RelationshipVisibility.PUBLIC
+                )
+                new_visibility = command.visibility or current_visibility
+                visibility_changed = new_visibility is not current_visibility
 
-                if new_level is None:
+                if new_level is None and not visibility_changed:
                     # Край лестницы: менять нечего, состояние не меняется —
                     # значит и события нет.
                     return ActionResult.success(
@@ -98,6 +105,7 @@ class ChangeRelationshipHandler:
                             "subject_id": command.subject.id,
                             "kind": command.kind.value,
                             "level": current_level.value,
+                            "visibility": current_visibility.value,
                         },
                     )
 
@@ -121,9 +129,10 @@ class ChangeRelationshipHandler:
                             {
                                 "kind": command.kind.value,
                                 "from": current_level.value,
-                                "to": new_level.value,
+                                "to": current_level.value if new_level is None else new_level.value,
                             }
                         ],
+                        **({"visibility": new_visibility.value} if visibility_changed else {}),
                     },
                     result="success",
                 )
@@ -159,7 +168,8 @@ class ChangeRelationshipHandler:
                     "subject_id": command.subject.id,
                     "kind": command.kind.value,
                     "from": current_level.value,
-                    "to": new_level.value,
+                    "to": current_level.value if new_level is None else new_level.value,
+                    "visibility": new_visibility.value,
                     "world_tick": instance.state.world_tick,
                     "state_version": instance.state.state_version,
                 },

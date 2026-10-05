@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import subprocess
+import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import sessionmaker
 
 from world_error.application.services.world_engine import WorldEngine
@@ -42,6 +44,7 @@ def test_alembic_upgrade_head_on_clean_database(
         inspector = inspect(db_engine)
         tables = set(inspector.get_table_names())
         character_columns = {column["name"] for column in inspector.get_columns("characters")}
+        relationship_columns = {column["name"] for column in inspector.get_columns("relationships")}
         character_checks = {check["name"] for check in inspector.get_check_constraints("characters")}
     finally:
         db_engine.dispose()
@@ -61,9 +64,80 @@ def test_alembic_upgrade_head_on_clean_database(
         "consequences",
         "consequence_causes",
         "legacy_items",
+        "factions",
+        "faction_locations",
     } <= tables
+    assert "visibility" in relationship_columns
     assert {"death_event_id", "death_cause_event_id"} <= character_columns
     assert "ck_characters_death_references" in character_checks
+
+
+def test_relationship_visibility_migration_backfills_public(tmp_path: Path) -> None:
+    db_path = tmp_path / "visibility-backfill.db"
+    url = f"sqlite+pysqlite:///{db_path.as_posix()}"
+    repo_root = Path(__file__).resolve().parents[2]
+    environment = {
+        **os.environ,
+        "WORLD_ERROR_DB_URL": url,
+        "PYTHONPATH": str(repo_root / "src"),
+        "PYTHONIOENCODING": "utf-8",
+    }
+
+    old_schema = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "0007_death_action_cost"],
+        cwd=repo_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert old_schema.returncode == 0, old_schema.stderr
+
+    db_engine = create_db_engine(url)
+    try:
+        with db_engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO world_instances "
+                    "(id, telegram_chat_id, seed, content_version, environment, lifecycle, "
+                    "current_time, anchor_real_time, time_scale, world_tick, state_version, created_at) "
+                    "VALUES ('wi_old', -1, 1, 'v1', 'TEST', 'ACTIVE', '2026-01-01 12:00:00', "
+                    "'2026-01-01 12:00:00', 1.0, 0, 0, '2026-01-01 12:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO relationships "
+                    "(id, world_instance_id, holder_type, holder_id, subject_type, subject_id, "
+                    "kind, level, created_at, updated_at) "
+                    "VALUES ('rel_old', 'wi_old', 'NPC', 'npc_old', 'CHARACTER', 'ch_old', "
+                    "'TRUST', 'NEUTRAL', '2026-01-01 12:00:00', '2026-01-01 12:00:00')"
+                )
+            )
+    finally:
+        db_engine.dispose()
+
+    upgraded = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=repo_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert upgraded.returncode == 0, upgraded.stderr
+
+    db_engine = create_db_engine(url)
+    try:
+        with db_engine.connect() as connection:
+            visibility = connection.execute(
+                text("SELECT visibility FROM relationships WHERE id = 'rel_old'")
+            ).scalar_one()
+    finally:
+        db_engine.dispose()
+    assert visibility == "PUBLIC"
 
 
 def test_created_instance_is_loaded_from_new_session(

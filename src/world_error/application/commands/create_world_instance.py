@@ -23,16 +23,19 @@ from typing import Callable
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
+from world_error.domain.factions.faction import Faction
 from world_error.domain.information.information import Information
 from world_error.domain.locations.location import LocationState
 from world_error.domain.npcs.npc import Npc
 from world_error.domain.shared.kernel import (
     Clock,
     EventId,
+    FactionId,
     InformationId,
     NpcId,
     WorldInstanceId,
     new_event_id,
+    new_faction_id,
     new_information_id,
     new_npc_id,
     new_world_instance_id,
@@ -58,6 +61,7 @@ class CreateWorldInstanceHandler:
         new_event_id_factory: Callable[[], EventId] = new_event_id,
         new_information_id_factory: Callable[[], InformationId] = new_information_id,
         new_npc_id_factory: Callable[[], NpcId] = new_npc_id,
+        new_faction_id_factory: Callable[[], FactionId] = new_faction_id,
     ) -> None:
         self._uow_factory = uow_factory
         self._clock = clock
@@ -66,6 +70,7 @@ class CreateWorldInstanceHandler:
         self._new_event_id = new_event_id_factory
         self._new_information_id = new_information_id_factory
         self._new_npc_id = new_npc_id_factory
+        self._new_faction_id = new_faction_id_factory
 
     def handle(self, command: CreateWorldInstanceCommand) -> WorldInstance:
         now = self._clock.now()
@@ -124,6 +129,16 @@ class CreateWorldInstanceHandler:
                         world_instance_id=instance.id,
                         key=npc_definition.key,
                         location_key=npc_definition.initial_location,
+                        now=now,
+                    )
+                )
+            for faction_definition in self._catalog.factions.values():
+                uow.factions.add(
+                    Faction.create(
+                        id=self._new_faction_id(),
+                        world_instance_id=instance.id,
+                        key=faction_definition.key,
+                        location_keys=faction_definition.locations,
                         now=now,
                     )
                 )

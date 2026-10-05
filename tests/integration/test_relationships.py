@@ -241,25 +241,26 @@ def test_relationship_change_to_self_is_rejected(world_engine: WorldEngine) -> N
     assert len(world_engine.get_events(instance.id)) == events_before
 
 
-def test_faction_subject_is_rejected_by_domain(world_engine: WorldEngine) -> None:
-    """M1: FACTION отклоняется до Phase 18."""
+def test_faction_subject_can_change_standing(world_engine: WorldEngine) -> None:
     instance = make_world(world_engine)
-    npc = npc_by_key(world_engine, instance, "mechanic")
-    faction = SubjectRef(type=SubjectType.FACTION, id="faction_1")
+    factions = {faction.key: faction for faction in world_engine.get_factions(instance.id)}
+    expedition = SubjectRef(type=SubjectType.FACTION, id=str(factions["expedition"].id))
+    union = SubjectRef(type=SubjectType.FACTION, id=str(factions["union"].id))
     events_before = len(world_engine.get_events(instance.id))
 
     result = world_engine.change_relationship(
         instance.id,
-        holder=npc,
-        subject=faction,
-        kind=RelationshipKind.TRUST,
+        holder=expedition,
+        subject=union,
+        kind=RelationshipKind.STANDING,
         direction=RelationshipDirection.INCREASE,
     )
 
-    assert result.ok is False
-    assert result.error is not None and result.error.code is ErrorCode.INVALID_ACTION
-    assert world_engine.list_relationships_of(instance.id, npc) == []
-    assert len(world_engine.get_events(instance.id)) == events_before
+    assert result.ok is True
+    assert len(world_engine.get_events(instance.id)) == events_before + 1
+    relations = world_engine.list_relationships_of(instance.id, expedition)
+    assert len(relations) == 1
+    assert relations[0].level.value == "COMPETITIVE"
 
 
 def test_cross_instance_subject_leaves_no_trace(world_engine: WorldEngine) -> None:

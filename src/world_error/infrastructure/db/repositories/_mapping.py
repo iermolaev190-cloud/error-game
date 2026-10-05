@@ -24,6 +24,7 @@ from world_error.domain.consequences.vocabulary import (
     TriggerKind,
 )
 from world_error.domain.events.event import Event, EventType
+from world_error.domain.factions.faction import Faction, FactionStatus
 from world_error.domain.information.information import Information
 from world_error.domain.knowledge.knowledge import (
     ClaimType,
@@ -38,6 +39,7 @@ from world_error.domain.npcs.npc import Npc, NpcStatus
 from world_error.domain.relationships.relationship import (
     Relationship,
     RelationshipKind,
+    RelationshipVisibility,
     SubjectRef,
     coerce_level,
 )
@@ -46,6 +48,7 @@ from world_error.domain.shared.kernel import (
     ConsequenceId,
     DiscoveryState,
     EventId,
+    FactionId,
     InformationId,
     KnowledgeId,
     LocationKey,
@@ -393,6 +396,32 @@ def npc_from_row(row: dict) -> Npc:
     )
 
 
+# --- faction --------------------------------------------------------------
+
+
+def faction_row(faction: Faction) -> dict[str, object]:
+    return {
+        "id": str(faction.id),
+        "world_instance_id": str(faction.world_instance_id),
+        "key": faction.key,
+        "status": faction.status.value,
+        "created_at": faction.created_at,
+        "updated_at": faction.updated_at,
+    }
+
+
+def faction_from_row(row: dict, location_keys: tuple[LocationKey, ...] = ()) -> Faction:
+    return Faction(
+        id=FactionId(row["id"]),
+        world_instance_id=WorldInstanceId(row["world_instance_id"]),
+        key=row["key"],
+        status=FactionStatus(row["status"]),
+        location_keys=location_keys,
+        created_at=as_utc(row["created_at"]),
+        updated_at=as_utc(row["updated_at"]),
+    )
+
+
 # --- relationship ---------------------------------------------------------
 
 
@@ -406,6 +435,7 @@ def relationship_row(relationship: Relationship) -> dict[str, object]:
         "subject_id": relationship.subject.id,
         "kind": relationship.kind.value,
         "level": relationship.level.value,
+        "visibility": relationship.visibility.value,
         "created_at": relationship.created_at,
         "updated_at": relationship.updated_at,
     }
@@ -422,6 +452,7 @@ def relationship_from_row(row: dict) -> Relationship:
         level=coerce_level(kind, row["level"]),
         created_at=as_utc(row["created_at"]),
         updated_at=as_utc(row["updated_at"]),
+        visibility=RelationshipVisibility(row["visibility"]),
     )
 
 

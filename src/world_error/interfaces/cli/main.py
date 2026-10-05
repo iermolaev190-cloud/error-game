@@ -38,6 +38,7 @@ from world_error.domain.npcs.npc import NpcStatus
 from world_error.domain.relationships.relationship import (
     RelationshipDirection,
     RelationshipKind,
+    RelationshipVisibility,
     SubjectRef,
 )
 from world_error.domain.relationships.rules import SignificantAction
@@ -154,6 +155,9 @@ def build_parser() -> argparse.ArgumentParser:
     show_npc.add_argument("--world-id", dest="world_id", required=True)
     show_npc.add_argument("--npc-id", dest="npc_id", required=True)
 
+    show_factions = subparsers.add_parser("show-factions", help="публичные факты фракций")
+    show_factions.add_argument("--world-id", dest="world_id", required=True)
+
     relationship_change = subparsers.add_parser(
         "relationship-change", help="изменить отношение holder → subject на одну ступень"
     )
@@ -176,6 +180,12 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
     )
     relationship_change.add_argument("--reason", dest="reason", default="manual")
+    relationship_change.add_argument(
+        "--visibility",
+        dest="visibility",
+        choices=[visibility.value for visibility in RelationshipVisibility],
+        default=None,
+    )
 
     significant_action = subparsers.add_parser(
         "significant-action", help="значимое действие меняет отношение держателя к действующему"
@@ -412,6 +422,20 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
         print(f"location_key={npc.location_key}")
         return 0
 
+    if args.command == "show-factions":
+        views = world_engine.view_factions(WorldInstanceId(args.world_id))
+        print(f"world_instance_id={args.world_id}")
+        print(f"factions_total={len(views)}")
+        for faction in views:
+            print(
+                f"FACTION {faction.faction_id} {faction.key} {faction.name} "
+                f"{faction.faction_type} {faction.status}"
+            )
+            print(f"  description={faction.description}")
+            print(f"  public_goal={faction.public_goal}")
+            print(f"  locations={','.join(faction.locations)}")
+        return 0
+
     if args.command == "relationship-change":
         return _print_action_result(
             world_engine.change_relationship(
@@ -420,6 +444,9 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
                 subject=SubjectRef(type=SubjectType(args.subject_type), id=args.subject_id),
                 kind=RelationshipKind(args.kind),
                 direction=RelationshipDirection(args.direction),
+                visibility=(
+                    None if args.visibility is None else RelationshipVisibility(args.visibility)
+                ),
                 reason=args.reason,
             )
         )

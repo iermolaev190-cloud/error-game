@@ -16,6 +16,7 @@ CharacterId = NewType("CharacterId", str)
 InformationId = NewType("InformationId", str)
 KnowledgeId = NewType("KnowledgeId", str)
 NpcId = NewType("NpcId", str)
+FactionId = NewType("FactionId", str)
 RelationshipId = NewType("RelationshipId", str)
 ConsequenceId = NewType("ConsequenceId", str)
 ScheduledEventId = NewType("ScheduledEventId", str)
@@ -51,6 +52,11 @@ def new_knowledge_id() -> KnowledgeId:
 def new_npc_id() -> NpcId:
     """Новый идентификатор NPC."""
     return NpcId(f"npc_{uuid.uuid4().hex}")
+
+
+def new_faction_id() -> FactionId:
+    """Новый идентификатор фракции."""
+    return FactionId(f"fac_{uuid.uuid4().hex}")
 
 
 def new_relationship_id() -> RelationshipId:

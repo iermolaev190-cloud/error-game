@@ -205,6 +205,11 @@ def validate_effect_payload(effect: ConsequenceEffect, payload: Mapping[str, Any
         )
         ensure_supported_subject_type(holder)
         ensure_supported_subject_type(subject)
+        if SubjectType.FACTION in (holder.type, subject.type):
+            raise DomainError(
+                ErrorCode.INVALID_ACTION,
+                "faction relationships cannot be changed by consequences",
+            )
         _parse(RelationshipKind, payload["kind"], "relationship kind")
         _parse(RelationshipDirection, payload["direction"], "relationship direction")
         return
@@ -224,18 +229,17 @@ def validate_effect_keys(effect: ConsequenceEffect, keys: Mapping[str, Any]) -> 
             f"effect {effect.value} rule requires: {', '.join(missing)}",
         )
     if effect is ConsequenceEffect.RELATIONAL_SHIFT:
+        holder_type = _parse(SubjectType, keys["holder_type"], "holder_type")
+        subject_type = _parse(SubjectType, keys["subject_type"], "subject_type")
+        ensure_supported_subject_type(SubjectRef(type=holder_type, id=str(keys.get("holder_key", ""))))
         ensure_supported_subject_type(
-            SubjectRef(
-                type=_parse(SubjectType, keys["holder_type"], "holder_type"),
-                id=str(keys.get("holder_key", "")),
-            )
+            SubjectRef(type=subject_type, id=str(keys.get("subject_key", "")))
         )
-        ensure_supported_subject_type(
-            SubjectRef(
-                type=_parse(SubjectType, keys["subject_type"], "subject_type"),
-                id=str(keys.get("subject_key", "")),
+        if SubjectType.FACTION in (holder_type, subject_type):
+            raise DomainError(
+                ErrorCode.INVALID_ACTION,
+                "faction relationships cannot be changed by consequences",
             )
-        )
         _parse(RelationshipKind, keys["kind"], "relationship kind")
         _parse(RelationshipDirection, keys["direction"], "relationship direction")
         return

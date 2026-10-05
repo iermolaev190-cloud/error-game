@@ -17,6 +17,7 @@ from world_error.domain.shared.kernel import (
     CharacterId,
     DomainError,
     ErrorCode,
+    FactionId,
     NpcId,
     WorldInstanceId,
 )
@@ -34,6 +35,9 @@ def resolve_subject(uow, world_instance_id: WorldInstanceId, subject: SubjectRef
         return
     if subject.type is SubjectType.NPC:
         uow.npcs.get(world_instance_id, NpcId(subject.id))
+        return
+    if subject.type is SubjectType.FACTION:
+        uow.factions.get(world_instance_id, FactionId(subject.id))
         return
     raise DomainError(
         ErrorCode.INVALID_ACTION,
@@ -63,4 +67,6 @@ def subject_ref_from_id(subject_id: str) -> SubjectRef | None:
         return SubjectRef(type=SubjectType.CHARACTER, id=subject_id)
     if subject_id.startswith("npc_"):
         return SubjectRef(type=SubjectType.NPC, id=subject_id)
+    if subject_id.startswith("fac_"):
+        return SubjectRef(type=SubjectType.FACTION, id=subject_id)
     return None

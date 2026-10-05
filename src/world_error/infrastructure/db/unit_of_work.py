@@ -12,6 +12,7 @@ from world_error.infrastructure.db.repositories import (
     SqlCharacterRepository,
     SqlConsequenceRepository,
     SqlEventLogRepository,
+    SqlFactionRepository,
     SqlInformationRepository,
     SqlKnowledgeRepository,
     SqlLegacyDocumentRepository,
@@ -29,6 +30,7 @@ class SqlAlchemyUnitOfWork:
         self._session: Session | None = None
         self.world_instances: SqlWorldInstanceRepository
         self.events: SqlEventLogRepository
+        self.factions: SqlFactionRepository
         self.characters: SqlCharacterRepository
         self.locations: SqlLocationStateRepository
         self.information: SqlInformationRepository
@@ -43,6 +45,7 @@ class SqlAlchemyUnitOfWork:
         self._session = self._session_factory()
         self.world_instances = SqlWorldInstanceRepository(self._session)
         self.events = SqlEventLogRepository(self._session)
+        self.factions = SqlFactionRepository(self._session)
         self.characters = SqlCharacterRepository(self._session)
         self.locations = SqlLocationStateRepository(self._session)
         self.information = SqlInformationRepository(self._session)

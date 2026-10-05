@@ -33,6 +33,10 @@ from world_error.application.commands.change_relationship import (
     ChangeRelationshipCommand,
     ChangeRelationshipHandler,
 )
+from world_error.application.commands.change_faction_status import (
+    ChangeFactionStatusCommand,
+    ChangeFactionStatusHandler,
+)
 from world_error.application.commands.kill_character import (
     KillCharacterCommand,
     KillCharacterHandler,
@@ -94,6 +98,7 @@ from world_error.application.commands.share_knowledge import (
 )
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.application.queries.location_view import LocationView, LocationViewQuery
+from world_error.application.queries.faction_view import FactionView, FactionViewQuery
 from world_error.application.services.consequence_engine import (
     ConsequenceEngine,
     PumpOutcome,
@@ -111,6 +116,7 @@ from world_error.domain.consequences.vocabulary import (
 )
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.domain.events.event import Event, EventType
+from world_error.domain.factions.faction import Faction, FactionStatus
 from world_error.domain.knowledge.knowledge import (
     ClaimType,
     Knowledge,
@@ -123,6 +129,7 @@ from world_error.domain.relationships.relationship import (
     Relationship,
     RelationshipDirection,
     RelationshipKind,
+    RelationshipVisibility,
     SubjectRef,
 )
 from world_error.domain.relationships.rules import SignificantAction
@@ -133,6 +140,7 @@ from world_error.domain.shared.kernel import (
     DomainError,
     ErrorCode,
     EventId,
+    FactionId,
     LocationKey,
     LegacyDocumentId,
     NpcId,
@@ -239,7 +247,13 @@ class WorldEngine:
             new_event_id_factory=self._new_event_id,
         )
         self._location_view = LocationViewQuery(uow_factory=uow_factory, catalog=catalog)
+        self._faction_view = FactionViewQuery(uow_factory=uow_factory, catalog=catalog)
         self._change_relationship = ChangeRelationshipHandler(
+            uow_factory=uow_factory,
+            clock=self._clock,
+            new_event_id_factory=self._new_event_id,
+        )
+        self._change_faction_status = ChangeFactionStatusHandler(
             uow_factory=uow_factory,
             clock=self._clock,
             new_event_id_factory=self._new_event_id,
@@ -815,6 +829,7 @@ class WorldEngine:
         subject: SubjectRef,
         kind: RelationshipKind,
         direction: RelationshipDirection,
+        visibility: RelationshipVisibility | None = None,
         reason: str = "manual",
     ) -> ActionResult:
         """Сдвинуть отношение holder → subject на одну ступень по лестнице вида."""
@@ -825,7 +840,23 @@ class WorldEngine:
                 subject=subject,
                 kind=kind,
                 direction=direction,
+                visibility=visibility,
                 reason=reason,
+            )
+        )
+
+    def change_faction_status(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        faction_id: FactionId,
+        to_status: FactionStatus | str,
+    ) -> ActionResult:
+        return self._change_faction_status.handle(
+            ChangeFactionStatusCommand(
+                world_instance_id=world_instance_id,
+                faction_id=faction_id,
+                to_status=to_status,
             )
         )
 
@@ -1086,6 +1117,37 @@ class WorldEngine:
         with self._uow_factory() as uow:
             uow.world_instances.get(world_instance_id)
             return list(uow.npcs.list_for_instance(world_instance_id))
+
+    def get_faction(self, world_instance_id: WorldInstanceId, faction_id: FactionId) -> Faction:
+        with self._uow_factory() as uow:
+            return uow.factions.get(world_instance_id, faction_id)
+
+    def get_factions(self, world_instance_id: WorldInstanceId) -> Sequence[Faction]:
+        with self._uow_factory() as uow:
+            uow.world_instances.get(world_instance_id)
+            return list(uow.factions.list_for_instance(world_instance_id))
+
+    def view_factions(self, world_instance_id: WorldInstanceId) -> Sequence[FactionView]:
+        return self._faction_view.list_for_instance(world_instance_id)
+
+    def get_faction_relations(
+        self,
+        world_instance_id: WorldInstanceId,
+        faction_id: FactionId,
+        *,
+        only_public: bool = True,
+    ) -> Sequence[Relationship]:
+        faction_ref = SubjectRef(type=SubjectType.FACTION, id=str(faction_id))
+        with self._uow_factory() as uow:
+            uow.factions.get(world_instance_id, faction_id)
+            relations = uow.relationships.list_of(world_instance_id, faction_ref)
+            if only_public:
+                return [
+                    relation
+                    for relation in relations
+                    if relation.visibility is RelationshipVisibility.PUBLIC
+                ]
+            return list(relations)
 
     def get_npc_definition(self, npc_key: str) -> NpcDefinition:
         """Определение NPC из контента (имя, описание, цели)."""

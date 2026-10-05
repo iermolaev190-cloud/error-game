@@ -23,6 +23,7 @@ from world_error.domain.consequences.vocabulary import (
     TriggerKind,
 )
 from world_error.domain.events.event import EventType
+from world_error.domain.factions.faction import FactionDefinition
 from world_error.domain.information.information import InformationDefinition
 from world_error.domain.locations.location import LocationDefinition
 from world_error.domain.npcs.npc import NpcDefinition
@@ -32,6 +33,7 @@ MANIFEST_FILE = "manifest.json"
 LOCATIONS_DIR = "locations"
 INFORMATION_DIR = "information"
 NPCS_DIR = "npcs"
+FACTIONS_DIR = "factions"
 CONSEQUENCES_DIR = "consequences"
 
 
@@ -43,6 +45,7 @@ def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
     locations = _load_locations(root / LOCATIONS_DIR)
     information = _load_information(root / INFORMATION_DIR)
     npcs = _load_npcs(root / NPCS_DIR)
+    factions = _load_factions(root / FACTIONS_DIR)
     rules = _load_consequences(root / CONSEQUENCES_DIR)
 
     return ContentCatalog.build(
@@ -51,6 +54,7 @@ def load_content_catalog(content_dir: Path | str) -> ContentCatalog:
         locations=locations,
         information=information,
         npcs=npcs,
+        factions=factions,
         rules=rules,
     )
 
@@ -123,6 +127,34 @@ def _load_npcs(directory: Path) -> dict[str, NpcDefinition]:
             description=_require_str(data, "description", path),
             initial_location=LocationKey(_require_str(data, "initial_location", path)),
             goals=tuple(str(goal) for goal in _require_list(data, "goals", path)),
+        )
+    return items
+
+
+def _load_factions(directory: Path) -> dict[str, FactionDefinition]:
+    """Faction definitions are immutable global content, not instance state."""
+    items: dict[str, FactionDefinition] = {}
+    if not directory.is_dir():
+        return items
+    for path in _json_files(directory, require_any=False):
+        data = _read_object(path)
+        key = _require_str(data, "key", path)
+        if key in items:
+            raise ContentError(f"duplicate faction key {key!r} ({path})")
+        hidden_goal = data.get("hidden_goal")
+        if hidden_goal is not None and not isinstance(hidden_goal, str):
+            raise ContentError(f"content file {path} field 'hidden_goal' must be a string")
+        items[key] = FactionDefinition(
+            key=key,
+            name=_require_str(data, "name", path),
+            description=_require_str(data, "description", path),
+            faction_type=_require_str(data, "type", path),
+            public_goal=_require_str(data, "public_goal", path),
+            locations=tuple(
+                LocationKey(str(location_key))
+                for location_key in _require_list(data, "locations", path)
+            ),
+            hidden_goal=hidden_goal,
         )
     return items
 

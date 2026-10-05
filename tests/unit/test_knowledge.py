@@ -155,6 +155,25 @@ def test_record_supports_every_claim_type(claim_type: ClaimType) -> None:
     assert knowledge.claim == CONTENT
 
 
+def test_record_accepts_faction_as_knowledge_subject() -> None:
+    knowledge = Knowledge.record(
+        id=KnowledgeId("kn_faction"),
+        world_instance_id=WORLD_ID,
+        subject_type=SubjectType.FACTION,
+        subject_id="fac_expedition",
+        information_id=InformationId("info_1"),
+        claim=CONTENT,
+        claim_type=ClaimType.CLAIM,
+        source=KnowledgeSource.OBSERVATION,
+        source_ref="fac_expedition",
+        confidence=KnowledgeConfidence.LIKELY,
+        acquired_at=NOW,
+    )
+
+    assert knowledge.subject_type is SubjectType.FACTION
+    assert knowledge.subject_id == "fac_expedition"
+
+
 def test_record_rejects_empty_claim() -> None:
     with pytest.raises(DomainError) as exc_info:
         Knowledge.record(

@@ -12,7 +12,10 @@ from world_error.domain.relationships.relationship import (
     Relationship,
     RelationshipDirection,
     RelationshipKind,
+    RelationshipVisibility,
     SubjectRef,
+    MembershipLevel,
+    StandingLevel,
     SuspicionLevel,
     TrustLevel,
     baseline_level,
@@ -37,6 +40,8 @@ WORLD_ID = WorldInstanceId("wi_test")
 OTHER_WORLD_ID = WorldInstanceId("wi_other")
 NPC = SubjectRef(type=SubjectType.NPC, id="npc_caretaker")
 CHARACTER = SubjectRef(type=SubjectType.CHARACTER, id="ch_anna")
+FACTION = SubjectRef(type=SubjectType.FACTION, id="fac_expedition")
+OTHER_FACTION = SubjectRef(type=SubjectType.FACTION, id="fac_union")
 
 
 def make_relationship(
@@ -103,6 +108,14 @@ def test_suspicion_ladder_order() -> None:
     assert level_index(RelationshipKind.SUSPICION, SuspicionLevel.HIGH) == 3
 
 
+def test_standing_and_membership_have_independent_baselines_and_ladders() -> None:
+    assert baseline_level(RelationshipKind.STANDING).value == "NEUTRAL"
+    assert level_index(RelationshipKind.STANDING, "ALLIED") == 0
+    assert level_index(RelationshipKind.STANDING, "AT_WAR") == 5
+    assert baseline_level(RelationshipKind.MEMBERSHIP).value == "OUTSIDER"
+    assert level_index(RelationshipKind.MEMBERSHIP, "OFFICER") == 3
+
+
 def test_step_moves_exactly_one_level() -> None:
     assert step_level(RelationshipKind.TRUST, TrustLevel.NEUTRAL, RelationshipDirection.INCREASE) is TrustLevel.FRIENDLY
     assert step_level(RelationshipKind.TRUST, TrustLevel.NEUTRAL, RelationshipDirection.DECREASE) is TrustLevel.WARY
@@ -132,6 +145,11 @@ def test_created_relationship_uses_baseline() -> None:
     assert relationship.subject == CHARACTER
 
 
+def test_relationship_visibility_defaults_public() -> None:
+    relationship = make_relationship(kind=RelationshipKind.STANDING, holder=FACTION, subject=OTHER_FACTION)
+    assert relationship.visibility is RelationshipVisibility.PUBLIC
+
+
 def test_relationship_with_itself_is_rejected() -> None:
     with pytest.raises(DomainError) as exc_info:
         make_relationship(subject=NPC)
@@ -144,15 +162,20 @@ def test_relationship_across_instances_is_rejected() -> None:
     assert exc_info.value.code is ErrorCode.NOT_ALLOWED
 
 
-def test_faction_subject_is_rejected() -> None:
-    """FACTION появится вместе с фракциями (Phase 18)."""
-    faction = SubjectRef(type=SubjectType.FACTION, id="faction_1")
-    with pytest.raises(DomainError) as exc_info:
-        make_relationship(subject=faction)
-    assert exc_info.value.code is ErrorCode.INVALID_ACTION
+def test_faction_subject_is_supported_for_standing_and_membership() -> None:
+    faction = SubjectRef(type=SubjectType.FACTION, id="fac_one")
+    other_faction = SubjectRef(type=SubjectType.FACTION, id="fac_two")
+    standing = make_relationship(
+        kind=RelationshipKind.STANDING, holder=faction, subject=other_faction
+    )
+    membership = make_relationship(
+        kind=RelationshipKind.MEMBERSHIP, holder=faction, subject=CHARACTER
+    )
 
+    assert standing.level is StandingLevel.NEUTRAL
+    assert membership.level is MembershipLevel.OUTSIDER
     with pytest.raises(DomainError) as exc_info:
-        make_relationship(holder=faction)
+        make_relationship(kind=RelationshipKind.MEMBERSHIP, holder=faction, subject=NPC)
     assert exc_info.value.code is ErrorCode.INVALID_ACTION
 
 
@@ -166,6 +189,59 @@ def test_event_moves_level_one_step() -> None:
     )
     assert relationship.level is TrustLevel.FRIENDLY
     assert relationship.updated_at == NOW
+
+
+def test_standing_event_can_change_level_and_visibility_together() -> None:
+    relationship = make_relationship(
+        kind=RelationshipKind.STANDING, holder=FACTION, subject=OTHER_FACTION
+    )
+    event = make_event(
+        [{"kind": "STANDING", "from": "NEUTRAL", "to": "COMPETITIVE"}],
+        holder=FACTION,
+        subject=OTHER_FACTION,
+    )
+    event = Event(
+        id=event.id,
+        world_instance_id=event.world_instance_id,
+        type=event.type,
+        created_at=event.created_at,
+        executed_at=event.executed_at,
+        actor=event.actor,
+        target=event.target,
+        payload={**event.payload, "visibility": "SECRET"},
+    )
+
+    relationship.apply(event)
+
+    assert relationship.level.value == "COMPETITIVE"
+    assert relationship.visibility is RelationshipVisibility.SECRET
+
+
+def test_visibility_can_change_without_moving_past_ladder_edge() -> None:
+    relationship = make_relationship(
+        kind=RelationshipKind.STANDING, holder=FACTION, subject=OTHER_FACTION
+    )
+    relationship.level = StandingLevel.AT_WAR
+    event = make_event(
+        [{"kind": "STANDING", "from": "AT_WAR", "to": "AT_WAR"}],
+        holder=FACTION,
+        subject=OTHER_FACTION,
+    )
+    event = Event(
+        id=event.id,
+        world_instance_id=event.world_instance_id,
+        type=event.type,
+        created_at=event.created_at,
+        executed_at=event.executed_at,
+        actor=event.actor,
+        target=event.target,
+        payload={**event.payload, "visibility": "SECRET"},
+    )
+
+    relationship.apply(event)
+
+    assert relationship.level is StandingLevel.AT_WAR
+    assert relationship.visibility is RelationshipVisibility.SECRET
 
 
 def test_event_skipping_levels_is_rejected() -> None:

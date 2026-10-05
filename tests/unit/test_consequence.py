@@ -129,7 +129,8 @@ def test_effect_payload_is_validated() -> None:
     assert exc_info.value.code is ErrorCode.INVALID_ACTION
 
 
-def test_relational_payload_rejects_faction() -> None:
+def test_relational_payload_does_not_create_faction_relationship_path() -> None:
+    """Faction links are changed explicitly, not by a scheduled consequence."""
     with pytest.raises(DomainError) as exc_info:
         make_consequence(
             type=ConsequenceType.RELATIONAL,

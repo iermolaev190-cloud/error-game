@@ -39,6 +39,16 @@ NPC: dict[str, Any] = {
     "goals": ["KEEP_BASE_RUNNING"],
 }
 
+FACTION: dict[str, Any] = {
+    "key": "expedition",
+    "name": "Экспедиция",
+    "description": "Исследовательская группа.",
+    "type": "SCIENTIFIC",
+    "public_goal": "Исследовать станцию.",
+    "locations": ["base"],
+    "hidden_goal": "Скрыть результаты.",
+}
+
 
 def write_content(
     root: Path,
@@ -47,6 +57,7 @@ def write_content(
     locations: list[dict[str, Any]] | None = None,
     information: list[dict[str, Any]] | None = None,
     npcs: list[dict[str, Any]] | None = None,
+    factions: list[dict[str, Any]] | None = None,
 ) -> Path:
     (root / "locations").mkdir(parents=True, exist_ok=True)
     (root / "information").mkdir(parents=True, exist_ok=True)
@@ -63,6 +74,13 @@ def write_content(
         for index, item in enumerate(npcs):
             name = f"{index:02d}_{item.get('key', 'npc')}.json"
             (root / "npcs" / name).write_text(json.dumps(item, ensure_ascii=False), encoding="utf-8")
+    if factions is not None:
+        (root / "factions").mkdir(parents=True, exist_ok=True)
+        for index, item in enumerate(factions):
+            name = f"{index:02d}_{item.get('key', 'faction')}.json"
+            (root / "factions" / name).write_text(
+                json.dumps(item, ensure_ascii=False), encoding="utf-8"
+            )
     return root
 
 
@@ -164,6 +182,41 @@ def test_loads_npcs_from_repository_content(content_dir: Path) -> None:
     assert catalog.npc_definition("caretaker").initial_location == "base"
     assert catalog.npc_definition("caretaker").goals
     assert catalog.npc_definition("mechanic").initial_location == "old_station"
+
+
+def test_loads_factions_from_repository_content(content_dir: Path) -> None:
+    catalog = load_content_catalog(content_dir)
+
+    assert sorted(catalog.factions) == ["council", "expedition", "union"]
+    expedition = catalog.faction_definition("expedition")
+    assert expedition.faction_type == "SCIENTIFIC"
+    assert expedition.locations == ("base", "forest")
+    assert expedition.hidden_goal
+    assert catalog.faction_definition("council").hidden_goal is None
+
+
+def test_content_without_factions_directory_is_valid(tmp_path: Path) -> None:
+    catalog = load_content_catalog(write_content(tmp_path / "c", locations=[LOCATION]))
+    assert catalog.factions == {}
+
+
+def test_faction_with_unknown_location_is_rejected(tmp_path: Path) -> None:
+    broken = dict(FACTION, locations=["nowhere"])
+    with pytest.raises(ContentError, match="faction .* references unknown location"):
+        load_content_catalog(
+            write_content(tmp_path / "c", locations=[LOCATION], factions=[broken])
+        )
+
+
+def test_duplicate_faction_key_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ContentError, match="duplicate faction key"):
+        load_content_catalog(
+            write_content(
+                tmp_path / "c",
+                locations=[LOCATION],
+                factions=[FACTION, dict(FACTION, name="Дубликат")],
+            )
+        )
 
 
 def test_content_without_npcs_directory_is_valid(tmp_path: Path) -> None:
