@@ -29,6 +29,7 @@ class IntentType(StrEnum):
     CLOSE_CASE = "CLOSE_CASE"
     INSPECT_LEGACY = "INSPECT_LEGACY"
     LEAVE_LEGACY = "LEAVE_LEGACY"
+    TALK = "TALK"
 
 
 @dataclass(frozen=True, slots=True)

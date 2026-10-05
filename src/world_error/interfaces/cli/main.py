@@ -65,7 +65,7 @@ _SUBJECT_TYPE_CHOICES = tuple(subject_type.value for subject_type in SubjectType
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="world-error",
-        description="WORLD//ERROR — временный CLI (без Telegram и AI).",
+        description="WORLD//ERROR — временный CLI без Telegram.",
     )
     parser.add_argument(
         "--db-url",
@@ -184,6 +184,12 @@ def build_parser() -> argparse.ArgumentParser:
     npc_status.add_argument("--world-id", dest="world_id", required=True)
     npc_status.add_argument("--npc-id", dest="npc_id", required=True)
     npc_status.add_argument("--to", dest="to", choices=[s.value for s in NpcStatus], required=True)
+
+    talk = subparsers.add_parser("talk", help="поговорить с NPC в текущей локации")
+    talk.add_argument("--world-id", dest="world_id", required=True)
+    talk.add_argument("--character-id", dest="character_id", required=True)
+    talk.add_argument("--npc-id", dest="npc_id", required=True)
+    talk.add_argument("--text", dest="text", required=True)
 
     show_npc = subparsers.add_parser("show-npc", help="публичные факты NPC")
     show_npc.add_argument("--world-id", dest="world_id", required=True)
@@ -410,6 +416,16 @@ def _dispatch(container: Container, args: argparse.Namespace) -> int:
         )
         return _print_action_result(
             world_engine.handle_intent(world_instance_id, character_id, intent)
+        )
+
+    if args.command == "talk":
+        return _print_action_result(
+            world_engine.talk_to_npc(
+                WorldInstanceId(args.world_id),
+                character_id=CharacterId(args.character_id),
+                npc_id=NpcId(args.npc_id),
+                message=args.text,
+            )
         )
 
     if args.command == "share":

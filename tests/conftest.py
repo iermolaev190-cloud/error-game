@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy.engine import Engine
 
 from world_error.application.services.world_engine import WorldEngine
+from world_error.application.ai.dialogue import NpcDialogueProvider
 from world_error.domain.content.catalog import ContentCatalog
 from world_error.infrastructure.content.loader import load_content_catalog
 from world_error.infrastructure.db.engine import create_db_engine, create_session_factory
@@ -93,6 +94,20 @@ def world_engine(
     uow_factory: Callable[[], SqlAlchemyUnitOfWork], catalog: ContentCatalog
 ) -> WorldEngine:
     return WorldEngine(uow_factory=uow_factory, catalog=catalog)
+
+
+@pytest.fixture()
+def make_world_engine(
+    uow_factory: Callable[[], SqlAlchemyUnitOfWork], catalog: ContentCatalog
+) -> Callable[[NpcDialogueProvider | None], WorldEngine]:
+    def _make(provider: NpcDialogueProvider | None = None) -> WorldEngine:
+        return WorldEngine(
+            uow_factory=uow_factory,
+            catalog=catalog,
+            npc_dialogue_provider=provider,
+        )
+
+    return _make
 
 
 @pytest.fixture()

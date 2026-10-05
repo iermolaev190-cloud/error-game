@@ -38,6 +38,7 @@ INTENT_HANDLERS: Mapping[IntentType, ResolvedHandler] = MappingProxyType(
         IntentType.CLOSE_CASE: ResolvedHandler("close_case", "actor_id", "case_id"),
         IntentType.INSPECT_LEGACY: ResolvedHandler("inspect_legacy_document", "character_id", "document_id"),
         IntentType.LEAVE_LEGACY: ResolvedHandler("leave_legacy_document", "character_id", "document_key"),
+        IntentType.TALK: ResolvedHandler("talk_to_npc", "character_id", "npc_id"),
     }
 )
 

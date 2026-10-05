@@ -24,7 +24,10 @@ from datetime import datetime
 from typing import Any, Callable, Mapping, Sequence
 
 from world_error.application.action_result import ActionResult
+from world_error.application.ai.dialogue import NpcDialogueProvider
+from world_error.application.ai.npc_context_builder import NpcDialogueContextBuilder
 from world_error.application.ai.registry import resolve_handler
+from world_error.application.ai.providers.npc_template import TemplateNpcDialogueProvider
 from world_error.application.commands.apply_significant_action import (
     ApplySignificantActionCommand,
     ApplySignificantActionHandler,
@@ -235,11 +238,15 @@ class WorldEngine:
         catalog: ContentCatalog,
         clock: Clock | None = None,
         new_event_id_factory: Callable[[], EventId] = new_event_id,
+        npc_dialogue_provider: NpcDialogueProvider | None = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._catalog = catalog
         self._clock = clock or SystemClock()
         self._new_event_id = new_event_id_factory
+        self._npc_context_builder = NpcDialogueContextBuilder(self)
+        self._npc_dialogue_provider = npc_dialogue_provider or TemplateNpcDialogueProvider()
+        self._npc_dialogue_fallback = TemplateNpcDialogueProvider()
         self._create_world_instance = CreateWorldInstanceHandler(
             uow_factory=uow_factory,
             clock=self._clock,
@@ -1185,6 +1192,42 @@ class WorldEngine:
                 to_status=to_status,
                 cause=cause,
             )
+        )
+
+    def talk_to_npc(
+        self,
+        world_instance_id: WorldInstanceId,
+        *,
+        character_id: CharacterId,
+        npc_id: NpcId,
+        message: str,
+    ) -> ActionResult:
+        action = "TALK_TO_NPC"
+        try:
+            character = self.get_character(world_instance_id, character_id)
+            character.ensure_can_act()
+            npc = self.get_npc(world_instance_id, npc_id)
+            npc.ensure_can_act()
+            if character.location_key != npc.location_key:
+                raise DomainError(
+                    ErrorCode.NOT_ALLOWED,
+                    f"npc {npc.id} is not at character location",
+                )
+            context = self._npc_context_builder.build_npc_dialogue_context(
+                world_instance_id, npc_id
+            )
+        except DomainError as exc:
+            return ActionResult.failure(action, exc)
+
+        try:
+            reply = self._npc_dialogue_provider.generate_reply(context, message)
+        except NotImplementedError:
+            reply = None
+        if reply is None or not reply.strip():
+            reply = self._npc_dialogue_fallback.generate_reply(context, message)
+        return ActionResult.success(
+            action,
+            payload={"npc_id": str(npc.id), "npc_key": npc.key, "reply": reply},
         )
 
     # --- отношения (коммит 5) ----------------------------------------------

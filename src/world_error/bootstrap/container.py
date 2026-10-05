@@ -10,8 +10,12 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
 from world_error.application.ai.command_parser import CommandIntentParser
+from world_error.application.ai.dialogue import NpcDialogueProvider
 from world_error.application.ai.interpreter import FallbackIntentInterpreter, IntentInterpreter
 from world_error.application.ai.providers.mock import MockIntentProvider
+from world_error.application.ai.providers.npc_mock import MockNpcDialogueProvider
+from world_error.application.ai.providers.npc_stub import StubNpcDialogueProvider
+from world_error.application.ai.providers.npc_template import TemplateNpcDialogueProvider
 from world_error.application.ai.providers.stub import StubIntentProvider
 from world_error.application.services.world_engine import WorldEngine
 from world_error.bootstrap.config import Settings
@@ -30,6 +34,7 @@ class Container:
     uow_factory: Callable[[], SqlAlchemyUnitOfWork]
     world_engine: WorldEngine
     intent_interpreter: IntentInterpreter
+    npc_dialogue_provider: NpcDialogueProvider
 
     @classmethod
     def build(cls, settings: Settings | None = None) -> "Container":
@@ -50,6 +55,18 @@ class Container:
             provider=provider,
             fallback=CommandIntentParser(),
         )
+        npc_dialogue_provider: NpcDialogueProvider
+        if settings.npc_dialogue_provider == "mock":
+            npc_dialogue_provider = MockNpcDialogueProvider()
+        elif settings.npc_dialogue_provider == "stub":
+            npc_dialogue_provider = StubNpcDialogueProvider()
+        else:
+            npc_dialogue_provider = TemplateNpcDialogueProvider()
+        world_engine = WorldEngine(
+            uow_factory=uow_factory,
+            catalog=catalog,
+            npc_dialogue_provider=npc_dialogue_provider,
+        )
 
         return cls(
             settings=settings,
@@ -57,8 +74,9 @@ class Container:
             session_factory=session_factory,
             catalog=catalog,
             uow_factory=uow_factory,
-            world_engine=WorldEngine(uow_factory=uow_factory, catalog=catalog),
+            world_engine=world_engine,
             intent_interpreter=intent_interpreter,
+            npc_dialogue_provider=npc_dialogue_provider,
         )
 
     def dispose(self) -> None:

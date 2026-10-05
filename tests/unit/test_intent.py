@@ -26,6 +26,7 @@ EXPECTED_HANDLERS = {
     IntentType.CLOSE_CASE: ("close_case", "actor_id", "case_id"),
     IntentType.INSPECT_LEGACY: ("inspect_legacy_document", "character_id", "document_id"),
     IntentType.LEAVE_LEGACY: ("leave_legacy_document", "character_id", "document_key"),
+    IntentType.TALK: ("talk_to_npc", "character_id", "npc_id"),
 }
 
 SYSTEM_METHODS = {
@@ -69,8 +70,8 @@ def test_intent_is_frozen_and_requires_type_and_actor() -> None:
         Intent(type=IntentType.MOVE)  # type: ignore[call-arg]
 
 
-def test_intent_enum_has_exactly_eighteen_player_actions() -> None:
-    assert len(IntentType) == 18
+def test_intent_enum_has_exactly_nineteen_player_actions() -> None:
+    assert len(IntentType) == 19
     assert set(INTENT_HANDLERS) == set(IntentType)
     assert all(isinstance(item, ResolvedHandler) for item in INTENT_HANDLERS.values())
     assert {

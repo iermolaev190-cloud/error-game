@@ -24,3 +24,4 @@ class Settings(BaseSettings):
     db_url: str = "sqlite+pysqlite:///./world_error.db"
     content_dir: Path = Path("content")
     ai_provider: Literal["stub", "mock"] = "stub"
+    npc_dialogue_provider: Literal["stub", "mock", "template"] = "template"
