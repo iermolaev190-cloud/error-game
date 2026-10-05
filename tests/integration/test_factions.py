@@ -474,7 +474,9 @@ def test_f1_standing_change_does_not_change_inverse(world_engine: WorldEngine) -
     assert inverse is None
 
 
-def test_f2_hidden_goal_is_absent_from_public_view_and_cli(cli, db_url: str) -> None:
+def test_f2_hidden_goal_is_absent_from_public_view_and_cli(
+    cli, db_url: str, world_engine: WorldEngine
+) -> None:
     from world_error.application.queries.faction_view import FactionView
     from world_error.domain.factions.faction import Faction
 
@@ -485,10 +487,8 @@ def test_f2_hidden_goal_is_absent_from_public_view_and_cli(cli, db_url: str) -> 
     assert "knowledge" not in view_field_names
     assert "hidden_goal" not in view_field_names
 
-    created = cli(db_url, "create-world", "--chat-id", "-1015", "--seed", "15")
-    assert created.returncode == 0, created.stderr
-    instance_id = _cli_value(created.stdout, "instance_id")
-    shown = cli(db_url, "show-factions", "--world-id", instance_id)
+    instance = world_engine.create_instance(telegram_chat_id=-1015, seed=15)
+    shown = cli(db_url, "show-factions", "--world-id", str(instance.id))
     assert shown.returncode == 0, shown.stderr
     assert "hidden_goal" not in shown.stdout
     assert "Скрывать, что пропавшего исследователя" not in shown.stdout
