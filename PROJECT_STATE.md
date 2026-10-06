@@ -21,9 +21,9 @@ Telegram не содержит игровой логики.
 
 ## Состояние
 
-HEAD: 0e453fe — feat(telegram): add give, share, trade commands (14d).
-Тесты: 543 passed, exit 0 (`pytest -q`).
-Коммиты 14a, 14b, 14c, 14d, регистрация DM handler и ARG links завершены.
+HEAD: 750b92e — fix(telegram): improve player-facing error messages.
+Тесты: 546 passed, exit 0 (`pytest -q`).
+Коммиты 14a, 14b, 14c, 14d, регистрация DM handler, ARG links и UX error messages завершены.
 
 ## Порядок чтения для нового AI
 
@@ -65,6 +65,7 @@ HEAD: 0e453fe — feat(telegram): add give, share, trade commands (14d).
 - 6c41075 fix — регистрация Telegram DM handler
 - 18edf5f коммит 16a — curated information links (ARG)
 - 0e453fe коммит 14d — GIVE, SHARE, TRADE и fallback command templates
+- 750b92e fix — дружелюбные player-facing сообщения об ошибках Telegram
 
 Миграции: 0001-0012.
 
@@ -204,6 +205,16 @@ HEAD: 0e453fe — feat(telegram): add give, share, trade commands (14d).
 - Получатель GIVE/SHARE/TRADE должен быть активным персонажем в той же локации; NPC и персонажи из других локаций или INSTANCE отвергаются.
 - SHARE передаёт только knowledge/claim отправителя, не truth. GIVE/TRADE используют существующее событие `ITEM_TRANSFERRED`; SHARE — `KNOWLEDGE_SHARED`.
 - F1–F4 подтверждены; полный набор: 543 passed.
+
+### Fix — дружелюбные Telegram error messages
+
+- Улучшены player-facing сообщения ошибок без изменения проверок, отказов, событий или state.
+- TAKE различает предмет, уже находящийся у персонажа, и предмет, отсутствующий в текущей локации; DROP объясняет, что предмета нет в inventory.
+- TALK в группе сообщает, что диалог доступен только в DM, и подсказывает `/talk <npc>`.
+- GIVE/SHARE/TRADE с NPC сообщают, что NPC — не игрок; недоступного получателя предлагают проверить по имени и локации.
+- Ошибки SHARE, связанные с отсутствием знания, подсказывают проверить `/knowledge` в DM.
+- Ошибки выбора INSTANCE и отсутствующего персонажа локализованы; нераспознанный ввод подсказывает `/help`.
+- Обновлены только player-facing тексты и тесты этих текстов; полный набор: 546 passed.
 
 ## TODO
 
