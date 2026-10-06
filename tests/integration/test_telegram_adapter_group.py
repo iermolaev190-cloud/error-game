@@ -95,7 +95,7 @@ def test_unknown_group_first_update_creates_binding_then_refuses_missing_charact
         )
     )
 
-    assert "No active character" in response
+    assert "не привязан активный персонаж" in response
     with uow_factory() as uow:
         binding = uow.chat_bindings.get_by_telegram_chat_id(-9202)
     assert binding is not None
@@ -124,7 +124,7 @@ def test_private_chat_never_creates_instance_or_sends_to_group(
         )
     )
 
-    assert response == "Add the bot to a group before using it in a private chat."
+    assert response == "Сначала добавь бота в группу с миром, затем напиши ему лично."
     assert client.sent == [(555, response)]
     with uow_factory() as uow:
         assert uow.chat_bindings.get_by_telegram_chat_id(555) is None

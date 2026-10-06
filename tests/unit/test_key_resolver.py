@@ -126,6 +126,21 @@ def test_resolves_only_information_known_by_character_in_instance(
     )
 
 
+def test_resolves_npc_for_friendly_transfer_error_within_instance(
+    world_engine, uow_factory
+) -> None:
+    instance = world_engine.create_instance(telegram_chat_id=-9919, seed=19)
+    foreign = world_engine.create_instance(telegram_chat_id=-9920, seed=20)
+    resolver = InstanceKeyResolver(uow_factory)
+
+    assert resolver.resolve_npc_in_instance(instance.id, "scout") is not None
+    assert resolver.resolve_npc_in_instance(instance.id, "missing_npc") is None
+    assert resolver.resolve_npc_in_instance(foreign.id, "scout") is not None
+    assert resolver.resolve_npc_in_instance(instance.id, "caretaker") != (
+        resolver.resolve_npc_in_instance(foreign.id, "caretaker")
+    )
+
+
 def test_item_resolution_is_scoped_to_requested_instance(
     world_engine, uow_factory
 ) -> None:

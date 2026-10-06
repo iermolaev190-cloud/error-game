@@ -53,7 +53,7 @@ def test_dm_without_active_instance_never_creates_instance(
 
     response = send_dm(adapter, 9701, "move to forest")
 
-    assert "Add the bot to a group" in response
+    assert response == "Сначала добавь бота в группу с миром, затем напиши ему лично."
     assert client.sent == [(9701, response)]
     with uow_factory() as uow:
         assert uow.chat_bindings.get_by_telegram_chat_id(9701) is None
@@ -101,7 +101,7 @@ def test_dm_refuses_character_owned_by_another_telegram_user(
 
     response = send_dm(adapter, 9704, "move to forest")
 
-    assert "No active character" in response
+    assert "не привязан активный персонаж" in response
     assert tuple(world_engine.get_events(instance.id)) == before
     assert world_engine.get_character(
         instance.id, CharacterId(created.payload["character_id"])
@@ -127,7 +127,7 @@ def test_dm_does_not_use_character_from_another_instance(
 
     response = send_dm(adapter, 9705, "move to forest")
 
-    assert "No active character" in response
+    assert "не привязан активный персонаж" in response
     assert tuple(world_engine.get_events(other.id)) == before
     assert world_engine.get_character(
         other.id, CharacterId(created.payload["character_id"])
@@ -162,7 +162,7 @@ def test_dm_rejects_foreign_instance_character_even_if_resolver_returns_it(
 
     response = send_dm(adapter, 9707, "move to forest")
 
-    assert "No active character" in response
+    assert "не привязан активный персонаж" in response
     assert client.sent == [(9707, response)]
     assert tuple(world_engine.get_events(selected.id)) == selected_before
     assert tuple(world_engine.get_events(foreign.id)) == foreign_before

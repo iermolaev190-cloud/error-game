@@ -96,7 +96,7 @@ def test_foreign_character_is_not_selected_for_telegram_user(
         )
     )
 
-    assert "No active character" in response
+    assert "не привязан активный персонаж" in response
     assert world_engine.get_character(instance.id, character_id).location_key == LocationKey(
         "base"
     )
@@ -204,6 +204,7 @@ def test_group_chat_does_not_dispatch_private_npc_dialogue(world_engine, uow_fac
         )
     )
 
-    assert "not available in group chats" in response
+    assert "Диалог с NPC — только в DM" in response
+    assert "/talk <npc>" in response
     assert world_engine.get_instance(instance.id).state == before
     assert tuple(world_engine.get_events(instance.id)) == events_before

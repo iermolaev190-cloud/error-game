@@ -61,8 +61,9 @@ class DmTelegramHandler:
                 self._instance_resolver.resolve_dm_instance, telegram_user_id
             )
         except DomainError as exc:
-            await self._telegram_client.send_message(chat_id, exc.message)
-            return exc.message
+            response = self._formatter.friendly_error_message(exc.message)
+            await self._telegram_client.send_message(chat_id, response)
+            return response
 
         character = await asyncio.to_thread(
             self._instance_resolver.resolve_dm_character,
@@ -70,7 +71,7 @@ class DmTelegramHandler:
             instance_id,
         )
         if character is None or character.world_instance_id != instance_id:
-            response = "No active character is linked to your Telegram account in this world."
+            response = "К твоему Telegram-аккаунту не привязан активный персонаж в этом мире."
             await self._telegram_client.send_message(chat_id, response)
             return response
 
@@ -135,7 +136,7 @@ class DmTelegramHandler:
                 "INTERPRET",
                 DomainError(
                     ErrorCode.INVALID_ACTION,
-                    "input could not be interpreted as a supported intent",
+                    "Не удалось распознать команду. Проверь /help и попробуй ещё раз.",
                 ),
             )
         if intent.type in COMMAND_EXECUTOR_INTENTS:

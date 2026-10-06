@@ -108,6 +108,24 @@ class InstanceKeyResolver:
             )
         return None if npc is None else npc.id
 
+    def resolve_npc_in_instance(
+        self,
+        world_instance_id: WorldInstanceId,
+        npc_key: str,
+    ) -> NpcId | None:
+        normalized_key = npc_key.casefold()
+        with self._uow_factory() as uow:
+            npc = next(
+                (
+                    npc
+                    for npc in uow.npcs.list_for_instance(world_instance_id)
+                    if npc.key.casefold() == normalized_key
+                    and npc.status is NpcStatus.ACTIVE
+                ),
+                None,
+            )
+        return None if npc is None else npc.id
+
     def resolve_character(
         self,
         world_instance_id: WorldInstanceId,

@@ -90,6 +90,35 @@ def test_group_slash_commands_route_public_queries_and_actions(
     assert "Ссылка: https://example.com/archive-17" in inspected
 
 
+def test_take_and_drop_failures_suggest_next_step(world_engine, uow_factory) -> None:
+    instance = world_engine.create_instance(telegram_chat_id=-9925, seed=25)
+    created = world_engine.create_character(
+        instance.id,
+        player_id="9925",
+        name="Inventory Player",
+        location_key=LocationKey("base"),
+    )
+    assert created.ok, created.error
+    character_id = CharacterId(created.payload["character_id"])
+    adapter = TelegramAdapter(
+        telegram_client=MockTelegramClient(),
+        world_engine=world_engine,
+        intent_interpreter=CommandIntentParser(),
+        instance_resolver=GroupInstanceResolver(world_engine, uow_factory),
+    )
+
+    assert "ok=true" in send_group(adapter, "/take medkit", user_id=9925, chat_id=-9925)
+    already_owned = send_group(adapter, "/take medkit", user_id=9925, chat_id=-9925)
+    assert "У тебя уже есть 'medkit'." in already_owned
+    assert "Проверь /inventory в DM." in already_owned
+    absent = send_group(adapter, "/take flashlight", user_id=9925, chat_id=-9925)
+    assert "Здесь нет 'flashlight'." in absent
+    assert "Проверь /look в локации." in absent
+    drop_missing = send_group(adapter, "/drop flashlight", user_id=9925, chat_id=-9925)
+    assert "У тебя нет 'flashlight' в инвентаре." in drop_missing
+    assert "Проверь /inventory в DM." in drop_missing
+
+
 def test_group_give_share_and_trade_commands(world_engine, uow_factory, catalog) -> None:
     instance = world_engine.create_instance(telegram_chat_id=-9921, seed=21)
     initiator = world_engine.create_character(
@@ -128,11 +157,37 @@ def test_group_give_share_and_trade_commands(world_engine, uow_factory, catalog)
         instance_resolver=GroupInstanceResolver(world_engine, uow_factory),
     )
 
+    no_item = send_group(
+        adapter,
+        "/give Group_Counterparty flashlight",
+        user_id=9921,
+        chat_id=-9921,
+    )
+    assert "У тебя нет 'flashlight' в инвентаре." in no_item
+    no_knowledge = send_group(
+        adapter,
+        "/share Group_Counterparty damaged_radio",
+        user_id=9921,
+        chat_id=-9921,
+    )
+    assert "Ты не знаешь 'damaged_radio'" in no_knowledge
+    no_requested_item = send_group(
+        adapter,
+        "/trade Group_Counterparty medkit flashlight",
+        user_id=9921,
+        chat_id=-9921,
+    )
+    assert "У 'group_counterparty' нет 'flashlight' в инвентаре." in no_requested_item
+
     events_before_npc_give = tuple(world_engine.get_events(instance.id))
     npc_give = send_group(
         adapter, "/give caretaker medkit", user_id=9921, chat_id=-9921
     )
-    assert "ok=false" in npc_give
+    assert (
+        "'caretaker' — это NPC, не игрок. "
+        "GIVE/SHARE/TRADE работают только между игроками."
+    ) in npc_give
+    assert "Для общения с NPC — /talk в DM." in npc_give
     assert tuple(world_engine.get_events(instance.id)) == events_before_npc_give
     with uow_factory() as uow:
         assert any(

@@ -58,4 +58,7 @@ def test_private_queries_and_talk_are_rejected_before_execution(
 
     for command in ("/inventory", "/knowledge", "/character", "/talk caretaker"):
         response = send_group(adapter, command)
-        assert response == "Используй DM для приватных команд."
+        if command == "/talk caretaker":
+            assert response == "Диалог с NPC — только в DM. Напиши боту лично: /talk <npc>."
+        else:
+            assert response == "Используй DM для приватных команд."

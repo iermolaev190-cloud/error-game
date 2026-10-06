@@ -201,6 +201,7 @@ def test_transfer_commands_reject_foreign_and_nonlocal_characters(
             )
         )
         assert "ok=false" in response
+        assert "Не удалось найти персонажа" in response
 
     remote_response = asyncio.run(
         executor.execute(
@@ -219,5 +220,6 @@ def test_transfer_commands_reject_foreign_and_nonlocal_characters(
         )
     )
     assert "ok=false" in remote_response
+    assert "Не удалось найти персонажа" in remote_response
     assert tuple(world_engine.get_events(selected.id)) == before_selected
     assert tuple(world_engine.get_events(foreign.id)) == before_foreign

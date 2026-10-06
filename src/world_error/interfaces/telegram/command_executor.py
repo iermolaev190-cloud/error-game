@@ -58,14 +58,16 @@ class TelegramCommandExecutor:
             assert command.intent is not None
             intent = command.intent
             if intent.type is IntentType.TALK and not private:
-                return "Используй DM для приватных команд."
+                return "Диалог с NPC — только в DM. Напиши боту лично: /talk <npc>."
             if intent.type in {
                 IntentType.GIVE,
                 IntentType.SHARE_KNOWLEDGE,
                 IntentType.TRADE,
             }:
                 if intent.target is None:
-                    return self._failure(intent.type.value, "character key is required")
+                    return self._failure(
+                        intent.type.value, "Укажи персонажа, которому адресована команда."
+                    )
                 counterparty_id = await asyncio.to_thread(
                     self._key_resolver.resolve_character,
                     world_instance_id,
@@ -73,15 +75,30 @@ class TelegramCommandExecutor:
                     intent.target,
                 )
                 if counterparty_id is None:
+                    npc_id = await asyncio.to_thread(
+                        self._key_resolver.resolve_npc_in_instance,
+                        world_instance_id,
+                        intent.target,
+                    )
+                    if npc_id is not None:
+                        return self._failure(
+                            intent.type.value,
+                            f"'{intent.target}' — это NPC, не игрок. "
+                            "GIVE/SHARE/TRADE работают только между игроками. "
+                            "Для общения с NPC — /talk в DM.",
+                        )
                     return self._failure(
                         intent.type.value,
-                        f"character '{intent.target}' is not at your location",
+                        f"Не удалось найти персонажа '{intent.target}' здесь. "
+                        "Проверь имя и убедись, что вы в одном мире и локации.",
                     )
 
                 if intent.type is IntentType.GIVE:
                     item_key = intent.params.get("item_key")
                     if not isinstance(item_key, str):
-                        return self._failure("GIVE", "item key is required")
+                        return self._failure(
+                            "GIVE", "Укажи предмет, который хочешь передать."
+                        )
                     item_id = await asyncio.to_thread(
                         self._key_resolver.resolve_inventory_item,
                         world_instance_id,
@@ -90,7 +107,8 @@ class TelegramCommandExecutor:
                     )
                     if item_id is None:
                         return self._failure(
-                            "GIVE", f"item '{item_key}' is not in your inventory"
+                            "GIVE",
+                            f"У тебя нет '{item_key}' в инвентаре. Проверь /inventory в DM.",
                         )
                     result = await asyncio.to_thread(
                         self._world_engine.give_item,
@@ -102,7 +120,9 @@ class TelegramCommandExecutor:
                 elif intent.type is IntentType.SHARE_KNOWLEDGE:
                     information_key = intent.params.get("information_key")
                     if not isinstance(information_key, str):
-                        return self._failure("SHARE", "information key is required")
+                        return self._failure(
+                            "SHARE", "Укажи информацию, которой хочешь поделиться."
+                        )
                     known_information_key = await asyncio.to_thread(
                         self._key_resolver.resolve_known_information,
                         world_instance_id,
@@ -112,7 +132,8 @@ class TelegramCommandExecutor:
                     if known_information_key is None:
                         return self._failure(
                             "SHARE",
-                            f"information '{information_key}' is not in your knowledge",
+                            f"Ты не знаешь '{information_key}', поэтому поделиться этим "
+                            "не получится. Проверь /knowledge в DM.",
                         )
                     result = await asyncio.to_thread(
                         self._world_engine.share_knowledge,
@@ -128,7 +149,8 @@ class TelegramCommandExecutor:
                         requested_item_key, str
                     ):
                         return self._failure(
-                            "TRADE", "offered and requested item keys are required"
+                            "TRADE",
+                            "Укажи предмет, который предлагаешь, и предмет для обмена.",
                         )
                     offered_item_id = await asyncio.to_thread(
                         self._key_resolver.resolve_inventory_item,
@@ -139,7 +161,8 @@ class TelegramCommandExecutor:
                     if offered_item_id is None:
                         return self._failure(
                             "TRADE",
-                            f"offered item '{offered_item_key}' is not in your inventory",
+                            f"У тебя нет '{offered_item_key}' в инвентаре. "
+                            "Проверь /inventory в DM.",
                         )
                     requested_item_id = await asyncio.to_thread(
                         self._key_resolver.resolve_inventory_item,
@@ -150,8 +173,8 @@ class TelegramCommandExecutor:
                     if requested_item_id is None:
                         return self._failure(
                             "TRADE",
-                            f"requested item '{requested_item_key}' is not in "
-                            "the other character's inventory",
+                            f"У '{intent.target}' нет '{requested_item_key}' в инвентаре. "
+                            "Проверьте предметы и попробуйте снова.",
                         )
                     result = await asyncio.to_thread(
                         self._world_engine.trade_items,
@@ -169,8 +192,22 @@ class TelegramCommandExecutor:
 
             if intent.type in {IntentType.TAKE, IntentType.DROP}:
                 if intent.target is None:
-                    return self._failure(intent.type.value, "item key is required")
+                    return self._failure(
+                        intent.type.value, "Укажи предмет, который хочешь взять или выбросить."
+                    )
                 if intent.type is IntentType.TAKE:
+                    inventory_item_id = await asyncio.to_thread(
+                        self._key_resolver.resolve_inventory_item,
+                        world_instance_id,
+                        character.id,
+                        intent.target,
+                    )
+                    if inventory_item_id is not None:
+                        return self._failure(
+                            "TAKE",
+                            f"У тебя уже есть '{intent.target}'. "
+                            "Проверь /inventory в DM.",
+                        )
                     item_id = await asyncio.to_thread(
                         self._key_resolver.resolve_location_item,
                         world_instance_id,
@@ -185,14 +222,20 @@ class TelegramCommandExecutor:
                         intent.target,
                     )
                 if item_id is None:
+                    if intent.type is IntentType.TAKE:
+                        return self._failure(
+                            "TAKE",
+                            f"Здесь нет '{intent.target}'. Проверь /look в локации.",
+                        )
                     return self._failure(
-                        intent.type.value,
-                        f"item '{intent.target}' is not available here",
+                        "DROP",
+                        f"У тебя нет '{intent.target}' в инвентаре. "
+                        "Проверь /inventory в DM.",
                     )
                 intent = replace(intent, target=str(item_id))
             elif intent.type is IntentType.TALK:
                 if intent.target is None:
-                    return self._failure("TALK_TO_NPC", "NPC key is required")
+                    return self._failure("TALK_TO_NPC", "Укажи NPC для разговора.")
                 npc_id = await asyncio.to_thread(
                     self._key_resolver.resolve_npc,
                     world_instance_id,
@@ -202,7 +245,8 @@ class TelegramCommandExecutor:
                 if npc_id is None:
                     return self._failure(
                         "TALK_TO_NPC",
-                        f"NPC '{intent.target}' is not at your location",
+                        f"Не удалось найти NPC '{intent.target}' в этой локации. "
+                        "Проверь имя и /look.",
                     )
                 intent = replace(intent, target=str(npc_id))
 

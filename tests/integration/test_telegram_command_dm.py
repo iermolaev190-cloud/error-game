@@ -143,4 +143,6 @@ def test_dm_give_share_and_trade_commands(world_engine, uow_factory) -> None:
     assert counterparty_knowledge.claim == initiator_knowledge.claim
     assert {item.key for item in inventory} == {"credits", "medkit"}
     rejected = send_dm(adapter, 9941, "/give caretaker medkit")
-    assert "ok=false" in rejected and "character" in rejected
+    assert "ok=false" in rejected
+    assert "это NPC, не игрок" in rejected
+    assert "Для общения с NPC — /talk в DM." in rejected

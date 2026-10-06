@@ -33,6 +33,51 @@ class TelegramFormatter:
         "confidence",
         "document_date",
     )
+    _FRIENDLY_ERRORS = {
+        "item is not available in a location": (
+            "Предмета больше нет в локации. Проверь /look и попробуй ещё раз."
+        ),
+        "item is not in the character's location": (
+            "Предмета нет в этой локации. Проверь /look и попробуй ещё раз."
+        ),
+        "character does not own this item": (
+            "У тебя нет этого предмета в инвентаре. Проверь /inventory в DM."
+        ),
+        "counterparty is not alive": (
+            "Этот персонаж сейчас не может принять предметы. Попробуйте позже."
+        ),
+        "receiver": "Получатель сейчас не может принять знание. Попробуйте позже.",
+        "initiator does not own offered item": (
+            "У тебя нет предложенного предмета в инвентаре. Проверь /inventory в DM."
+        ),
+        "counterparty does not own requested item": (
+            "У второго персонажа нет запрошенного предмета в инвентаре."
+        ),
+        "characters are in different locations": (
+            "Вы с персонажем должны находиться в одной локации для этой команды."
+        ),
+        "a character cannot trade with itself": (
+            "Нельзя обмениваться с самим собой. Укажи другого персонажа."
+        ),
+        "NPC dialogue is not available in group chats": (
+            "Диалог с NPC — только в DM. Напиши боту лично: /talk <npc>."
+        ),
+        "Your last group is no longer connected to a WORLD INSTANCE.": (
+            "Твоя последняя группа больше не связана с миром. Напиши боту в активной группе."
+        ),
+        "Your last group is not connected to an active WORLD INSTANCE.": (
+            "Мир последней группы сейчас не активен. Выбери активную группу и напиши там боту."
+        ),
+        "Add the bot to a group before using it in a private chat.": (
+            "Сначала добавь бота в группу с миром, затем напиши ему лично."
+        ),
+        "You belong to multiple worlds; send a message in the group you want to use.": (
+            "У тебя несколько миров. Напиши любое сообщение в нужной группе, затем продолжи в DM."
+        ),
+        "Your character is not in an active WORLD INSTANCE.": (
+            "Персонаж не привязан к активному миру. Напиши боту в группе с нужным миром."
+        ),
+    }
 
     def format(self, result: ActionResult) -> str:
         return self._format(result, self._GROUP_PAYLOAD_FIELDS)
@@ -118,7 +163,9 @@ class TelegramFormatter:
         lines = [f"action={result.action}", f"ok={str(result.ok).lower()}"]
         if not result.ok:
             if result.error is not None:
-                lines.append(f"error={result.error.message}")
+                lines.append(
+                    f"error={self.friendly_error_message(result.error.message)}"
+                )
             return "\n".join(lines)
 
         # Never render arbitrary payload data, especially in public group chats.
@@ -138,6 +185,29 @@ class TelegramFormatter:
                 else:
                     lines.append(f"{key}={value}")
         return "\n".join(lines)
+
+    @classmethod
+    def friendly_error_message(cls, message: str) -> str:
+        exact = cls._FRIENDLY_ERRORS.get(message)
+        if exact is not None:
+            return exact
+        if message.startswith("receiver ") and message.endswith(" is not alive"):
+            return cls._FRIENDLY_ERRORS["receiver"]
+        if message.startswith("character ") and " cannot act:" in message:
+            return "Персонаж сейчас не может действовать. Проверь его состояние и попробуй позже."
+        if message.startswith("character ") and " has no knowledge of " in message:
+            return "Ты не знаешь эту информацию, поэтому поделиться ей не получится. Проверь /knowledge в DM."
+        if message.startswith("npc ") and message.endswith(" is not at character location"):
+            return "NPC не находится в этой локации. Проверь /look и попробуй ещё раз."
+        if message.startswith("npc ") and " cannot act:" in message:
+            return "С этим NPC сейчас нельзя поговорить. Проверь /npcs и попробуй позже."
+        if message.startswith("unknown item: "):
+            item_key = message.removeprefix("unknown item: ")
+            return f"Такого предмета нет в мире: '{item_key}'. Проверь название через /look."
+        if message.startswith("unknown information: "):
+            information_key = message.removeprefix("unknown information: ")
+            return f"Такой информации нет в мире: '{information_key}'. Проверь название и попробуй ещё раз."
+        return message
 
     @staticmethod
     def _format_records(

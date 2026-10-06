@@ -106,8 +106,8 @@ class TelegramAdapter:
         )
         if character is None:
             response = (
-                "No active character is linked to your Telegram account in this world. "
-                "Ask an administrator to create or link one."
+                "К твоему Telegram-аккаунту не привязан активный персонаж в этом мире. "
+                "Попроси администратора создать или привязать персонажа."
             )
             await self._telegram_client.send_message(update.chat_id, response)
             return response
@@ -152,7 +152,7 @@ class TelegramAdapter:
                 "INTERPRET",
                 DomainError(
                     ErrorCode.INVALID_ACTION,
-                    "input could not be interpreted as a supported intent",
+                    "Не удалось распознать команду. Проверь /help и попробуй ещё раз.",
                 ),
             )
         elif intent.type is IntentType.TALK:
@@ -160,7 +160,7 @@ class TelegramAdapter:
                 "TELEGRAM_GROUP",
                 DomainError(
                     ErrorCode.NOT_ALLOWED,
-                    "NPC dialogue is not available in group chats",
+                    "Диалог с NPC — только в DM. Напиши боту лично: /talk <npc>.",
                 ),
             )
         elif intent.type in COMMAND_EXECUTOR_INTENTS:
