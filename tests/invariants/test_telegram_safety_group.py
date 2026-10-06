@@ -50,12 +50,17 @@ def test_handler_contains_only_transport_to_adapter_logic(
     router = build_router(adapter)
     callbacks = [handler.callback for handler in router.message.handlers]
 
-    assert len(callbacks) == 1
-    source = inspect.getsource(callbacks[0])
-    assert "adapter.handle_message" in source
-    assert "handle_intent" not in source
-    assert "move_character" not in source
-    assert "create_instance" not in source
+    assert len(callbacks) == 2
+    assert {callback.__name__ for callback in callbacks} == {
+        "handle_group_message",
+        "handle_private_message",
+    }
+    for callback in callbacks:
+        source = inspect.getsource(callback)
+        assert "adapter.handle_message" in source
+        assert "handle_intent" not in source
+        assert "move_character" not in source
+        assert "create_instance" not in source
 
 
 def test_foreign_character_is_not_selected_for_telegram_user(

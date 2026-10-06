@@ -28,4 +28,18 @@ def build_router(adapter: TelegramAdapter) -> Router:
             )
         )
 
+    @router.message(F.chat.type == "private")
+    async def handle_private_message(message: Message) -> None:
+        if message.from_user is None:
+            await message.answer("A Telegram user account is required.")
+            return
+        await adapter.handle_message(
+            TelegramIncomingMessage(
+                chat_id=message.chat.id,
+                chat_type=message.chat.type,
+                telegram_user_id=message.from_user.id,
+                text=message.text,
+            )
+        )
+
     return router
