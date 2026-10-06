@@ -49,7 +49,7 @@ def test_command_router_does_not_mutate_world(world_engine) -> None:
     events_before = tuple(world_engine.get_events(instance.id))
     location_before = world_engine.get_character(instance.id, character_id).location_key
 
-    routed = CommandRouter().route("/move forest", actor_id=character_id)
+    routed = CommandRouter().route("/move@BotUsername forest", actor_id=character_id)
 
     assert routed.kind == "intent"
     assert tuple(world_engine.get_events(instance.id)) == events_before

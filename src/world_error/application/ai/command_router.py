@@ -34,6 +34,13 @@ class CommandRouter:
 
     def route(self, raw_text: str, *, actor_id: CharacterId) -> RoutedCommand:
         text = raw_text.strip()
+        if text.startswith("/"):
+            text = re.sub(
+                r"^(/[^@\s]+)@[A-Za-z0-9_]+(?=\s|$)",
+                r"\1",
+                text,
+                count=1,
+            )
         query_type = _QUERIES.get(text.casefold())
         if query_type is not None:
             return RoutedCommand(kind="query", query_type=query_type)
