@@ -14,6 +14,9 @@ _INSPECT = re.compile(rf"^/inspect\s+{_KEY}$", re.IGNORECASE)
 _TAKE = re.compile(rf"^/take\s+{_KEY}$", re.IGNORECASE)
 _DROP = re.compile(rf"^/drop\s+{_KEY}$", re.IGNORECASE)
 _TALK = re.compile(rf"^/talk\s+{_KEY}$", re.IGNORECASE)
+_GIVE = re.compile(rf"^/give\s+{_KEY}\s+{_KEY}$", re.IGNORECASE)
+_SHARE = re.compile(rf"^/share\s+{_KEY}\s+{_KEY}$", re.IGNORECASE)
+_TRADE = re.compile(rf"^/trade\s+{_KEY}\s+{_KEY}\s+{_KEY}$", re.IGNORECASE)
 
 _QUERIES = {
     "/look": "look",
@@ -41,12 +44,24 @@ class CommandRouter:
             (_TAKE, IntentType.TAKE),
             (_DROP, IntentType.DROP),
             (_TALK, IntentType.TALK),
+            (_GIVE, IntentType.GIVE),
+            (_SHARE, IntentType.SHARE_KNOWLEDGE),
+            (_TRADE, IntentType.TRADE),
         ):
             match = pattern.fullmatch(text)
             if match is None:
                 continue
             target = match.group(1).lower()
             params = {"message": _TALK_MESSAGE} if intent_type is IntentType.TALK else {}
+            if intent_type is IntentType.GIVE:
+                params = {"item_key": match.group(2).lower()}
+            elif intent_type is IntentType.SHARE_KNOWLEDGE:
+                params = {"information_key": match.group(2).lower()}
+            elif intent_type is IntentType.TRADE:
+                params = {
+                    "offered_item_key": match.group(2).lower(),
+                    "requested_item_key": match.group(3).lower(),
+                }
             return RoutedCommand(
                 kind="intent",
                 intent=Intent(type=intent_type, actor_id=actor_id, target=target, params=params),

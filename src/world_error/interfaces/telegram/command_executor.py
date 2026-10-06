@@ -20,6 +20,16 @@ from world_error.domain.shared.kernel import (
 from world_error.interfaces.telegram.formatter import TelegramFormatter
 
 _PRIVATE_QUERIES = frozenset({"inventory", "knowledge", "character"})
+COMMAND_EXECUTOR_INTENTS = frozenset(
+    {
+        IntentType.TAKE,
+        IntentType.DROP,
+        IntentType.TALK,
+        IntentType.GIVE,
+        IntentType.SHARE_KNOWLEDGE,
+        IntentType.TRADE,
+    }
+)
 
 
 class TelegramCommandExecutor:
@@ -49,6 +59,114 @@ class TelegramCommandExecutor:
             intent = command.intent
             if intent.type is IntentType.TALK and not private:
                 return "Используй DM для приватных команд."
+            if intent.type in {
+                IntentType.GIVE,
+                IntentType.SHARE_KNOWLEDGE,
+                IntentType.TRADE,
+            }:
+                if intent.target is None:
+                    return self._failure(intent.type.value, "character key is required")
+                counterparty_id = await asyncio.to_thread(
+                    self._key_resolver.resolve_character,
+                    world_instance_id,
+                    character.location_key,
+                    intent.target,
+                )
+                if counterparty_id is None:
+                    return self._failure(
+                        intent.type.value,
+                        f"character '{intent.target}' is not at your location",
+                    )
+
+                if intent.type is IntentType.GIVE:
+                    item_key = intent.params.get("item_key")
+                    if not isinstance(item_key, str):
+                        return self._failure("GIVE", "item key is required")
+                    item_id = await asyncio.to_thread(
+                        self._key_resolver.resolve_inventory_item,
+                        world_instance_id,
+                        character.id,
+                        item_key,
+                    )
+                    if item_id is None:
+                        return self._failure(
+                            "GIVE", f"item '{item_key}' is not in your inventory"
+                        )
+                    result = await asyncio.to_thread(
+                        self._world_engine.give_item,
+                        world_instance_id,
+                        giver_id=CharacterId(character.id),
+                        receiver_id=counterparty_id,
+                        item_id=item_id,
+                    )
+                elif intent.type is IntentType.SHARE_KNOWLEDGE:
+                    information_key = intent.params.get("information_key")
+                    if not isinstance(information_key, str):
+                        return self._failure("SHARE", "information key is required")
+                    known_information_key = await asyncio.to_thread(
+                        self._key_resolver.resolve_known_information,
+                        world_instance_id,
+                        CharacterId(character.id),
+                        information_key,
+                    )
+                    if known_information_key is None:
+                        return self._failure(
+                            "SHARE",
+                            f"information '{information_key}' is not in your knowledge",
+                        )
+                    result = await asyncio.to_thread(
+                        self._world_engine.share_knowledge,
+                        world_instance_id,
+                        sharer_id=CharacterId(character.id),
+                        receiver_id=counterparty_id,
+                        information_key=known_information_key,
+                    )
+                else:
+                    offered_item_key = intent.params.get("offered_item_key")
+                    requested_item_key = intent.params.get("requested_item_key")
+                    if not isinstance(offered_item_key, str) or not isinstance(
+                        requested_item_key, str
+                    ):
+                        return self._failure(
+                            "TRADE", "offered and requested item keys are required"
+                        )
+                    offered_item_id = await asyncio.to_thread(
+                        self._key_resolver.resolve_inventory_item,
+                        world_instance_id,
+                        character.id,
+                        offered_item_key,
+                    )
+                    if offered_item_id is None:
+                        return self._failure(
+                            "TRADE",
+                            f"offered item '{offered_item_key}' is not in your inventory",
+                        )
+                    requested_item_id = await asyncio.to_thread(
+                        self._key_resolver.resolve_inventory_item,
+                        world_instance_id,
+                        counterparty_id,
+                        requested_item_key,
+                    )
+                    if requested_item_id is None:
+                        return self._failure(
+                            "TRADE",
+                            f"requested item '{requested_item_key}' is not in "
+                            "the other character's inventory",
+                        )
+                    result = await asyncio.to_thread(
+                        self._world_engine.trade_items,
+                        world_instance_id,
+                        initiator_id=CharacterId(character.id),
+                        counterparty_id=counterparty_id,
+                        offered_item_id=offered_item_id,
+                        requested_item_id=requested_item_id,
+                    )
+                return (
+                    self._formatter.format_dm(result)
+                    if private
+                    else self._formatter.format(result)
+                )
+
             if intent.type in {IntentType.TAKE, IntentType.DROP}:
                 if intent.target is None:
                     return self._failure(intent.type.value, "item key is required")

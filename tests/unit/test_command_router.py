@@ -14,6 +14,9 @@ def test_action_commands_route_to_expected_intents() -> None:
         ("/take medkit", IntentType.TAKE, "medkit"),
         ("/drop medkit", IntentType.DROP, "medkit"),
         ("/talk caretaker", IntentType.TALK, "caretaker"),
+        ("/give alice medkit", IntentType.GIVE, "alice"),
+        ("/share alice dispatch_log", IntentType.SHARE_KNOWLEDGE, "alice"),
+        ("/trade alice medkit flashlight", IntentType.TRADE, "alice"),
     )
 
     for text, intent_type, target in expected:
@@ -30,6 +33,21 @@ def test_talk_command_uses_neutral_default_message() -> None:
 
     assert routed.intent is not None
     assert routed.intent.params["message"] == "Привет. О чём поговорим?"
+
+
+def test_give_share_and_trade_commands_route_parameters() -> None:
+    router = CommandRouter()
+
+    give = router.route("/give Alice MedKit", actor_id=ACTOR).intent
+    share = router.route("/share Alice Dispatch_Log", actor_id=ACTOR).intent
+    trade = router.route("/trade Alice MedKit Flashlight", actor_id=ACTOR).intent
+
+    assert give is not None and dict(give.params) == {"item_key": "medkit"}
+    assert share is not None and dict(share.params) == {"information_key": "dispatch_log"}
+    assert trade is not None and dict(trade.params) == {
+        "offered_item_key": "medkit",
+        "requested_item_key": "flashlight",
+    }
 
 
 def test_unknown_and_non_slash_text_routes_to_none() -> None:

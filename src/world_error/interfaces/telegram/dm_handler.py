@@ -9,6 +9,7 @@ from world_error.application.ai.command_router import CommandRouter
 from world_error.application.ai.interpreter import IntentContext, IntentInterpreter
 from world_error.application.ai.key_resolver import InstanceKeyResolver
 from world_error.application.ai.registry import INTENT_HANDLERS
+from world_error.application.ai.routed_command import RoutedCommand
 from world_error.application.ports.telegram import TelegramClient
 from world_error.application.queries.location_view import LocationView
 from world_error.application.services.world_engine import WorldEngine
@@ -19,7 +20,10 @@ from world_error.domain.shared.kernel import (
     ErrorCode,
     WorldInstanceId,
 )
-from world_error.interfaces.telegram.command_executor import TelegramCommandExecutor
+from world_error.interfaces.telegram.command_executor import (
+    COMMAND_EXECUTOR_INTENTS,
+    TelegramCommandExecutor,
+)
 from world_error.interfaces.telegram.formatter import TelegramFormatter
 from world_error.interfaces.telegram.resolver import GroupInstanceResolver
 
@@ -82,13 +86,17 @@ class DmTelegramHandler:
                 private=True,
             )
         else:
-            result = await self._interpret_and_execute(
+            outcome = await self._interpret_and_execute(
                 command,
                 telegram_user_id,
                 instance_id,
                 character,
             )
-            response = self._formatter.format_dm(result)
+            response = (
+                outcome
+                if isinstance(outcome, str)
+                else self._formatter.format_dm(outcome)
+            )
         await self._telegram_client.send_message(chat_id, response)
         return response
 
@@ -98,7 +106,7 @@ class DmTelegramHandler:
         telegram_user_id: int,
         instance_id: WorldInstanceId,
         character: Character,
-    ) -> ActionResult:
+    ) -> ActionResult | str:
         location = await asyncio.to_thread(
             self._world_engine.view_location,
             instance_id,
@@ -129,6 +137,13 @@ class DmTelegramHandler:
                     ErrorCode.INVALID_ACTION,
                     "input could not be interpreted as a supported intent",
                 ),
+            )
+        if intent.type in COMMAND_EXECUTOR_INTENTS:
+            return await self._command_executor.execute(
+                RoutedCommand(kind="intent", intent=intent),
+                world_instance_id=instance_id,
+                character=character,
+                private=True,
             )
         return await asyncio.to_thread(
             self._world_engine.handle_intent,

@@ -7,6 +7,7 @@ import re
 from world_error.application.ports.repositories import UnitOfWorkFactory
 from world_error.domain.characters.character import CharacterActivity, CharacterLifecycle
 from world_error.domain.items.item import ItemOwnerType
+from world_error.domain.knowledge.knowledge import SubjectType
 from world_error.domain.npcs.npc import NpcStatus
 from world_error.domain.shared.kernel import (
     CharacterId,
@@ -63,6 +64,31 @@ class InstanceKeyResolver:
                 None,
             )
         return None if item is None else item.id
+
+    def resolve_known_information(
+        self,
+        world_instance_id: WorldInstanceId,
+        character_id: CharacterId,
+        information_key: str,
+    ) -> str | None:
+        normalized_key = information_key.casefold()
+        with self._uow_factory() as uow:
+            information_key_found = next(
+                (
+                    information.key
+                    for knowledge in uow.knowledge.list_for_subject(
+                        world_instance_id, SubjectType.CHARACTER, str(character_id)
+                    )
+                    if (
+                        information := uow.information.get(
+                            world_instance_id, knowledge.information_id
+                        )
+                    ).key.casefold()
+                    == normalized_key
+                ),
+                None,
+            )
+        return information_key_found
 
     def resolve_npc(
         self,

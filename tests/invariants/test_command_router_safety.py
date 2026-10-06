@@ -2,12 +2,16 @@ import asyncio
 
 from world_error.application.ai.command_parser import CommandIntentParser
 from world_error.application.ai.command_router import CommandRouter
+from world_error.application.ai.intent import Intent, IntentType
 from world_error.application.ai.key_resolver import InstanceKeyResolver
+from world_error.application.ai.routed_command import RoutedCommand
 from world_error.domain.shared.kernel import CharacterId, LocationKey
 from world_error.interfaces.telegram.adapter import (
     TelegramAdapter,
     TelegramIncomingMessage,
 )
+from world_error.interfaces.telegram.command_executor import TelegramCommandExecutor
+from world_error.interfaces.telegram.formatter import TelegramFormatter
 from world_error.interfaces.telegram.resolver import GroupInstanceResolver
 
 
@@ -135,3 +139,85 @@ def test_action_commands_mutate_only_through_handle_intent(
 
     assert "action=TAKE" in response and "ok=true" in response
     assert len(calls) == 1
+
+
+def test_transfer_commands_reject_foreign_and_nonlocal_characters(
+    world_engine, uow_factory
+) -> None:
+    selected = world_engine.create_instance(telegram_chat_id=-9933, seed=35)
+    foreign = world_engine.create_instance(telegram_chat_id=-9934, seed=36)
+    actor_result = world_engine.create_character(
+        selected.id,
+        player_id="9933",
+        name="Local Actor",
+        location_key=LocationKey("base"),
+    )
+    foreign_result = world_engine.create_character(
+        foreign.id,
+        player_id="9934",
+        name="Foreign Character",
+        location_key=LocationKey("base"),
+    )
+    remote_result = world_engine.create_character(
+        selected.id,
+        player_id="9935",
+        name="Remote Character",
+        location_key=LocationKey("forest"),
+    )
+    assert actor_result.ok and foreign_result.ok and remote_result.ok
+    actor_id = CharacterId(actor_result.payload["character_id"])
+    actor = world_engine.get_character(selected.id, actor_id)
+    executor = TelegramCommandExecutor(
+        world_engine=world_engine,
+        key_resolver=InstanceKeyResolver(uow_factory),
+        formatter=TelegramFormatter(),
+    )
+    commands = (
+        (IntentType.GIVE, {"item_key": "medkit"}),
+        (IntentType.SHARE_KNOWLEDGE, {"information_key": "dispatch_log"}),
+        (
+            IntentType.TRADE,
+            {"offered_item_key": "medkit", "requested_item_key": "credits"},
+        ),
+    )
+    before_selected = tuple(world_engine.get_events(selected.id))
+    before_foreign = tuple(world_engine.get_events(foreign.id))
+
+    for intent_type, params in commands:
+        response = asyncio.run(
+            executor.execute(
+                RoutedCommand(
+                    kind="intent",
+                    intent=Intent(
+                        type=intent_type,
+                        actor_id=actor_id,
+                        target=foreign_result.payload["character_id"],
+                        params=params,
+                    ),
+                ),
+                world_instance_id=selected.id,
+                character=actor,
+                private=False,
+            )
+        )
+        assert "ok=false" in response
+
+    remote_response = asyncio.run(
+        executor.execute(
+            RoutedCommand(
+                kind="intent",
+                intent=Intent(
+                    type=IntentType.GIVE,
+                    actor_id=actor_id,
+                    target=remote_result.payload["character_id"],
+                    params={"item_key": "medkit"},
+                ),
+            ),
+            world_instance_id=selected.id,
+            character=actor,
+            private=False,
+        )
+    )
+    assert "ok=false" in remote_response
+    assert tuple(world_engine.get_events(selected.id)) == before_selected
+    assert tuple(world_engine.get_events(foreign.id)) == before_foreign

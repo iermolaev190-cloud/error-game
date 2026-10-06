@@ -11,6 +11,7 @@ from world_error.application.ai.interpreter import IntentContext, IntentInterpre
 from world_error.application.ai.intent import IntentType
 from world_error.application.ai.key_resolver import InstanceKeyResolver
 from world_error.application.ai.registry import INTENT_HANDLERS
+from world_error.application.ai.routed_command import RoutedCommand
 from world_error.application.ports.telegram import TelegramClient
 from world_error.application.services.world_engine import WorldEngine
 from world_error.domain.shared.kernel import (
@@ -20,7 +21,10 @@ from world_error.domain.shared.kernel import (
     WorldInstanceId,
 )
 from world_error.interfaces.telegram.dm_handler import DmTelegramHandler
-from world_error.interfaces.telegram.command_executor import TelegramCommandExecutor
+from world_error.interfaces.telegram.command_executor import (
+    COMMAND_EXECUTOR_INTENTS,
+    TelegramCommandExecutor,
+)
 from world_error.interfaces.telegram.formatter import TelegramFormatter
 from world_error.interfaces.telegram.resolver import GroupInstanceResolver
 
@@ -159,6 +163,15 @@ class TelegramAdapter:
                     "NPC dialogue is not available in group chats",
                 ),
             )
+        elif intent.type in COMMAND_EXECUTOR_INTENTS:
+            response = await self._command_executor.execute(
+                RoutedCommand(kind="intent", intent=intent),
+                world_instance_id=WorldInstanceId(world_instance_id),
+                character=character,
+                private=False,
+            )
+            await self._telegram_client.send_message(update.chat_id, response)
+            return response
         else:
             result = await asyncio.to_thread(
                 self._world_engine.handle_intent,
