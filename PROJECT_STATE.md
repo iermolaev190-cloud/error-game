@@ -21,9 +21,9 @@ Telegram не содержит игровой логики.
 
 ## Состояние
 
-HEAD: 6c41075 — fix(telegram): register DM handler.
-Тесты: 528 passed, exit 0.
-Коммиты 14a, 14b, 14c и регистрация DM handler завершены.
+HEAD: 0e453fe — feat(telegram): add give, share, trade commands (14d).
+Тесты: 543 passed, exit 0 (`pytest -q`).
+Коммиты 14a, 14b, 14c, 14d, регистрация DM handler и ARG links завершены.
 
 ## Порядок чтения для нового AI
 
@@ -63,6 +63,8 @@ HEAD: 6c41075 — fix(telegram): register DM handler.
 - c81e098 коммит 14b — Telegram DM channel
 - 194213f коммит 14c — Telegram slash command interface
 - 6c41075 fix — регистрация Telegram DM handler
+- 18edf5f коммит 16a — curated information links (ARG)
+- 0e453fe коммит 14d — GIVE, SHARE, TRADE и fallback command templates
 
 Миграции: 0001-0012.
 
@@ -175,7 +177,7 @@ HEAD: 6c41075 — fix(telegram): register DM handler.
 
 - Добавлены `CommandRouter`, `RoutedCommand` и instance-scoped `key_resolver`.
 - Slash actions: `/move`, `/inspect`, `/take`, `/drop`; публичные queries: `/look`, `/npcs`, `/help`.
-- Только для DM: `/inventory`, `/knowledge`, `/character`, `/talk`; приватные команды в группе отклоняются до query execution.
+- Только для DM: `/inventory`, `/knowledge`, `/character`, `/talk`; приватные queries в группе отклоняются до query execution.
 - `LocationView` дополнен публичными выходами (exits).
 - Query отделён от Intent; игровые actions по-прежнему выполняются через WorldEngine.
 
@@ -184,6 +186,24 @@ HEAD: 6c41075 — fix(telegram): register DM handler.
 - Aiogram router регистрирует private callback наряду с group/supergroup callback.
 - Реальные Dispatcher-level тесты проверяют маршрутизацию private и group updates; invariant проверяет оба тонких callback.
 - F1/F2 подтверждены; полный набор: 528 passed.
+
+### Коммит 16a — curated information links (ARG)
+
+- `InformationDefinition` поддерживает необязательный `external_url`.
+- `inspect_information` возвращает `external_url` в payload при наличии ссылки.
+- Formatter выводит ссылку как `Ссылка: ...`; group allowlist разрешает только это поле из payload.
+- `content/information/damaged_radio.json` содержит заглушку `https://example.com/archive-17`; заменить реальным URL позже.
+
+### Коммит 14d — GIVE, SHARE, TRADE и command fallback
+
+- Slash-команды `/give <character> <item>`, `/share <character> <information>` и `/trade <character> <offered> <requested>` доступны в группе и DM.
+- `InstanceKeyResolver` находит information только в knowledge выбранного персонажа и выбранного INSTANCE; для TRADE requested item разрешается из inventory counterparty.
+- `CommandIntentParser` поддерживает `take <item>`, `drop <item>`, `talk to <npc>`, `give <item> to <character>`, `share <information> with <character>` и `trade <offered> to <character> for <requested>`.
+- `TelegramCommandExecutor` разрешает цели и предметы, затем вызывает существующие WorldEngine операции GIVE, SHARE и TRADE.
+- Fallback-команды для TAKE, DROP, TALK, GIVE, SHARE и TRADE также проходят через resolver/executor; для этого минимально изменены `adapter.py` и `dm_handler.py`.
+- Получатель GIVE/SHARE/TRADE должен быть активным персонажем в той же локации; NPC и персонажи из других локаций или INSTANCE отвергаются.
+- SHARE передаёт только knowledge/claim отправителя, не truth. GIVE/TRADE используют существующее событие `ITEM_TRANSFERRED`; SHARE — `KNOWLEDGE_SHARED`.
+- F1–F4 подтверждены; полный набор: 543 passed.
 
 ## TODO
 
