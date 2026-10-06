@@ -362,6 +362,7 @@ class UnitOfWork(Protocol):
     player_telegram_state: PlayerTelegramStateRepository
     events: EventLog
     characters: CharacterRepository
+    items: ItemRepository
     locations: LocationStateRepository
     information: InformationRepository
     knowledge: KnowledgeRepository

@@ -112,6 +112,7 @@ def test_location_view_has_no_knowledge_or_truth_fields(
         "characters",
         "npcs",
         "items",
+        "connections",
     }
     assert {field.name for field in dataclasses.fields(CharacterPresence)} == {
         "character_id",

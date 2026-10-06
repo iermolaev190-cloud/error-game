@@ -72,7 +72,19 @@ def test_dm_move_inspect_talk_inventory_and_knowledge(
     client, resolver, adapter = make_dm_adapter(world_engine, uow_factory)
     resolver.record_last_group_chat(777, -9501)
 
-    moved = send_dm(adapter, "move to forest")
+    assert "location=" in send_dm(adapter, "/look")
+    assert "npcs=" in send_dm(adapter, "/npcs")
+    assert "commands:" in send_dm(adapter, "/help")
+    assert "character=DM Player" in send_dm(adapter, "/character")
+
+    dropped = send_dm(adapter, "/drop medkit")
+    assert "action=DROP" in dropped
+    assert "ok=true" in dropped
+    taken = send_dm(adapter, "/take medkit")
+    assert "action=TAKE" in taken
+    assert "ok=true" in taken
+
+    moved = send_dm(adapter, "/move forest")
     assert "action=MOVE" in moved
     moved = send_dm(adapter, "move to old_station")
     assert "action=MOVE" in moved
@@ -81,15 +93,15 @@ def test_dm_move_inspect_talk_inventory_and_knowledge(
     assert "action=INSPECT" in inspected
     assert "claim=" in inspected
 
-    knowledge = send_dm(adapter, "knowledge")
-    assert "action=KNOWLEDGE" in knowledge
-    assert "knowledge: claim=" in knowledge
+    knowledge = send_dm(adapter, "/knowledge")
+    assert "knowledge" in knowledge
+    assert "claim=" in knowledge
 
-    inventory = send_dm(adapter, "inventory")
-    assert "action=INVENTORY" in inventory
+    inventory = send_dm(adapter, "/inventory")
+    assert "inventory" in inventory
     assert "item: name=" in inventory
 
-    dialogue = send_dm(adapter, "talk mechanic hello")
+    dialogue = send_dm(adapter, "/talk mechanic")
     assert "action=TALK_TO_NPC" in dialogue
     assert "reply=" in dialogue
 

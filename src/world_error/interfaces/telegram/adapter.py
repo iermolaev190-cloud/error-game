@@ -6,8 +6,10 @@ import asyncio
 from dataclasses import dataclass
 
 from world_error.application.action_result import ActionResult
+from world_error.application.ai.command_router import CommandRouter
 from world_error.application.ai.interpreter import IntentContext, IntentInterpreter
 from world_error.application.ai.intent import IntentType
+from world_error.application.ai.key_resolver import InstanceKeyResolver
 from world_error.application.ai.registry import INTENT_HANDLERS
 from world_error.application.ports.telegram import TelegramClient
 from world_error.application.services.world_engine import WorldEngine
@@ -18,6 +20,7 @@ from world_error.domain.shared.kernel import (
     WorldInstanceId,
 )
 from world_error.interfaces.telegram.dm_handler import DmTelegramHandler
+from world_error.interfaces.telegram.command_executor import TelegramCommandExecutor
 from world_error.interfaces.telegram.formatter import TelegramFormatter
 from world_error.interfaces.telegram.resolver import GroupInstanceResolver
 
@@ -46,12 +49,20 @@ class TelegramAdapter:
         self._intent_interpreter = intent_interpreter
         self._instance_resolver = instance_resolver
         self._formatter = formatter or TelegramFormatter()
+        self._command_router = CommandRouter()
+        self._command_executor = TelegramCommandExecutor(
+            world_engine=world_engine,
+            key_resolver=InstanceKeyResolver(instance_resolver.uow_factory),
+            formatter=self._formatter,
+        )
         self._dm_handler = dm_handler or DmTelegramHandler(
             telegram_client=telegram_client,
             world_engine=world_engine,
             intent_interpreter=intent_interpreter,
             instance_resolver=instance_resolver,
             formatter=self._formatter,
+            command_router=self._command_router,
+            command_executor=self._command_executor,
         )
 
     async def handle_message(self, update: TelegramIncomingMessage) -> str:
@@ -93,6 +104,19 @@ class TelegramAdapter:
             response = (
                 "No active character is linked to your Telegram account in this world. "
                 "Ask an administrator to create or link one."
+            )
+            await self._telegram_client.send_message(update.chat_id, response)
+            return response
+
+        routed = self._command_router.route(
+            update.text, actor_id=CharacterId(character.id)
+        )
+        if routed.kind != "none":
+            response = await self._command_executor.execute(
+                routed,
+                world_instance_id=WorldInstanceId(world_instance_id),
+                character=character,
+                private=False,
             )
             await self._telegram_client.send_message(update.chat_id, response)
             return response

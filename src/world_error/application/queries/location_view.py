@@ -78,6 +78,7 @@ class LocationView:
     characters: tuple[CharacterPresence, ...]
     npcs: tuple[NpcPresence, ...]
     items: tuple[ItemPresence, ...]
+    connections: tuple[str, ...]
 
 
 class LocationViewQuery:
@@ -142,4 +143,5 @@ class LocationViewQuery:
                 characters=players_here,
                 npcs=npcs_here,
                 items=items_here,
+                connections=tuple(sorted(str(key) for key in definition.connections)),
             )

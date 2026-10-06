@@ -182,6 +182,7 @@ def test_public_projection_has_no_consequence_fields(world_engine: WorldEngine) 
         "characters",
         "npcs",
         "items",
+        "connections",
     }
     assert {field.name for field in dataclasses.fields(CharacterPresence)} == {
         "character_id",

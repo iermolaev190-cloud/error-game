@@ -25,6 +25,10 @@ class GroupInstanceResolver:
         self._world_engine = world_engine
         self._uow_factory = uow_factory
 
+    @property
+    def uow_factory(self) -> UnitOfWorkFactory:
+        return self._uow_factory
+
     def resolve(
         self,
         telegram_chat_id: int,

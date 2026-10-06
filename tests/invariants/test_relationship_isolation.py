@@ -152,6 +152,7 @@ def test_location_view_has_no_relationship_fields() -> None:
         "characters",
         "npcs",
         "items",
+        "connections",
     }
     assert {field.name for field in dataclasses.fields(CharacterPresence)} == {
         "character_id",
