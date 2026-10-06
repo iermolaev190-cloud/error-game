@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 
 from world_error.domain.events.event import Event, EventType
-from world_error.domain.information.information import Information
+from world_error.domain.information.information import Information, InformationDefinition
 from world_error.domain.shared.kernel import (
     CharacterId,
     DiscoveryState,
@@ -57,6 +57,33 @@ def test_information_exists_before_discovery() -> None:
     assert information.discovery_state is DiscoveryState.UNDISCOVERED
     assert information.discovered_by is None
     assert information.discovered_at is None
+
+
+def test_information_definition_external_url_is_optional() -> None:
+    definition = InformationDefinition(
+        key="damaged_radio",
+        location_key=LocationKey("old_station"),
+        information_type="DEVICE",
+        source="PHYSICAL_OBJECT",
+        authenticity="AUTHENTIC",
+        access="OPEN",
+        content="A radio is damaged.",
+        truth="The radio was damaged deliberately.",
+    )
+    linked_definition = InformationDefinition(
+        key="linked_radio",
+        location_key=LocationKey("old_station"),
+        information_type="DEVICE",
+        source="PHYSICAL_OBJECT",
+        authenticity="AUTHENTIC",
+        access="OPEN",
+        content="A radio is damaged.",
+        truth="The radio was damaged deliberately.",
+        external_url="https://example.com/archive-17",
+    )
+
+    assert definition.external_url is None
+    assert linked_definition.external_url == "https://example.com/archive-17"
 
 
 def test_discovery_is_recorded_in_world_state() -> None:

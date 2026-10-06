@@ -12,7 +12,9 @@ from world_error.domain.knowledge.knowledge import Knowledge
 
 
 class TelegramFormatter:
-    _GROUP_PAYLOAD_FIELDS = frozenset({"from", "to", "world_tick", "state_version"})
+    _GROUP_PAYLOAD_FIELDS = frozenset(
+        {"external_url", "from", "to", "world_tick", "state_version"}
+    )
     _DM_PAYLOAD_FIELDS = _GROUP_PAYLOAD_FIELDS | frozenset(
         {
             "claim",
@@ -131,6 +133,8 @@ class TelegramFormatter:
                             "knowledge", value, self._PRIVATE_KNOWLEDGE_FIELDS
                         )
                     )
+                elif key == "external_url":
+                    lines.append(f"Ссылка: {value}")
                 else:
                     lines.append(f"{key}={value}")
         return "\n".join(lines)

@@ -45,6 +45,7 @@ class InformationDefinition:
     content: str
     truth: str
     document_date: date | None = None
+    external_url: str | None = None
 
 
 @dataclass(slots=True)

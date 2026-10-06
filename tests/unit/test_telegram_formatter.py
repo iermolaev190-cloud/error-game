@@ -41,3 +41,20 @@ def test_formatter_shows_failure_message_without_payload() -> None:
     assert TelegramFormatter().format(result) == (
         "action=MOVE\nok=false\nerror=character cannot move"
     )
+
+
+def test_formatter_shows_curated_inspection_link() -> None:
+    result = ActionResult.success(
+        "INSPECT",
+        payload={"external_url": "https://example.com/archive-17"},
+    )
+
+    assert "Ссылка: https://example.com/archive-17" in TelegramFormatter().format(result)
+    assert "Ссылка: https://example.com/archive-17" in TelegramFormatter().format_dm(result)
+
+
+def test_formatter_omits_link_when_external_url_is_absent() -> None:
+    result = ActionResult.success("INSPECT", payload={"information_key": "station_test_log"})
+
+    assert "Ссылка" not in TelegramFormatter().format(result)
+    assert "Ссылка" not in TelegramFormatter().format_dm(result)

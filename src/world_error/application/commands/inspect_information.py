@@ -85,6 +85,12 @@ class InspectInformationHandler:
                         f"character is in {character.location_key}",
                     )
 
+                definition = self._catalog.information_definition(information.key)
+                external_url_payload = (
+                    {"external_url": definition.external_url}
+                    if definition.external_url
+                    else {}
+                )
                 known = uow.knowledge.find(
                     instance.id, SubjectType.CHARACTER, str(character.id), information.id
                 )
@@ -102,10 +108,10 @@ class InspectInformationHandler:
                             ),
                             "world_tick": instance.state.world_tick,
                             "state_version": instance.state.state_version,
+                            **external_url_payload,
                         },
                     )
 
-                definition = self._catalog.information_definition(information.key)
                 now = self._clock.now()
                 event = Event(
                     id=self._new_event_id(),
@@ -169,6 +175,7 @@ class InspectInformationHandler:
                     "world_tick": instance.state.world_tick,
                     "state_version": instance.state.state_version,
                     "cost_ticks": None if command.cost_ticks is None else int(command.cost_ticks),
+                    **external_url_payload,
                 },
             )
         except DomainError as exc:

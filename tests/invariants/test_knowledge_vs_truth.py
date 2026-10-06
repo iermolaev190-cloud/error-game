@@ -78,6 +78,7 @@ def test_result_payload_does_not_leak_truth(
     )
 
     assert result.payload["claim"] == definition.content
+    assert result.payload["external_url"] == "https://example.com/archive-17"
     assert all(
         definition.truth not in str(value) for value in result.payload.values()
     ), "канонический факт не должен попадать в результат действия"

@@ -109,6 +109,11 @@ def _load_information(directory: Path) -> dict[str, InformationDefinition]:
         key = _require_str(data, "key", path)
         if key in items:
             raise ContentError(f"duplicate information key {key!r} ({path})")
+        external_url = data.get("external_url")
+        if external_url is not None and not isinstance(external_url, str):
+            raise ContentError(
+                f"content file {path} field 'external_url' must be a string"
+            )
         items[key] = InformationDefinition(
             key=key,
             location_key=LocationKey(_require_str(data, "location_key", path)),
@@ -119,6 +124,7 @@ def _load_information(directory: Path) -> dict[str, InformationDefinition]:
             content=_require_str(data, "content", path),
             truth=_require_str(data, "truth", path),
             document_date=_optional_date(data.get("document_date")),
+            external_url=external_url if external_url and external_url.strip() else None,
         )
     return items
 

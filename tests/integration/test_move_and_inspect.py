@@ -87,6 +87,34 @@ def test_inspect_creates_knowledge_and_marks_world_discovery(world_engine: World
     assert result.payload["claim"] == CLAIM
     assert result.payload["claim_type"] == "FACT"
     assert result.payload["confidence"] == "LIKELY"
+    assert result.payload["external_url"] == "https://example.com/archive-17"
+    assert set(result.payload) == {
+        "already_known",
+        "information_key",
+        "claim",
+        "claim_type",
+        "source",
+        "confidence",
+        "document_date",
+        "world_tick",
+        "state_version",
+        "cost_ticks",
+        "external_url",
+    }
+    assert result.payload["external_url"] == "https://example.com/archive-17"
+    assert set(result.payload) == {
+        "already_known",
+        "information_key",
+        "claim",
+        "claim_type",
+        "source",
+        "confidence",
+        "document_date",
+        "world_tick",
+        "state_version",
+        "cost_ticks",
+        "external_url",
+    }
 
     knowledge = list(world_engine.get_knowledge(instance.id, character_id))
     assert len(knowledge) == 1
@@ -117,6 +145,8 @@ def test_repeated_inspect_is_noop_without_new_event(world_engine: WorldEngine) -
 
     assert second.ok is True
     assert second.payload["already_known"] is True
+    assert second.payload["external_url"] == "https://example.com/archive-17"
+    assert second.payload["external_url"] == "https://example.com/archive-17"
     assert second.event_ids == ()
     assert len(world_engine.get_knowledge(instance.id, character_id)) == 1
     assert len(world_engine.get_events(instance.id)) == events_before

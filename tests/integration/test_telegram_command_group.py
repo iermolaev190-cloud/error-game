@@ -73,3 +73,11 @@ def test_group_slash_commands_route_public_queries_and_actions(
     assert "action=TAKE" in taken
     assert "ok=true" in taken
     assert client.sent[-1] == (-9920, taken)
+
+    assert "action=MOVE" in send_group(adapter, "/move old_station")
+    inspected = send_group(adapter, "/inspect damaged_radio")
+    assert "Ссылка: https://example.com/archive-17" in inspected
+
+    assert "action=MOVE" in send_group(adapter, "/move old_station")
+    inspected = send_group(adapter, "/inspect damaged_radio")
+    assert "Ссылка: https://example.com/archive-17" in inspected
