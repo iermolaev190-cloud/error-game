@@ -30,6 +30,7 @@ from world_error.domain.knowledge.knowledge import Knowledge, SubjectType
 from world_error.domain.locations.location import LocationState
 from world_error.domain.legacy.legacy_document import LegacyDocument
 from world_error.domain.npcs.npc import Npc
+from world_error.domain.players.player_telegram_state import PlayerTelegramState
 from world_error.domain.relationships.relationship import (
     Relationship,
     RelationshipKind,
@@ -89,6 +90,8 @@ class CharacterRepository(Protocol):
     def find_by_instance_and_player(
         self, world_instance_id: WorldInstanceId, player_id: str
     ) -> Character | None: ...
+
+    def list_active_by_player(self, player_id: str) -> Sequence[Character]: ...
 
     def list_by_location(
         self, world_instance_id: WorldInstanceId, location_key: LocationKey
@@ -356,6 +359,7 @@ class UnitOfWork(Protocol):
 
     world_instances: WorldInstanceRepository
     chat_bindings: ChatBindingRepository
+    player_telegram_state: PlayerTelegramStateRepository
     events: EventLog
     characters: CharacterRepository
     locations: LocationStateRepository
@@ -377,3 +381,9 @@ class UnitOfWork(Protocol):
 
 
 UnitOfWorkFactory = Callable[[], UnitOfWork]
+
+
+class PlayerTelegramStateRepository(Protocol):
+    def get(self, telegram_user_id: int) -> PlayerTelegramState | None: ...
+
+    def save(self, state: PlayerTelegramState) -> None: ...

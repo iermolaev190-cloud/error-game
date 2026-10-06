@@ -66,6 +66,14 @@ chat_bindings = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
+player_telegram_state = Table(
+    "player_telegram_state",
+    metadata,
+    Column("telegram_user_id", BigInteger, primary_key=True),
+    Column("last_group_chat_id", BigInteger, nullable=True),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
 events = Table(
     "events",
     metadata,

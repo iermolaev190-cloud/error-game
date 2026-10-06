@@ -12,7 +12,7 @@ from world_error.interfaces.telegram.adapter import (
 
 
 def build_router(adapter: TelegramAdapter) -> Router:
-    router = Router(name="world-error-group")
+    router = Router(name="world-error-telegram")
 
     @router.message(F.chat.type.in_({"group", "supergroup"}))
     async def handle_group_message(message: Message) -> None:

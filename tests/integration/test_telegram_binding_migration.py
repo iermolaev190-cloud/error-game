@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 
 
 def test_0011_backfills_existing_world_instances(db_url, monkeypatch) -> None:
@@ -47,5 +47,24 @@ def test_0011_backfills_existing_world_instances(db_url, monkeypatch) -> None:
                 {"chat_id": -9401},
             ).one()
         assert binding == (-9401, "wi_before_0011")
+    finally:
+        connection.dispose()
+
+
+def test_0012_creates_player_telegram_state_table(db_url, monkeypatch) -> None:
+    monkeypatch.setenv("WORLD_ERROR_DB_URL", db_url)
+    config = Config("alembic.ini")
+    command.upgrade(config, "head")
+    connection = create_engine(db_url)
+    try:
+        columns = {
+            column["name"]
+            for column in inspect(connection).get_columns("player_telegram_state")
+        }
+        assert columns == {
+            "telegram_user_id",
+            "last_group_chat_id",
+            "updated_at",
+        }
     finally:
         connection.dispose()

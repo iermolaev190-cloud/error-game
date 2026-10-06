@@ -124,7 +124,7 @@ def test_private_chat_never_creates_instance_or_sends_to_group(
         )
     )
 
-    assert response == "This bot supports group chats only."
-    assert client.sent == []
+    assert response == "Add the bot to a group before using it in a private chat."
+    assert client.sent == [(555, response)]
     with uow_factory() as uow:
         assert uow.chat_bindings.get_by_telegram_chat_id(555) is None

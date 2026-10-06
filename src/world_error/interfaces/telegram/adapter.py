@@ -17,6 +17,7 @@ from world_error.domain.shared.kernel import (
     ErrorCode,
     WorldInstanceId,
 )
+from world_error.interfaces.telegram.dm_handler import DmTelegramHandler
 from world_error.interfaces.telegram.formatter import TelegramFormatter
 from world_error.interfaces.telegram.resolver import GroupInstanceResolver
 
@@ -38,20 +39,30 @@ class TelegramAdapter:
         intent_interpreter: IntentInterpreter,
         instance_resolver: GroupInstanceResolver,
         formatter: TelegramFormatter | None = None,
+        dm_handler: DmTelegramHandler | None = None,
     ) -> None:
         self._telegram_client = telegram_client
         self._world_engine = world_engine
         self._intent_interpreter = intent_interpreter
         self._instance_resolver = instance_resolver
         self._formatter = formatter or TelegramFormatter()
+        self._dm_handler = dm_handler or DmTelegramHandler(
+            telegram_client=telegram_client,
+            world_engine=world_engine,
+            intent_interpreter=intent_interpreter,
+            instance_resolver=instance_resolver,
+            formatter=self._formatter,
+        )
 
     async def handle_message(self, update: TelegramIncomingMessage) -> str:
+        if update.chat_type == "private":
+            return await self._dm_handler.handle_message(
+                chat_id=update.chat_id,
+                telegram_user_id=update.telegram_user_id,
+                text=update.text,
+            )
         if update.chat_type not in {"group", "supergroup"}:
-            return "This bot supports group chats only."
-        if not update.text or not update.text.strip():
-            response = "Send a text command."
-            await self._telegram_client.send_message(update.chat_id, response)
-            return response
+            return "This bot supports group and private chats only."
 
         world_instance_id = await asyncio.to_thread(
             self._instance_resolver.resolve,
@@ -61,6 +72,15 @@ class TelegramAdapter:
         )
         if world_instance_id is None:
             response = "This group could not be connected to a WORLD INSTANCE."
+            await self._telegram_client.send_message(update.chat_id, response)
+            return response
+        await asyncio.to_thread(
+            self._instance_resolver.record_last_group_chat,
+            update.telegram_user_id,
+            update.chat_id,
+        )
+        if not update.text or not update.text.strip():
+            response = "Send a text command."
             await self._telegram_client.send_message(update.chat_id, response)
             return response
 

@@ -11,11 +11,12 @@ from world_error.domain.characters.character import (
     CharacterLifecycle,
 )
 from world_error.domain.shared.kernel import CharacterId, DomainError, ErrorCode, WorldInstanceId
+from world_error.domain.world.instance import InstanceLifecycle
 from world_error.infrastructure.db.repositories._mapping import (
     character_from_row,
     character_row,
 )
-from world_error.infrastructure.db.tables import characters
+from world_error.infrastructure.db.tables import characters, world_instances
 
 
 class SqlCharacterRepository:
@@ -74,6 +75,26 @@ class SqlCharacterRepository:
             .first()
         )
         return None if row is None else character_from_row(dict(row))
+
+    def list_active_by_player(self, player_id: str) -> list[Character]:
+        rows = self._session.execute(
+            select(characters)
+            .select_from(
+                characters.join(
+                    world_instances,
+                    characters.c.world_instance_id == world_instances.c.id,
+                )
+            )
+            .where(
+                characters.c.player_id == player_id,
+                characters.c.lifecycle == CharacterLifecycle.ALIVE.value,
+                characters.c.activity == CharacterActivity.ACTIVE.value,
+                world_instances.c.lifecycle == InstanceLifecycle.ACTIVE.value,
+            )
+            .distinct()
+            .order_by(characters.c.world_instance_id, characters.c.id)
+        ).all()
+        return [character_from_row(dict(row._mapping)) for row in rows]
 
     def list_by_location(
         self, world_instance_id: WorldInstanceId, location_key: LocationKey

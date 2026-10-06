@@ -21,6 +21,7 @@ from world_error.infrastructure.db.repositories import (
     SqlLegacyDocumentRepository,
     SqlLocationStateRepository,
     SqlNpcRepository,
+    SqlPlayerTelegramStateRepository,
     SqlRelationshipRepository,
     SqlScheduledEventRepository,
     SqlWorldInstanceRepository,
@@ -33,6 +34,7 @@ class SqlAlchemyUnitOfWork:
         self._session: Session | None = None
         self.world_instances: SqlWorldInstanceRepository
         self.chat_bindings: SqlChatBindingRepository
+        self.player_telegram_state: SqlPlayerTelegramStateRepository
         self.events: SqlEventLogRepository
         self.factions: SqlFactionRepository
         self.characters: SqlCharacterRepository
@@ -51,6 +53,7 @@ class SqlAlchemyUnitOfWork:
         self._session = self._session_factory()
         self.world_instances = SqlWorldInstanceRepository(self._session)
         self.chat_bindings = SqlChatBindingRepository(self._session)
+        self.player_telegram_state = SqlPlayerTelegramStateRepository(self._session)
         self.events = SqlEventLogRepository(self._session)
         self.factions = SqlFactionRepository(self._session)
         self.characters = SqlCharacterRepository(self._session)
