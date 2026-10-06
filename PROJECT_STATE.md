@@ -21,11 +21,9 @@ Telegram не содержит игровой логики.
 
 ## Состояние
 
-HEAD: 7545f15 — feat(ai): add NPC dialogue layer (коммит 13, Phase 22), завершён.
-Тесты: 472 passed, exit 0.
-Коммит 13 завершён; обновление PROJECT_STATE.md будет отдельным chore(state).
-
-Следующий этап — AI NPC dialogue (Phase 22).
+HEAD: 6c41075 — fix(telegram): register DM handler.
+Тесты: 528 passed, exit 0.
+Коммиты 14a, 14b, 14c и регистрация DM handler завершены.
 
 ## Порядок чтения для нового AI
 
@@ -61,8 +59,12 @@ HEAD: 7545f15 — feat(ai): add NPC dialogue layer (коммит 13, Phase 22), 
 - коммит 11 — Investigation engine (Phase 20)
 - e6fe130 коммит 12 — AI intent interpreter (Phase 21)
 - 7545f15 коммит 13 — AI NPC dialogue (Phase 22)
+- bf21218 коммит 14a — Telegram group adapter, chat bindings
+- c81e098 коммит 14b — Telegram DM channel
+- 194213f коммит 14c — Telegram slash command interface
+- 6c41075 fix — регистрация Telegram DM handler
 
-Миграции: 0001-0010.
+Миграции: 0001-0012.
 
 ## Ключевые архитектурные решения
 
@@ -153,13 +155,46 @@ HEAD: 7545f15 — feat(ai): add NPC dialogue layer (коммит 13, Phase 22), 
 - `NPC_TALKED` не вводится: диалог read-only и не является изменением мира.
 - F1–F4 подтверждены; полный набор: 472 passed.
 
+## Коммиты 14a–14c: Telegram integration (Phase 23)
+
+### Коммит 14a — group adapter
+
+- `chat_bindings` связывает Telegram group chat ID с WORLD INSTANCE ID; эти ID не смешиваются.
+- Group adapter остаётся транспортным слоем и передаёт действия в `WorldEngine.handle_intent`.
+- Первое сообщение в группе выполняет bootstrap: создаёт INSTANCE и binding; это не player action и не создаёт игровых событий.
+- Group formatter использует whitelist публичных полей.
+
+### Коммит 14b — DM channel
+
+- `player_telegram_state` хранит `last_group_chat_id`; он обновляется на каждом сообщении пользователя в группе.
+- DM выбирает INSTANCE по последней группе, с fallback к единственному активному character.
+- DM никогда не создаёт INSTANCE и не выполняет group bootstrap.
+- Group и DM используют раздельные formatter whitelists; приватные inventory и knowledge доступны только в DM.
+
+### Коммит 14c — slash command interface
+
+- Добавлены `CommandRouter`, `RoutedCommand` и instance-scoped `key_resolver`.
+- Slash actions: `/move`, `/inspect`, `/take`, `/drop`; публичные queries: `/look`, `/npcs`, `/help`.
+- Только для DM: `/inventory`, `/knowledge`, `/character`, `/talk`; приватные команды в группе отклоняются до query execution.
+- `LocationView` дополнен публичными выходами (exits).
+- Query отделён от Intent; игровые actions по-прежнему выполняются через WorldEngine.
+
+### Fix — регистрация Telegram DM handler
+
+- Aiogram router регистрирует private callback наряду с group/supergroup callback.
+- Реальные Dispatcher-level тесты проверяют маршрутизацию private и group updates; invariant проверяет оба тонких callback.
+- F1/F2 подтверждены; полный набор: 528 passed.
+
 ## TODO
 
-- MASTER_SPEC §13: проверить и исправить устаревшую нумерацию ссылки на правила/границы AI.
-- Уточнить для INSPECT различие FACT vs CLAIM и привести реализацию/документацию к единому правилу.
+- MASTER_SPEC §13: нумерация фаз устарела; проверить и исправить.
+- INSPECT выдаёт `FACT` от одного наблюдения; сверить с `07_KNOWLEDGE §6.1` и согласовать реализацию/канон.
 - Сверить ссылки на фазу AI NPC dialogue: в `19_MVP_V1_FOR_AI.txt` §21 описывает AI interface flow, §22 — Telegram; в `20_TECH_ARCHITECTURE_V1_FOR_AI.txt` §§40–43 не являются разделами AI gateway (AI provider/interpreter/generator находятся в §§17–19).
 - `NpcDefinition.goals` пока не имеет маркировки public/hidden; не передавать цели NPC в AI context до отдельной модели видимости.
 - AI-generated dialogue не проверяется на hallucination; разработать grounding/validation отдельной фазой.
+- `/talk <npc>` не содержит message; сейчас передаётся фиксированная реплика по умолчанию.
+- `ItemPresence` не содержит `item_id`; key resolver получает ID через instance-scoped repository.
+- Нет инварианта регистрации всех интерфейсных handlers (Telegram, CLI, AI); добавить проверку регистрации interface entrypoints.
 
 ## Правила работы
 
@@ -172,6 +207,9 @@ HEAD: 7545f15 — feat(ai): add NPC dialogue layer (коммит 13, Phase 22), 
 7. Временные файлы (_smoke*, .pytest_last.txt, .vscode/tasks.json) удалять до коммита.
 8. Если конфликт с архитектурой — остановиться и объяснить, не обходить.
 9. pytest долгий (4-5 минут из-за subprocess restart и alembic). Не перезапускать, ждать сводку.
+12. После коммита с миграцией — локально выполнить `alembic upgrade head`.
+13. План → явный `go` → код. Один `go` разрешает один шаг. После каждого шага показать `git status --short` и `git diff --stat`; без `go` остановиться.
+14. После задачи предоставить подробный отчёт: что сделано, тесты, фальсификации, отклонения от плана, аномалии и что не сделано.
 
 ## Стоп-сигналы
 
