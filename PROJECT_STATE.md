@@ -21,8 +21,8 @@ Telegram не содержит игровой логики.
 
 ## Состояние
 
-HEAD: ae8dbbd — feat(telegram): add DM character registration.
-Тесты: 571 passed, exit 0 (`pytest -q`).
+HEAD: 9009740 — fix(core): process due events before player actions.
+Тесты: 575 passed, exit 0 (`pytest -q`).
 Коммиты 14a, 14b, 14c, 14d, ARG links, Telegram UX fixes, Telegram command mention fix, Admin/Debug и Registration завершены.
 
 ## Порядок чтения для нового AI
@@ -70,6 +70,7 @@ HEAD: ae8dbbd — feat(telegram): add DM character registration.
 - df282f5 feat — Telegram Admin tools, Phase 26
 - faee5a0 chore — PROJECT_STATE после Admin tools
 - ae8dbbd feat — DM character registration, Phase 27a
+- 9009740 fix — scheduled events before player actions, Unicode names, CAS regression
 
 Миграции: 0001-0013.
 
@@ -244,6 +245,13 @@ HEAD: ae8dbbd — feat(telegram): add DM character registration.
 - Создание проходит через `WorldEngine.create_character(..., actor="system")`, создаёт штатный `CHARACTER_CREATED` event.
 - В группе `/start` отказывает, а игрок без character получает подсказку зарегистрироваться в DM; DM без character направляется к `/start`.
 - Добавлены unit, integration и invariant-тесты; фальсификации F1–F3 подтверждены; полный набор: 571 passed.
+
+### Fix — scheduled events, Unicode names, and CAS regression
+
+- Обработчики с насосом мира применяют уже наступившие scheduled events и consequences до следующего действия игрока; cascade limit по-прежнему блокирует действие при достижении лимита.
+- Command router, parser и key resolver поддерживают кириллические имена персонажей.
+- CAS integration test запускает конкурирующую запись после чтения версии именно тестируемым обработчиком, не полагаясь на число внутренних чтений насоса.
+- Полный набор: 575 passed; `compileall` и `git diff --check` прошли.
 
 ## TODO
 
