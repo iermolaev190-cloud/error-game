@@ -8,20 +8,20 @@ from world_error.application.ai.intent import Intent, IntentType
 from world_error.application.ai.interpreter import IntentContext
 from world_error.domain.shared.kernel import CharacterId
 
-_MOVE = re.compile(r"^move\s+to\s+([a-z][a-z0-9_-]*)$", re.IGNORECASE)
-_INSPECT = re.compile(r"^inspect\s+([a-z][a-z0-9_-]*)$", re.IGNORECASE)
-_TAKE = re.compile(r"^take\s+([a-z][a-z0-9_-]*)$", re.IGNORECASE)
-_DROP = re.compile(r"^drop\s+([a-z][a-z0-9_-]*)$", re.IGNORECASE)
-_TALK = re.compile(r"^talk\s+to\s+([a-z][a-z0-9_-]*)$", re.IGNORECASE)
+_KEY = r"([^\W\d_][\w-]*)"
+_MOVE = re.compile(rf"^move\s+to\s+{_KEY}$", re.IGNORECASE)
+_INSPECT = re.compile(rf"^inspect\s+{_KEY}$", re.IGNORECASE)
+_TAKE = re.compile(rf"^take\s+{_KEY}$", re.IGNORECASE)
+_DROP = re.compile(rf"^drop\s+{_KEY}$", re.IGNORECASE)
+_TALK = re.compile(rf"^talk\s+to\s+{_KEY}$", re.IGNORECASE)
 _GIVE = re.compile(
-    r"^give\s+([a-z][a-z0-9_-]*)\s+to\s+([a-z][a-z0-9_-]*)$", re.IGNORECASE
+    rf"^give\s+{_KEY}\s+to\s+{_KEY}$", re.IGNORECASE
 )
 _SHARE = re.compile(
-    r"^share\s+([a-z][a-z0-9_-]*)\s+with\s+([a-z][a-z0-9_-]*)$", re.IGNORECASE
+    rf"^share\s+{_KEY}\s+with\s+{_KEY}$", re.IGNORECASE
 )
 _TRADE = re.compile(
-    r"^trade\s+([a-z][a-z0-9_-]*)\s+to\s+([a-z][a-z0-9_-]*)"
-    r"\s+for\s+([a-z][a-z0-9_-]*)$",
+    rf"^trade\s+{_KEY}\s+to\s+{_KEY}\s+for\s+{_KEY}$",
     re.IGNORECASE,
 )
 _TALK_MESSAGE = "Привет. О чём поговорим?"

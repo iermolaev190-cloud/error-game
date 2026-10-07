@@ -8,11 +8,14 @@
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
 from typing import Callable
 
 import pytest
 
+from world_error.application.commands.move_character import MoveCharacterHandler
+from world_error.application.commands.share_knowledge import ShareKnowledgeHandler
 from world_error.application.services.world_engine import WorldEngine
 from world_error.domain.events.event import Event, EventType
 from world_error.domain.shared.kernel import (
@@ -150,21 +153,32 @@ def test_conflict_rolls_back_state_and_event(
 
 
 @pytest.fixture()
-def arm_rival(monkeypatch: pytest.MonkeyPatch) -> Callable[[WorldEngine], None]:
-    """Вооружает «соперника»: первый `get` инстанса запускает чужой ход.
+def arm_rival(monkeypatch: pytest.MonkeyPatch) -> Callable[..., None]:
+    """Коммитит ход соперника после чтения версии тестируемым обработчиком.
 
-    Детерминированно, без sleep и реальной конкуренции: соперник коммитит свою
-    транзакцию ровно в тот момент, когда наш обработчик уже прочитал версию N,
-    но ещё ничего не записал.
+    Насос мира выполняет собственные чтения до действия, поэтому точка гонки
+    выбирается по вызывающему обработчику, а не по общему числу чтений.
     """
-    state = {"armed": False, "fired": False}
+    state = {"armed": False, "fired": False, "target": None}
 
-    def arm(world_engine: WorldEngine) -> None:
+    def arm(world_engine: WorldEngine, *, action: str) -> None:
+        target = {
+            "advance_tick": (WorldEngine, "_apply"),
+            "move_character": (MoveCharacterHandler, "handle"),
+            "share_knowledge": (ShareKnowledgeHandler, "handle"),
+        }[action]
         original_get = SqlWorldInstanceRepository.get
 
         def racing_get(self, world_instance_id):
             loaded = original_get(self, world_instance_id)
-            if state["armed"] and not state["fired"]:
+            caller = sys._getframe(1)
+            target_type, target_method = target
+            if (
+                state["armed"]
+                and not state["fired"]
+                and caller.f_code.co_name == target_method
+                and isinstance(caller.f_locals.get("self"), target_type)
+            ):
                 state["fired"] = True
                 world_engine.advance_tick(world_instance_id, cause="rival")
             return loaded
@@ -178,7 +192,7 @@ def arm_rival(monkeypatch: pytest.MonkeyPatch) -> Callable[[WorldEngine], None]:
 @pytest.mark.parametrize("action", ["advance_tick", "move_character", "share_knowledge"])
 def test_stale_handler_reports_conflict_without_trace(
     world_engine: WorldEngine,
-    arm_rival: Callable[[WorldEngine], None],
+    arm_rival: Callable[..., None],
     action: str,
 ) -> None:
     """Все точки, которые сохраняют инстанс, обязаны передавать ожидаемую версию."""
@@ -195,7 +209,7 @@ def test_stale_handler_reports_conflict_without_trace(
     state_before = world_engine.get_instance(instance.id).state
     events_before = len(world_engine.get_events(instance.id))
 
-    arm_rival(world_engine)
+    arm_rival(world_engine, action=action)
 
     if action == "advance_tick":
         # Методы коммита 1 поднимают доменную ошибку, а не возвращают ActionResult.

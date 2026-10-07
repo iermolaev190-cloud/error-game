@@ -19,7 +19,7 @@ from world_error.domain.shared.kernel import (
 
 
 def _name_key(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_")
+    return re.sub(r"[^\w]+", "_", value.casefold(), flags=re.UNICODE).strip("_")
 
 
 class InstanceKeyResolver:

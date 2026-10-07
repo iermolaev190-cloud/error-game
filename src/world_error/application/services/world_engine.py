@@ -474,6 +474,16 @@ class WorldEngine:
 
     def _pumped(self, handler: Any) -> "_PumpedHandler":
         def handle(command: Any) -> ActionResult:
+            before = self._pump_world(command.world_instance_id)
+            if before.limit_reached:
+                return ActionResult.failure(
+                    "WORLD_TIME",
+                    DomainError(
+                        ErrorCode.CASCADE_LIMIT,
+                        "consequence cascade limit reached "
+                        f"({self._consequences.max_cascade_steps} steps)",
+                    ),
+                )
             result = handler.handle(command)
             if not result.ok:
                 return result

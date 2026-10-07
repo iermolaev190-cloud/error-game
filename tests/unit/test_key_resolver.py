@@ -24,6 +24,26 @@ def test_resolves_location_items_npcs_and_characters_in_instance(
     assert resolver.resolve_character(instance.id, LocationKey("base"), "alice") == character_id
 
 
+def test_resolves_cyrillic_character_name(world_engine, uow_factory) -> None:
+    instance = world_engine.create_instance(telegram_chat_id=-9921, seed=21)
+    created = world_engine.create_character(
+        instance.id,
+        player_id="9921",
+        name="Иван Петров",
+        location_key=LocationKey("base"),
+    )
+    assert created.ok, created.error
+    character_id = CharacterId(created.payload["character_id"])
+
+    resolved = InstanceKeyResolver(uow_factory).resolve_character(
+        instance.id,
+        LocationKey("base"),
+        "иван_петров",
+    )
+
+    assert resolved == character_id
+
+
 def test_resolves_inventory_items_by_character_and_instance(
     world_engine, uow_factory
 ) -> None:

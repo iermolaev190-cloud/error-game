@@ -64,6 +64,15 @@ def test_command_keys_are_case_insensitive_and_normalized() -> None:
     assert routed.intent.target == "medkit"
 
 
+def test_character_names_can_contain_cyrillic_letters() -> None:
+    routed = CommandRouter().route("/give Иван medkit", actor_id=ACTOR)
+
+    assert routed.intent is not None
+    assert routed.intent.type is IntentType.GIVE
+    assert routed.intent.target == "иван"
+    assert dict(routed.intent.params) == {"item_key": "medkit"}
+
+
 def test_slash_commands_ignore_bot_username() -> None:
     router = CommandRouter()
 

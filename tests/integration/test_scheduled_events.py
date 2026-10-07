@@ -2,15 +2,29 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from world_error.application.services.world_engine import WorldEngine
 from world_error.domain.events.event import EventType
-from world_error.domain.shared.kernel import CharacterId, DomainError, ErrorCode, ScheduledEventId
+from world_error.domain.shared.kernel import (
+    CharacterId,
+    DomainError,
+    ErrorCode,
+    LocationKey,
+    ScheduledEventId,
+)
 from world_error.domain.time.scheduled_event import ScheduledEventStatus, ScheduledTriggerKind
 from world_error.domain.world.instance import WorldInstance
+
+
+class MutableClock:
+    def __init__(self, value: datetime) -> None:
+        self.value = value
+
+    def now(self) -> datetime:
+        return self.value
 
 
 def make_world(world_engine: WorldEngine) -> WorldInstance:
@@ -145,6 +159,41 @@ def test_at_time_trigger_uses_world_time(world_engine: WorldEngine) -> None:
     assert world_engine.get_scheduled_event(instance.id, scheduled_id).status is (
         ScheduledEventStatus.APPLIED
     )
+
+
+def test_due_at_time_event_is_applied_before_next_player_action(
+    uow_factory, catalog
+) -> None:  # noqa: ANN001
+    clock = MutableClock(datetime(2026, 10, 7, 12, tzinfo=timezone.utc))
+    world_engine = WorldEngine(uow_factory=uow_factory, catalog=catalog, clock=clock)
+    instance = make_world(world_engine)
+    created = world_engine.create_character(instance.id, player_id="player-a", name="Аня")
+    character_id = CharacterId(created.payload["character_id"])
+    cause = world_engine.get_events(instance.id)[-1].id
+    due_time = world_engine.get_world_time(instance.id) + timedelta(minutes=1)
+    result = world_engine.schedule_event(
+        instance.id,
+        cause_event_id=cause,
+        event_key="time-sensitive-event",
+        idempotency_key="time-sensitive-event-1",
+        trigger_kind=ScheduledTriggerKind.AT_TIME,
+        due_time=due_time,
+    )
+    assert result.ok is True, result.error
+
+    clock.value += timedelta(minutes=2)
+    moved = world_engine.move_character(
+        instance.id,
+        character_id=character_id,
+        to_location_key=LocationKey("forest"),
+    )
+    assert moved.ok is True, moved.error
+
+    events = world_engine.get_events(instance.id)
+    event_types = [event.type for event in events]
+    scheduled_event_index = event_types.index(EventType.SCHEDULED_EVENT_TRIGGERED)
+    move_event_index = event_types.index(EventType.CHARACTER_MOVED)
+    assert scheduled_event_index < move_event_index
 
 
 def test_pending_schedule_is_not_part_of_location_view(world_engine: WorldEngine) -> None:

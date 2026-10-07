@@ -62,6 +62,18 @@ def test_command_parser_supports_six_action_templates() -> None:
         assert dict(result.params) == params
 
 
+def test_command_parser_accepts_cyrillic_character_names() -> None:
+    result = CommandIntentParser().interpret(
+        "give medkit to Иван",
+        make_context(),
+    )
+
+    assert result is not None
+    assert result.type is IntentType.GIVE
+    assert result.target == "иван"
+    assert dict(result.params) == {"item_key": "medkit"}
+
+
 def test_command_parser_rejects_unknown_or_injected_input() -> None:
     parser = CommandIntentParser()
     context = make_context()

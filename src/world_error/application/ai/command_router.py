@@ -8,7 +8,7 @@ from world_error.application.ai.intent import Intent, IntentType
 from world_error.application.ai.routed_command import RoutedCommand
 from world_error.domain.shared.kernel import CharacterId
 
-_KEY = r"([a-z][a-z0-9_-]*)"
+_KEY = r"([^\W\d_][\w-]*)"
 _MOVE = re.compile(rf"^/move\s+{_KEY}$", re.IGNORECASE)
 _INSPECT = re.compile(rf"^/inspect\s+{_KEY}$", re.IGNORECASE)
 _TAKE = re.compile(rf"^/take\s+{_KEY}$", re.IGNORECASE)
