@@ -21,9 +21,9 @@ Telegram не содержит игровой логики.
 
 ## Состояние
 
-HEAD: df282f5 — feat(admin): add Telegram admin tools (phase 26).
-Тесты: 561 passed, exit 0 (`pytest -q`).
-Коммиты 14a, 14b, 14c, 14d, ARG links, Telegram UX fixes, Telegram command mention fix и начальный срез Admin/Debug завершены.
+HEAD: ae8dbbd — feat(telegram): add DM character registration.
+Тесты: 571 passed, exit 0 (`pytest -q`).
+Коммиты 14a, 14b, 14c, 14d, ARG links, Telegram UX fixes, Telegram command mention fix, Admin/Debug и Registration завершены.
 
 ## Порядок чтения для нового AI
 
@@ -68,6 +68,8 @@ HEAD: df282f5 — feat(admin): add Telegram admin tools (phase 26).
 - 750b92e fix — дружелюбные player-facing сообщения об ошибках Telegram
 - 27883dc fix — strip `@BotUsername` from Telegram slash commands
 - df282f5 feat — Telegram Admin tools, Phase 26
+- faee5a0 chore — PROJECT_STATE после Admin tools
+- ae8dbbd feat — DM character registration, Phase 27a
 
 Миграции: 0001-0013.
 
@@ -233,6 +235,15 @@ HEAD: df282f5 — feat(admin): add Telegram admin tools (phase 26).
 - В admin-чате доступны `/admin`, `worlds`, `instance`, `events`, `character`, `npc`, `location`, `admins`; активный админ может выполнять `/add-admin` и `/remove-admin`.
 - Admin queries scoped по указанному `world_id`, не меняют игровой state/events/knowledge. Admin-команды в игровых группах отклоняются до создания/разрешения INSTANCE; в DM отклоняются до DM resolver.
 - Фальсификации F1–F4 подтверждены; полный набор: 561 passed.
+
+### Registration — Phase 27a
+
+- `/start` в DM запускает регистрацию через aiogram FSM: подтверждение, ввод имени, завершение; storage — встроенный `MemoryStorage`.
+- Активный INSTANCE разрешается через существующий `GroupInstanceResolver`; DM не создаёт INSTANCE.
+- Повторный `/start` при существующем character показывает приветствие и локацию; существующий character не дублируется.
+- Создание проходит через `WorldEngine.create_character(..., actor="system")`, создаёт штатный `CHARACTER_CREATED` event.
+- В группе `/start` отказывает, а игрок без character получает подсказку зарегистрироваться в DM; DM без character направляется к `/start`.
+- Добавлены unit, integration и invariant-тесты; фальсификации F1–F3 подтверждены; полный набор: 571 passed.
 
 ## TODO
 
