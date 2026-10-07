@@ -20,6 +20,7 @@ from world_error.domain.shared.kernel import (
     ErrorCode,
     WorldInstanceId,
 )
+from world_error.interfaces.telegram.admin_handler import AdminTelegramHandler
 from world_error.interfaces.telegram.dm_handler import DmTelegramHandler
 from world_error.interfaces.telegram.command_executor import (
     COMMAND_EXECUTOR_INTENTS,
@@ -47,11 +48,13 @@ class TelegramAdapter:
         instance_resolver: GroupInstanceResolver,
         formatter: TelegramFormatter | None = None,
         dm_handler: DmTelegramHandler | None = None,
+        admin_chat_id: int | None = None,
     ) -> None:
         self._telegram_client = telegram_client
         self._world_engine = world_engine
         self._intent_interpreter = intent_interpreter
         self._instance_resolver = instance_resolver
+        self._admin_chat_id = admin_chat_id
         self._formatter = formatter or TelegramFormatter()
         self._command_router = CommandRouter()
         self._command_executor = TelegramCommandExecutor(
@@ -68,9 +71,29 @@ class TelegramAdapter:
             command_router=self._command_router,
             command_executor=self._command_executor,
         )
+        self._admin_handler = AdminTelegramHandler(
+            telegram_client=telegram_client,
+            world_engine=world_engine,
+            uow_factory=instance_resolver.uow_factory,
+            admin_chat_id=admin_chat_id,
+        )
 
     async def handle_message(self, update: TelegramIncomingMessage) -> str:
+        if (
+            update.chat_type in {"group", "supergroup"}
+            and self._admin_chat_id is not None
+            and update.chat_id == self._admin_chat_id
+        ):
+            return await self._admin_handler.handle_message(
+                chat_id=update.chat_id,
+                telegram_user_id=update.telegram_user_id,
+                text=update.text,
+            )
         if update.chat_type == "private":
+            if self._is_admin_command(update.text):
+                response = "Admin-команды доступны только в admin-чате."
+                await self._telegram_client.send_message(update.chat_id, response)
+                return response
             return await self._dm_handler.handle_message(
                 chat_id=update.chat_id,
                 telegram_user_id=update.telegram_user_id,
@@ -78,6 +101,10 @@ class TelegramAdapter:
             )
         if update.chat_type not in {"group", "supergroup"}:
             return "This bot supports group and private chats only."
+        if self._is_admin_command(update.text):
+            response = "Команда не найдена."
+            await self._telegram_client.send_message(update.chat_id, response)
+            return response
 
         world_instance_id = await asyncio.to_thread(
             self._instance_resolver.resolve,
@@ -182,3 +209,10 @@ class TelegramAdapter:
         response = self._formatter.format(result)
         await self._telegram_client.send_message(update.chat_id, response)
         return response
+
+    @staticmethod
+    def _is_admin_command(text: str | None) -> bool:
+        if not text or not text.strip():
+            return False
+        command = text.strip().split(maxsplit=1)[0].split("@", maxsplit=1)[0]
+        return command.casefold() in {"/admin", "/add-admin", "/remove-admin"}

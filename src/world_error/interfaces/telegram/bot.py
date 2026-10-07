@@ -39,6 +39,7 @@ async def start_polling(settings: Settings | None = None) -> None:
             container.world_engine,
             container.uow_factory,
         ),
+        admin_chat_id=settings.admin_chat_id,
     )
     dispatcher = Dispatcher()
     dispatcher.include_router(build_router(adapter))

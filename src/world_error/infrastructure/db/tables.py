@@ -18,6 +18,7 @@ from __future__ import annotations
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -28,6 +29,7 @@ from sqlalchemy import (
     Integer,
     MetaData,
     String,
+    Text,
     Table,
     UniqueConstraint,
     Float,
@@ -72,6 +74,16 @@ player_telegram_state = Table(
     Column("telegram_user_id", BigInteger, primary_key=True),
     Column("last_group_chat_id", BigInteger, nullable=True),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+admin_users = Table(
+    "admin_users",
+    metadata,
+    Column("telegram_user_id", BigInteger, primary_key=True),
+    Column("name", Text, nullable=False),
+    Column("added_by_telegram_id", BigInteger, nullable=False),
+    Column("added_at", DateTime(timezone=True), nullable=False),
+    Column("active", Boolean, nullable=False),
 )
 
 events = Table(

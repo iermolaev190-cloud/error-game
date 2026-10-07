@@ -21,6 +21,18 @@ class SqlWorldInstanceRepository:
     def add(self, instance: WorldInstance) -> None:
         self._session.execute(insert(world_instances).values(**instance_row(instance)))
 
+    def list_all(self) -> tuple[WorldInstance, ...]:
+        rows = (
+            self._session.execute(
+                select(world_instances).order_by(
+                    world_instances.c.created_at, world_instances.c.id
+                )
+            )
+            .mappings()
+            .all()
+        )
+        return tuple(instance_from_row(dict(row)) for row in rows)
+
     def get(self, world_instance_id: WorldInstanceId) -> WorldInstance:
         row = (
             self._session.execute(

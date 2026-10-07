@@ -1,9 +1,8 @@
-"""Временный CLI-интерфейс (коммиты 1–2).
+"""Development CLI for world operations and technical administration.
 
-Telegram здесь сознательно отсутствует: он появится отдельной фазой
-(roadmap Phase 23), а интерфейс обязан быть заменяемым
-(20_TECH_ARCHITECTURE_V1 §4). Игровой логики в интерфейсе нет — только вызов
-World Engine и форматирование результата.
+The CLI remains a replaceable interface (20_TECH_ARCHITECTURE_V1 §4).
+Gameplay operations delegate to World Engine; the global admin bootstrap
+manages only technical admin-user records.
 
 Канонический факт (``truth``) в интерфейс не выводится никогда: игрок видит
 только знание персонажа (MASTER_SPEC §6).
@@ -14,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from typing import Sequence
 
 from world_error.application.action_result import ActionResult
@@ -21,6 +21,7 @@ from world_error.application.ai.interpreter import IntentContext
 from world_error.application.ai.registry import INTENT_HANDLERS
 from world_error.bootstrap.config import Settings
 from world_error.bootstrap.container import Container
+from world_error.domain.admin.admin_user import AdminUser
 from world_error.domain.consequences.consequence import ConsequenceTrigger
 from world_error.domain.consequences.vocabulary import (
     ConsequenceEffect,
@@ -289,6 +290,14 @@ def build_parser() -> argparse.ArgumentParser:
     show_character.add_argument("--world-id", dest="world_id", required=True)
     show_character.add_argument("--character-id", dest="character_id", required=True)
 
+    admin = subparsers.add_parser("admin", help="управление техническими администраторами")
+    admin_subparsers = admin.add_subparsers(dest="admin_command", required=True)
+    admin_add_user = admin_subparsers.add_parser(
+        "add-user", help="добавить или повторно активировать Telegram-администратора"
+    )
+    admin_add_user.add_argument("--telegram-id", type=int, required=True)
+    admin_add_user.add_argument("--name", required=True)
+
     return parser
 
 
@@ -318,6 +327,34 @@ def _print_action_result(result: ActionResult) -> int:
 
 def _dispatch(container: Container, args: argparse.Namespace) -> int:
     world_engine = container.world_engine
+
+    if args.command == "admin":
+        if args.admin_command != "add-user":
+            raise SystemExit(f"unknown admin command: {args.admin_command}")
+        if args.telegram_id <= 0:
+            print("ERROR: telegram-id must be a positive integer", file=sys.stderr)
+            return 2
+        name = args.name.strip()
+        if not name:
+            print("ERROR: name must not be empty", file=sys.stderr)
+            return 2
+        now = datetime.now(timezone.utc)
+        with container.uow_factory() as uow:
+            existing = uow.admin_users.get(args.telegram_id)
+            admin_user = AdminUser(
+                telegram_user_id=args.telegram_id,
+                name=name,
+                added_by_telegram_id=0,
+                added_at=now,
+                active=True,
+            )
+            if existing is None:
+                uow.admin_users.add(admin_user)
+            else:
+                uow.admin_users.save(admin_user)
+            uow.commit()
+        print(f"admin_user={args.telegram_id} active=true added_by=system")
+        return 0
 
     if args.command == "create-world":
         instance = world_engine.create_instance(

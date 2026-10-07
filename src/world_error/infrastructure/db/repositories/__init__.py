@@ -7,6 +7,7 @@
 """
 
 from world_error.infrastructure.db.repositories.character import SqlCharacterRepository
+from world_error.infrastructure.db.repositories.admin_user import SqlAdminUserRepository
 from world_error.infrastructure.db.repositories.case import SqlCaseRepository
 from world_error.infrastructure.db.repositories.chat_binding import SqlChatBindingRepository
 from world_error.infrastructure.db.repositories.consequence import SqlConsequenceRepository
@@ -26,6 +27,7 @@ from world_error.infrastructure.db.repositories.scheduled_event import SqlSchedu
 from world_error.infrastructure.db.repositories.world_instance import SqlWorldInstanceRepository
 
 __all__ = [
+    "SqlAdminUserRepository",
     "SqlCharacterRepository",
     "SqlChatBindingRepository",
     "SqlCaseRepository",

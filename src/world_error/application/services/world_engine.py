@@ -1479,6 +1479,10 @@ class WorldEngine:
         with self._uow_factory() as uow:
             return uow.world_instances.get(world_instance_id)
 
+    def list_instances(self) -> Sequence[WorldInstance]:
+        with self._uow_factory() as uow:
+            return uow.world_instances.list_all()
+
     def get_world_time(self, world_instance_id: WorldInstanceId) -> datetime:
         instance = self.get_instance(world_instance_id)
         return instance.world_time_at(self._clock.now())

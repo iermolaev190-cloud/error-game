@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Callable, Protocol, Sequence
 
+from world_error.domain.admin.admin_user import AdminUser
 from world_error.application.ports.chat_bindings import ChatBindingRepository
 from world_error.domain.characters.character import Character
 from world_error.domain.investigations.case import (
@@ -59,6 +60,8 @@ from world_error.domain.time.scheduled_event import ScheduledEvent
 class WorldInstanceRepository(Protocol):
     def add(self, instance: WorldInstance) -> None: ...
 
+    def list_all(self) -> Sequence[WorldInstance]: ...
+
     def get(self, world_instance_id: WorldInstanceId) -> WorldInstance:
         """Вернуть инстанс или поднять ``DomainError(NOT_FOUND)``."""
         ...
@@ -72,6 +75,16 @@ class WorldInstanceRepository(Protocol):
         потерянных обновлений не возникает (11_WORLD_STATE_V1 §50).
         """
         ...
+
+
+class AdminUserRepository(Protocol):
+    def add(self, admin_user: AdminUser) -> None: ...
+
+    def get(self, telegram_user_id: int) -> AdminUser | None: ...
+
+    def list_all(self) -> Sequence[AdminUser]: ...
+
+    def save(self, admin_user: AdminUser) -> None: ...
 
 
 class CharacterRepository(Protocol):
@@ -358,6 +371,7 @@ class UnitOfWork(Protocol):
     """
 
     world_instances: WorldInstanceRepository
+    admin_users: AdminUserRepository
     chat_bindings: ChatBindingRepository
     player_telegram_state: PlayerTelegramStateRepository
     events: EventLog

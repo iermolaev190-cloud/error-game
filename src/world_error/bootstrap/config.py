@@ -26,3 +26,4 @@ class Settings(BaseSettings):
     ai_provider: Literal["stub", "mock"] = "stub"
     npc_dialogue_provider: Literal["stub", "mock", "template"] = "template"
     telegram_bot_token: str = ""
+    admin_chat_id: int | None = None
