@@ -21,9 +21,9 @@ Telegram не содержит игровой логики.
 
 ## Состояние
 
-HEAD: 750b92e — fix(telegram): improve player-facing error messages.
-Тесты: 546 passed, exit 0 (`pytest -q`).
-Коммиты 14a, 14b, 14c, 14d, регистрация DM handler, ARG links и UX error messages завершены.
+HEAD: df282f5 — feat(admin): add Telegram admin tools (phase 26).
+Тесты: 561 passed, exit 0 (`pytest -q`).
+Коммиты 14a, 14b, 14c, 14d, ARG links, Telegram UX fixes, Telegram command mention fix и начальный срез Admin/Debug завершены.
 
 ## Порядок чтения для нового AI
 
@@ -66,8 +66,10 @@ HEAD: 750b92e — fix(telegram): improve player-facing error messages.
 - 18edf5f коммит 16a — curated information links (ARG)
 - 0e453fe коммит 14d — GIVE, SHARE, TRADE и fallback command templates
 - 750b92e fix — дружелюбные player-facing сообщения об ошибках Telegram
+- 27883dc fix — strip `@BotUsername` from Telegram slash commands
+- df282f5 feat — Telegram Admin tools, Phase 26
 
-Миграции: 0001-0012.
+Миграции: 0001-0013.
 
 ## Ключевые архитектурные решения
 
@@ -216,6 +218,22 @@ HEAD: 750b92e — fix(telegram): improve player-facing error messages.
 - Ошибки выбора INSTANCE и отсутствующего персонажа локализованы; нераспознанный ввод подсказывает `/help`.
 - Обновлены только player-facing тексты и тесты этих текстов; полный набор: 546 passed.
 
+### Fix — Telegram command mentions
+
+- `CommandRouter` снимает `@BotUsername` с имени slash-команды, не меняя аргументы и fallback-текст.
+- `/give@BotUsername`, `/move@BotUsername` и `/look@BotUsername` маршрутизируются штатно.
+- Инвариант подтверждает отсутствие мутации world state при маршрутизации.
+- Полный набор перед Admin: 547 passed.
+
+### Admin/Debug — Phase 26 initial Telegram tools
+
+- `WORLD_ERROR_ADMIN_CHAT_ID` задаёт отдельный admin-чат; он обрабатывается раньше game-group resolver и не создаёт WORLD INSTANCE.
+- Доступ выдаётся только активным Telegram user IDs из глобальной таблицы `admin_users`; членство в чате не предоставляет права.
+- Миграция `0013_admin_users`; первый админ добавляется глобально через `python -m world_error admin add-user --telegram-id X --name Y` (bootstrap `added_by_telegram_id=0` означает system/CLI).
+- В admin-чате доступны `/admin`, `worlds`, `instance`, `events`, `character`, `npc`, `location`, `admins`; активный админ может выполнять `/add-admin` и `/remove-admin`.
+- Admin queries scoped по указанному `world_id`, не меняют игровой state/events/knowledge. Admin-команды в игровых группах отклоняются до создания/разрешения INSTANCE; в DM отклоняются до DM resolver.
+- Фальсификации F1–F4 подтверждены; полный набор: 561 passed.
+
 ## TODO
 
 - MASTER_SPEC §13: нумерация фаз устарела; проверить и исправить.
@@ -226,6 +244,7 @@ HEAD: 750b92e — fix(telegram): improve player-facing error messages.
 - `/talk <npc>` не содержит message; сейчас передаётся фиксированная реплика по умолчанию.
 - `ItemPresence` не содержит `item_id`; key resolver получает ID через instance-scoped repository.
 - Нет инварианта регистрации всех интерфейсных handlers (Telegram, CLI, AI); добавить проверку регистрации interface entrypoints.
+- Первый срез Admin/Debug не включает все элементы roadmap Phase 26: inspect event by ID, knowledge, pending events/timeline/errors и списки players; определить scope для дальнейшего среза.
 
 ## Правила работы
 
