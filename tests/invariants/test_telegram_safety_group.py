@@ -50,16 +50,29 @@ def test_handler_contains_only_transport_to_adapter_logic(
     router = build_router(adapter)
     callbacks = [handler.callback for handler in router.message.handlers]
 
-    assert len(callbacks) == 2
-    assert {callback.__name__ for callback in callbacks} == {
+    callbacks_by_name = {callback.__name__: callback for callback in callbacks}
+    assert set(callbacks_by_name) == {
         "handle_group_message",
         "handle_private_message",
+        "handle_registration_start",
+        "handle_registration_confirmation",
+        "handle_registration_name",
     }
-    for callback in callbacks:
+    for callback_name in ("handle_group_message", "handle_private_message"):
+        callback = callbacks_by_name[callback_name]
         source = inspect.getsource(callback)
         assert "adapter.handle_message" in source
         assert "handle_intent" not in source
         assert "move_character" not in source
+        assert "create_instance" not in source
+    for callback_name in (
+        "handle_registration_start",
+        "handle_registration_confirmation",
+        "handle_registration_name",
+    ):
+        source = inspect.getsource(callbacks_by_name[callback_name])
+        assert "registration_handler" in source
+        assert "handle_intent" not in source
         assert "create_instance" not in source
 
 
@@ -96,7 +109,7 @@ def test_foreign_character_is_not_selected_for_telegram_user(
         )
     )
 
-    assert "не привязан активный персонаж" in response
+    assert response == "Зарегистрируйся в личке: напиши боту /start."
     assert world_engine.get_character(instance.id, character_id).location_key == LocationKey(
         "base"
     )

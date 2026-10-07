@@ -27,6 +27,9 @@ from world_error.interfaces.telegram.command_executor import (
     TelegramCommandExecutor,
 )
 from world_error.interfaces.telegram.formatter import TelegramFormatter
+from world_error.interfaces.telegram.registration_handler import (
+    RegistrationTelegramHandler,
+)
 from world_error.interfaces.telegram.resolver import GroupInstanceResolver
 
 
@@ -77,6 +80,10 @@ class TelegramAdapter:
             uow_factory=instance_resolver.uow_factory,
             admin_chat_id=admin_chat_id,
         )
+        self.registration_handler = RegistrationTelegramHandler(
+            world_engine=world_engine,
+            instance_resolver=instance_resolver,
+        )
 
     async def handle_message(self, update: TelegramIncomingMessage) -> str:
         if (
@@ -121,6 +128,10 @@ class TelegramAdapter:
             update.telegram_user_id,
             update.chat_id,
         )
+        if self._is_start_command(update.text):
+            response = "Регистрация доступна только в личке. Напиши боту лично: /start."
+            await self._telegram_client.send_message(update.chat_id, response)
+            return response
         if not update.text or not update.text.strip():
             response = "Send a text command."
             await self._telegram_client.send_message(update.chat_id, response)
@@ -132,10 +143,7 @@ class TelegramAdapter:
             str(update.telegram_user_id),
         )
         if character is None:
-            response = (
-                "К твоему Telegram-аккаунту не привязан активный персонаж в этом мире. "
-                "Попроси администратора создать или привязать персонажа."
-            )
+            response = "Зарегистрируйся в личке: напиши боту /start."
             await self._telegram_client.send_message(update.chat_id, response)
             return response
 
@@ -216,3 +224,10 @@ class TelegramAdapter:
             return False
         command = text.strip().split(maxsplit=1)[0].split("@", maxsplit=1)[0]
         return command.casefold() in {"/admin", "/add-admin", "/remove-admin"}
+
+    @staticmethod
+    def _is_start_command(text: str | None) -> bool:
+        if not text or not text.strip():
+            return False
+        command = text.strip().split(maxsplit=1)[0].split("@", maxsplit=1)[0]
+        return command.casefold() == "/start"

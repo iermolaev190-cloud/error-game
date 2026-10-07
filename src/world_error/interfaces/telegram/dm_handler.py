@@ -61,7 +61,11 @@ class DmTelegramHandler:
                 self._instance_resolver.resolve_dm_instance, telegram_user_id
             )
         except DomainError as exc:
-            response = self._formatter.friendly_error_message(exc.message)
+            response = (
+                "Сначала /start."
+                if exc.code is ErrorCode.NOT_FOUND
+                else self._formatter.friendly_error_message(exc.message)
+            )
             await self._telegram_client.send_message(chat_id, response)
             return response
 
@@ -71,7 +75,7 @@ class DmTelegramHandler:
             instance_id,
         )
         if character is None or character.world_instance_id != instance_id:
-            response = "К твоему Telegram-аккаунту не привязан активный персонаж в этом мире."
+            response = "Сначала /start."
             await self._telegram_client.send_message(chat_id, response)
             return response
 
