@@ -21,8 +21,8 @@ Telegram не содержит игровой логики.
 
 ## Состояние
 
-HEAD кода: cb08f04 — fix(core): enforce world state invariants.
-Тесты: 584 passed, exit 0 (`pytest -q`).
+HEAD кода: 91cfe5d — fix(core): preserve event truth and action outcomes.
+Тесты: 585 passed, exit 0 (`pytest -q`).
 Коммиты 14a, 14b, 14c, 14d, ARG links, Telegram UX fixes, Telegram command mention fix, Admin/Debug и Registration завершены.
 
 ## Порядок чтения для нового AI
@@ -72,6 +72,7 @@ HEAD кода: cb08f04 — fix(core): enforce world state invariants.
 - ae8dbbd feat — DM character registration, Phase 27a
 - 9009740 fix — scheduled events before player actions, Unicode names, CAS regression
 - cb08f04 fix — knowledge provenance, lifecycle and instance-isolation invariants
+- 91cfe5d fix — complete state-bearing events and preserve committed action results
 
 Миграции: 0001-0014; единственная Alembic head — `0014_knowledge_instance_fk`.
 
@@ -249,7 +250,7 @@ HEAD кода: cb08f04 — fix(core): enforce world state invariants.
 
 ### Fix — scheduled events, Unicode names, and CAS regression
 
-- Обработчики с насосом мира применяют уже наступившие scheduled events и consequences до следующего действия игрока; cascade limit по-прежнему блокирует действие при достижении лимита.
+- Обработчики с насосом мира применяют уже наступившие scheduled events и consequences до следующего действия игрока; pre-action cascade limit блокирует новое действие, post-action limit сохраняет успешный результат уже committed действия и помечает его `cascade_limit_reached`.
 - Command router, parser и key resolver поддерживают кириллические имена персонажей.
 - CAS integration test запускает конкурирующую запись после чтения версии именно тестируемым обработчиком, не полагаясь на число внутренних чтений насоса.
 - Полный набор: 575 passed; `compileall` и `git diff --check` прошли.
@@ -263,6 +264,14 @@ HEAD кода: cb08f04 — fix(core): enforce world state invariants.
 - Доменная проверка и композитный FK запрещают связывать knowledge с information из другого WORLD INSTANCE; добавлена миграция `0014_knowledge_instance_fk`.
 - Регрессионные тесты покрывают provenance наблюдения, запрет действий в неактивном мире, порядок scheduler и меж-instance изоляцию.
 - Проверки: `pytest -q` — 584 passed; `compileall`, `git diff --check` прошли; `alembic heads` показывает единственную голову `0014_knowledge_instance_fk`.
+
+### Fix — complete event history and consequence outcomes
+
+- События `NPC_LEARNED`, `CASE_NOTE_ADDED`, `LEGACY_DOCUMENT_LEFT`, `SCHEDULED_EVENT_CREATED` и `CONSEQUENCE_CREATED` содержат payload, необходимый для аудита записанного состояния; payload знания от consequence также включён в `NPC_LEARNED`.
+- Переход consequence в `APPLIED` всегда связан с event ID; если эффект не меняет мир, записывается `CONSEQUENCE_APPLIED` с исходом `world_changed=false`.
+- Если каскад достигает лимита после commit игрового действия, действие остаётся успешным и возвращает `cascade_limit_reached`; уже выполненное действие не маскируется под отказ.
+- Добавлены регрессионные проверки для event payloads, no-op consequence и post-commit cascade limit.
+- Полный набор: 585 passed; `compileall` и `git diff --check` прошли.
 
 ## TODO
 
