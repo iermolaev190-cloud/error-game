@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Tuple
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from world_error.application.services.world_engine import WorldEngine
 from world_error.domain.events.event import EventType
@@ -178,14 +179,14 @@ def test_share_does_not_downgrade_observed_knowledge(world_engine: WorldEngine) 
     inspect(world_engine, instance, receiver)
     inspect(world_engine, instance, sharer)
     observed = list(world_engine.get_knowledge(instance.id, receiver))[0]
-    assert observed.claim_type is ClaimType.FACT
+    assert observed.claim_type is ClaimType.OBSERVATION
 
     result = share(world_engine, instance, sharer, receiver)
 
     assert result.ok is True and result.payload["already_known"] is True
     still = list(world_engine.get_knowledge(instance.id, receiver))[0]
     assert still == observed
-    assert still.claim_type is ClaimType.FACT
+    assert still.claim_type is ClaimType.OBSERVATION
     assert still.source is KnowledgeSource.OBSERVATION
 
 
@@ -300,6 +301,34 @@ def test_share_across_instances_leaves_no_trace(world_engine: WorldEngine) -> No
     )
     assert len(world_engine.get_events(other_world.id)) == other_events_before
     assert list(world_engine.get_knowledge(other_world.id, foreign_character)) == []
+
+
+def test_database_rejects_knowledge_linked_to_foreign_instance_information(
+    world_engine: WorldEngine, uow_factory
+) -> None:  # noqa: ANN001
+    world_one = make_world(world_engine, chat_id=-1001)
+    world_two = make_world(world_engine, chat_id=-1002)
+    character_id = make_character(world_engine, world_one, "player-a")
+    foreign_information = world_engine.get_information(world_two.id, "damaged_radio")
+    record = Knowledge.record(
+        id=KnowledgeId("kn_cross_instance"),
+        world_instance_id=world_one.id,
+        subject_type=SubjectType.CHARACTER,
+        subject_id=str(character_id),
+        information_id=foreign_information.id,
+        claim=CLAIM,
+        claim_type=ClaimType.CLAIM,
+        source=KnowledgeSource.CHARACTER,
+        source_ref=str(character_id),
+        confidence=KnowledgeConfidence.LIKELY,
+        acquired_at=NOW,
+    )
+
+    with pytest.raises(IntegrityError):
+        with uow_factory() as uow:
+            uow.knowledge.add(record)
+
+    assert world_engine.get_knowledge(world_one.id, character_id) == []
 
 
 def test_share_across_locations_is_not_allowed(world_engine: WorldEngine) -> None:

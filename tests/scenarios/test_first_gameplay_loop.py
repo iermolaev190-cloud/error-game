@@ -105,7 +105,7 @@ def test_first_gameplay_loop_survives_process_restart(
     )
     assert inspect.returncode == 0, inspect.stderr
     assert _value(inspect.stdout, "already_known") == "False"
-    assert _value(inspect.stdout, "claim_type") == "FACT"
+    assert _value(inspect.stdout, "claim_type") == "OBSERVATION"
     assert _value(inspect.stdout, "confidence") == "LIKELY"
     assert CLAIM_FRAGMENT in inspect.stdout
     assert _value(inspect.stdout, "state_version") == "4"
@@ -120,7 +120,7 @@ def test_first_gameplay_loop_survives_process_restart(
     assert _value(shown.stdout, "activity") == "ACTIVE"
     assert _value(shown.stdout, "location_key") == "old_station"
     assert _value(shown.stdout, "knowledge_total") == "1"
-    assert "KNOWLEDGE FACT LIKELY" in shown.stdout
+    assert "KNOWLEDGE OBSERVATION LIKELY" in shown.stdout
     assert CLAIM_FRAGMENT in shown.stdout
     # Канонический факт в интерфейс не выводится.
     assert TRUTH_FRAGMENT not in shown.stdout

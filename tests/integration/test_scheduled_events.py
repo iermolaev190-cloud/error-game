@@ -8,6 +8,7 @@ import pytest
 
 from world_error.application.services.world_engine import WorldEngine
 from world_error.domain.events.event import EventType
+from world_error.domain.factions.faction import FactionStatus
 from world_error.domain.shared.kernel import (
     CharacterId,
     DomainError,
@@ -15,6 +16,7 @@ from world_error.domain.shared.kernel import (
     LocationKey,
     ScheduledEventId,
 )
+from world_error.domain.time.action_cost import CostTicks
 from world_error.domain.time.scheduled_event import ScheduledEventStatus, ScheduledTriggerKind
 from world_error.domain.world.instance import WorldInstance
 
@@ -194,6 +196,75 @@ def test_due_at_time_event_is_applied_before_next_player_action(
     scheduled_event_index = event_types.index(EventType.SCHEDULED_EVENT_TRIGGERED)
     move_event_index = event_types.index(EventType.CHARACTER_MOVED)
     assert scheduled_event_index < move_event_index
+
+
+def test_due_at_time_event_is_applied_before_travel_action(
+    uow_factory, catalog
+) -> None:  # noqa: ANN001
+    clock = MutableClock(datetime(2026, 10, 7, 12, tzinfo=timezone.utc))
+    world_engine = WorldEngine(uow_factory=uow_factory, catalog=catalog, clock=clock)
+    instance = make_world(world_engine)
+    created = world_engine.create_character(instance.id, player_id="player-a", name="Аня")
+    character_id = CharacterId(created.payload["character_id"])
+    cause = world_engine.get_events(instance.id)[-1].id
+    result = world_engine.schedule_event(
+        instance.id,
+        cause_event_id=cause,
+        event_key="time-sensitive-travel-event",
+        idempotency_key="time-sensitive-travel-event-1",
+        trigger_kind=ScheduledTriggerKind.AT_TIME,
+        due_time=world_engine.get_world_time(instance.id) + timedelta(minutes=1),
+    )
+    assert result.ok is True, result.error
+
+    clock.value += timedelta(minutes=2)
+    travel = world_engine.begin_travel(
+        instance.id,
+        character_id=character_id,
+        to_location_key=LocationKey("forest"),
+        cost_ticks=CostTicks(3),
+        idempotency_key="player-a-forest",
+    )
+    assert travel.ok is True, travel.error
+
+    event_types = [event.type for event in world_engine.get_events(instance.id)]
+    assert event_types.index(EventType.SCHEDULED_EVENT_TRIGGERED) < event_types.index(
+        EventType.TRAVEL_STARTED
+    )
+
+
+def test_due_at_time_event_is_applied_before_faction_status_change(
+    uow_factory, catalog
+) -> None:  # noqa: ANN001
+    clock = MutableClock(datetime(2026, 10, 7, 12, tzinfo=timezone.utc))
+    world_engine = WorldEngine(uow_factory=uow_factory, catalog=catalog, clock=clock)
+    instance = make_world(world_engine)
+    cause = world_engine.get_events(instance.id)[-1].id
+    result = world_engine.schedule_event(
+        instance.id,
+        cause_event_id=cause,
+        event_key="time-sensitive-faction-event",
+        idempotency_key="time-sensitive-faction-event-1",
+        trigger_kind=ScheduledTriggerKind.AT_TIME,
+        due_time=world_engine.get_world_time(instance.id) + timedelta(minutes=1),
+    )
+    assert result.ok is True, result.error
+
+    clock.value += timedelta(minutes=2)
+    faction = next(
+        faction
+        for faction in world_engine.get_factions(instance.id)
+        if faction.key == "council"
+    )
+    changed = world_engine.change_faction_status(
+        instance.id, faction_id=faction.id, to_status=FactionStatus.CONFLICT
+    )
+    assert changed.ok is True, changed.error
+
+    event_types = [event.type for event in world_engine.get_events(instance.id)]
+    assert event_types.index(EventType.SCHEDULED_EVENT_TRIGGERED) < event_types.index(
+        EventType.FACTION_STATUS_CHANGED
+    )
 
 
 def test_pending_schedule_is_not_part_of_location_view(world_engine: WorldEngine) -> None:

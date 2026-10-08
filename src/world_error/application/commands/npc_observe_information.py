@@ -116,7 +116,7 @@ class NpcObserveInformationHandler:
                     payload={
                         "information_key": information.key,
                         "location_key": str(information.location_key),
-                        "claim_type": ClaimType.FACT.value,
+                        "claim_type": ClaimType.OBSERVATION.value,
                         "source": KnowledgeSource.OBSERVATION.value,
                         "confidence": KnowledgeConfidence.LIKELY.value,
                     },
@@ -145,6 +145,8 @@ class NpcObserveInformationHandler:
                 uow.events.append(event)
                 uow.commit()
 
+            record = knowledge if knowledge is not None else known
+            assert record is not None
             return ActionResult.success(
                 self.ACTION,
                 event_ids=(event.id,),
@@ -152,10 +154,10 @@ class NpcObserveInformationHandler:
                     "already_known": knowledge is None,
                     "information_key": information.key,
                     "npc_id": str(npc.id),
-                    "claim": (knowledge.claim if knowledge else known.claim),
-                    "claim_type": ClaimType.FACT.value,
-                    "source": KnowledgeSource.OBSERVATION.value,
-                    "confidence": KnowledgeConfidence.LIKELY.value,
+                    "claim": record.claim,
+                    "claim_type": record.claim_type.value,
+                    "source": record.source.value,
+                    "confidence": record.confidence.value,
                     "discovery_state": information.discovery_state.value,
                     "discovered_by": information.discovered_by or "",
                     "world_tick": instance.state.world_tick,

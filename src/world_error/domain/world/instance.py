@@ -195,6 +195,11 @@ class WorldInstance:
         Само состояние сущностей меняют их собственные агрегаты.
         """
         self._ensure_own_event(event)
+        if self.lifecycle is not InstanceLifecycle.ACTIVE:
+            raise DomainError(
+                ErrorCode.INVALID_ACTION,
+                f"{self.lifecycle.value.lower()} instance cannot process action events",
+            )
         if event.type not in ACTION_EVENT_TYPES:
             raise DomainError(
                 ErrorCode.INVALID_ACTION,

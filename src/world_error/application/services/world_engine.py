@@ -445,6 +445,7 @@ class WorldEngine:
         self._leave_legacy_document = self._pumped(self._leave_legacy_document)
         self._inspect_legacy_document = self._pumped(self._inspect_legacy_document)
         self._move_character = self._pumped(self._move_character)
+        self._begin_travel = self._pumped(self._begin_travel, pump_after=False)
         self._inspect_information = self._pumped(self._inspect_information)
         self._share_knowledge = self._pumped(self._share_knowledge)
         self._npc_move = self._pumped(self._npc_move)
@@ -452,6 +453,7 @@ class WorldEngine:
         self._npc_observe = self._pumped(self._npc_observe)
         self._npc_change_status = self._pumped(self._npc_change_status)
         self._change_relationship = self._pumped(self._change_relationship)
+        self._change_faction_status = self._pumped(self._change_faction_status)
         self._take_item = self._pumped(self._take_item)
         self._drop_item = self._pumped(self._drop_item)
         self._trade_items = self._pumped(self._trade_items)
@@ -472,7 +474,7 @@ class WorldEngine:
 
     # --- насос последствий --------------------------------------------------
 
-    def _pumped(self, handler: Any) -> "_PumpedHandler":
+    def _pumped(self, handler: Any, *, pump_after: bool = True) -> "_PumpedHandler":
         def handle(command: Any) -> ActionResult:
             before = self._pump_world(command.world_instance_id)
             if before.limit_reached:
@@ -486,6 +488,8 @@ class WorldEngine:
                 )
             result = handler.handle(command)
             if not result.ok:
+                return result
+            if not pump_after:
                 return result
             return self._pump_into_result(result, command.world_instance_id)
 

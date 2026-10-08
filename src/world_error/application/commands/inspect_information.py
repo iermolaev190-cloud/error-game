@@ -125,7 +125,7 @@ class InspectInformationHandler:
                     payload={
                         "information_key": information.key,
                         "location_key": str(information.location_key),
-                        "claim_type": ClaimType.FACT.value,
+                        "claim_type": ClaimType.OBSERVATION.value,
                         "source": KnowledgeSource.OBSERVATION.value,
                         "confidence": KnowledgeConfidence.LIKELY.value,
                     },

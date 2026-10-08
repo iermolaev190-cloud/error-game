@@ -85,9 +85,15 @@ def test_inspect_creates_knowledge_and_marks_world_discovery(world_engine: World
     assert result.ok is True
     assert result.payload["already_known"] is False
     assert result.payload["claim"] == CLAIM
-    assert result.payload["claim_type"] == "FACT"
+    assert result.payload["claim_type"] == "OBSERVATION"
     assert result.payload["confidence"] == "LIKELY"
     assert result.payload["external_url"] == "https://example.com/archive-17"
+    discovery_event = next(
+        event
+        for event in world_engine.get_events(instance.id)
+        if event.id == result.event_ids[0]
+    )
+    assert discovery_event.payload["claim_type"] == "OBSERVATION"
     assert set(result.payload) == {
         "already_known",
         "information_key",

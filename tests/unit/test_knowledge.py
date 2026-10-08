@@ -91,7 +91,7 @@ def test_claim_comes_from_content_not_from_truth() -> None:
 
 def test_knowledge_metadata() -> None:
     knowledge = make_discovered_knowledge()
-    assert knowledge.claim_type is ClaimType.FACT
+    assert knowledge.claim_type is ClaimType.OBSERVATION
     assert knowledge.source is KnowledgeSource.OBSERVATION
     assert knowledge.confidence is KnowledgeConfidence.LIKELY
     assert knowledge.subject_type is SubjectType.CHARACTER
@@ -103,6 +103,21 @@ def test_knowledge_metadata() -> None:
 
 def test_knowledge_belongs_to_character_world() -> None:
     assert make_discovered_knowledge().world_instance_id == WORLD_ID
+
+
+def test_observation_rejects_information_from_another_instance() -> None:
+    with pytest.raises(DomainError) as exc_info:
+        Knowledge.from_observation(
+            id=KnowledgeId("kn_cross_instance"),
+            world_instance_id=OTHER_WORLD_ID,
+            subject_type=SubjectType.CHARACTER,
+            subject_id="ch_other",
+            information=make_information(),
+            definition=make_definition(),
+            now=NOW,
+        )
+
+    assert exc_info.value.code is ErrorCode.NOT_ALLOWED
 
 
 def test_document_date_is_knowledge_not_truth() -> None:
@@ -122,9 +137,10 @@ def test_document_date_is_knowledge_not_truth() -> None:
 # --- общая фабрика record (коммит 3a) --------------------------------------
 
 
-def test_claim_type_has_all_five_values() -> None:
+def test_claim_type_has_all_six_values() -> None:
     assert {claim_type.value for claim_type in ClaimType} == {
         "FACT",
+        "OBSERVATION",
         "CLAIM",
         "RUMOR",
         "THEORY",

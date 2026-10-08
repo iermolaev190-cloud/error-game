@@ -151,3 +151,28 @@ def test_register_applied_event_rejects_instance_event() -> None:
         instance.register_applied_event(make_event(EventType.WORLD_TICK_ADVANCED))
     assert exc_info.value.code is ErrorCode.INVALID_ACTION
     assert (instance.state.world_tick, instance.state.state_version) == (0, 0)
+
+
+@pytest.mark.parametrize("lifecycle", [InstanceLifecycle.PAUSED, InstanceLifecycle.ARCHIVED])
+def test_inactive_instance_rejects_action_events(lifecycle: InstanceLifecycle) -> None:
+    instance = make_instance()
+    instance.apply(
+        make_event(
+            EventType.WORLD_INSTANCE_STATUS_CHANGED,
+            payload={"from": "ACTIVE", "to": lifecycle.value},
+            event_id="ev_status",
+        )
+    )
+    state_before = (instance.state.world_tick, instance.state.state_version)
+
+    with pytest.raises(DomainError) as exc_info:
+        instance.register_applied_event(
+            make_event(
+                EventType.CHARACTER_MOVED,
+                payload={"from": "base", "to": "forest"},
+                event_id="ev_move",
+            )
+        )
+
+    assert exc_info.value.code is ErrorCode.INVALID_ACTION
+    assert (instance.state.world_tick, instance.state.state_version) == state_before

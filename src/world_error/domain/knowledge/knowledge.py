@@ -33,9 +33,10 @@ class SubjectType(StrEnum):
 
 
 class ClaimType(StrEnum):
-    """TRUTH / KNOWLEDGE / CLAIM / RUMOR / THEORY / BELIEF (19_MVP_V1_FOR_AI §13)."""
+    """Классификация знания субъекта; наблюдение не равно истине мира."""
 
     FACT = "FACT"
+    OBSERVATION = "OBSERVATION"
     CLAIM = "CLAIM"
     RUMOR = "RUMOR"
     THEORY = "THEORY"
@@ -142,12 +143,17 @@ class Knowledge:
         definition: InformationDefinition,
         now: datetime,
     ) -> "Knowledge":
-        """Знание, полученное наблюдением (первичный источник).
+        """Записать наблюдение, не превращая его в подтверждённый факт.
 
         ``claim`` берётся из ``definition.content``; ``definition.truth`` здесь
         не участвует — иначе истина мира автоматически стала бы знанием
         субъекта. Работает и для персонажа, и для NPC.
         """
+        if information.world_instance_id != world_instance_id:
+            raise DomainError(
+                ErrorCode.NOT_ALLOWED,
+                "information belongs to another world instance",
+            )
         return cls.record(
             id=id,
             world_instance_id=world_instance_id,
@@ -155,7 +161,7 @@ class Knowledge:
             subject_id=subject_id,
             information_id=information.id,
             claim=definition.content,
-            claim_type=ClaimType.FACT,
+            claim_type=ClaimType.OBSERVATION,
             source=KnowledgeSource.OBSERVATION,
             source_ref=subject_id,
             confidence=KnowledgeConfidence.LIKELY,

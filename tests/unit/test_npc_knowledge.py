@@ -72,7 +72,7 @@ def test_observation_creates_npc_knowledge_from_content_not_truth() -> None:
     assert knowledge.claim == CONTENT
     assert knowledge.claim != TRUTH
     assert "намеренно" not in knowledge.claim
-    assert knowledge.claim_type is ClaimType.FACT
+    assert knowledge.claim_type is ClaimType.OBSERVATION
     assert knowledge.source is KnowledgeSource.OBSERVATION
     assert knowledge.source_ref == NPC_ID
     assert knowledge.confidence is KnowledgeConfidence.LIKELY

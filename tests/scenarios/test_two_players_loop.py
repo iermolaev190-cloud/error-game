@@ -130,7 +130,7 @@ def test_two_players_location_view_and_asymmetry_survive_restart(
         db_url, "show-character", "--world-id", world_id, "--character-id", first
     )
     assert _value(shown_first.stdout, "knowledge_total") == "1"
-    assert "KNOWLEDGE FACT LIKELY" in shown_first.stdout
+    assert "KNOWLEDGE OBSERVATION LIKELY" in shown_first.stdout
 
     shown_second = cli(
         db_url, "show-character", "--world-id", world_id, "--character-id", second

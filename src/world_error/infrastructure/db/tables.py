@@ -227,6 +227,12 @@ knowledge = Table(
         "information_id",
         name="uq_knowledge_subject_information",
     ),
+    ForeignKeyConstraint(
+        ["world_instance_id", "information_id"],
+        ["information.world_instance_id", "information.id"],
+        name="fk_knowledge_information_instance",
+        ondelete="CASCADE",
+    ),
     Index("ix_knowledge_subject", "world_instance_id", "subject_id"),
 )
 

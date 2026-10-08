@@ -132,9 +132,10 @@ def test_npc_observes_information_and_changes_world(world_engine: WorldEngine) -
 
     knowledge = list(world_engine.get_npc_knowledge(instance.id, mechanic.id))
     assert len(knowledge) == 1
-    assert knowledge[0].claim_type is ClaimType.FACT
+    assert knowledge[0].claim_type is ClaimType.OBSERVATION
     assert knowledge[0].source is KnowledgeSource.OBSERVATION
     assert knowledge[0].subject_id == str(mechanic.id)
+    assert result.payload["claim_type"] == "OBSERVATION"
 
     events = world_engine.get_events(instance.id)
     assert events[-1].type is EventType.INFORMATION_DISCOVERED
@@ -177,6 +178,7 @@ def test_repeated_npc_observe_is_noop(world_engine: WorldEngine) -> None:
     )
 
     assert second.ok is True and second.payload["already_known"] is True
+    assert second.payload["claim_type"] == "OBSERVATION"
     assert second.event_ids == ()
     assert len(world_engine.get_events(instance.id)) == events_before
     assert len(list(world_engine.get_npc_knowledge(instance.id, mechanic.id))) == 1

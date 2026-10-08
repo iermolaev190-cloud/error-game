@@ -112,8 +112,11 @@ def test_knowledge_sharing_survives_process_restart(
     )
     assert shown_sharer.returncode == 0, shown_sharer.stderr
     assert _value(shown_sharer.stdout, "knowledge_total") == "1"
-    assert "KNOWLEDGE FACT LIKELY" in shown_sharer.stdout
-    assert f"KNOWLEDGE_PROVENANCE FACT OBSERVATION {sharer}" in shown_sharer.stdout
+    assert "KNOWLEDGE OBSERVATION LIKELY" in shown_sharer.stdout
+    assert (
+        f"KNOWLEDGE_PROVENANCE OBSERVATION OBSERVATION {sharer}"
+        in shown_sharer.stdout
+    )
     assert CLAIM_FRAGMENT in shown_sharer.stdout
 
     shown_receiver = cli(

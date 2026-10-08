@@ -119,8 +119,8 @@ def test_chain_copies_claims_and_never_truth(
         for record in (knowledge_first, knowledge_second, knowledge_third)
     )
 
-    # Наблюдение остаётся наблюдением, переданное знание — CLAIM/CHARACTER.
-    assert knowledge_first.claim_type is ClaimType.FACT
+    # Наблюдение не подтверждает истину, переданное знание — CLAIM/CHARACTER.
+    assert knowledge_first.claim_type is ClaimType.OBSERVATION
     assert knowledge_first.source is KnowledgeSource.OBSERVATION
     assert knowledge_second.claim_type is ClaimType.CLAIM
     assert knowledge_second.source is KnowledgeSource.CHARACTER
