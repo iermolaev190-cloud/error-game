@@ -21,8 +21,8 @@ Telegram не содержит игровой логики.
 
 ## Состояние
 
-HEAD: 9009740 — fix(core): process due events before player actions.
-Тесты: 575 passed, exit 0 (`pytest -q`).
+HEAD кода: cb08f04 — fix(core): enforce world state invariants.
+Тесты: 584 passed, exit 0 (`pytest -q`).
 Коммиты 14a, 14b, 14c, 14d, ARG links, Telegram UX fixes, Telegram command mention fix, Admin/Debug и Registration завершены.
 
 ## Порядок чтения для нового AI
@@ -71,8 +71,9 @@ HEAD: 9009740 — fix(core): process due events before player actions.
 - faee5a0 chore — PROJECT_STATE после Admin tools
 - ae8dbbd feat — DM character registration, Phase 27a
 - 9009740 fix — scheduled events before player actions, Unicode names, CAS regression
+- cb08f04 fix — knowledge provenance, lifecycle and instance-isolation invariants
 
-Миграции: 0001-0013.
+Миграции: 0001-0014; единственная Alembic head — `0014_knowledge_instance_fk`.
 
 ## Ключевые архитектурные решения
 
@@ -253,10 +254,19 @@ HEAD: 9009740 — fix(core): process due events before player actions.
 - CAS integration test запускает конкурирующую запись после чтения версии именно тестируемым обработчиком, не полагаясь на число внутренних чтений насоса.
 - Полный набор: 575 passed; `compileall` и `git diff --check` прошли.
 
+### Аудит инвариантов проекта
+
+- Проверены 8 областей: domain, application, persistence/migrations, Telegram, CLI/bootstrap, content, tests/docs и полная регрессия.
+- Наблюдение теперь хранится как `OBSERVATION`, а не `FACT`; ответ NPC строится по фактически сохранённой записи знания.
+- Экземпляры в статусах `PAUSED` и `ARCHIVED` не принимают игровые action events.
+- Due events обрабатываются перед `begin_travel` и изменением статуса фракции; путешествие не завершается преждевременно насосом после действия.
+- Доменная проверка и композитный FK запрещают связывать knowledge с information из другого WORLD INSTANCE; добавлена миграция `0014_knowledge_instance_fk`.
+- Регрессионные тесты покрывают provenance наблюдения, запрет действий в неактивном мире, порядок scheduler и меж-instance изоляцию.
+- Проверки: `pytest -q` — 584 passed; `compileall`, `git diff --check` прошли; `alembic heads` показывает единственную голову `0014_knowledge_instance_fk`.
+
 ## TODO
 
 - MASTER_SPEC §13: нумерация фаз устарела; проверить и исправить.
-- INSPECT выдаёт `FACT` от одного наблюдения; сверить с `07_KNOWLEDGE §6.1` и согласовать реализацию/канон.
 - Сверить ссылки на фазу AI NPC dialogue: в `19_MVP_V1_FOR_AI.txt` §21 описывает AI interface flow, §22 — Telegram; в `20_TECH_ARCHITECTURE_V1_FOR_AI.txt` §§40–43 не являются разделами AI gateway (AI provider/interpreter/generator находятся в §§17–19).
 - `NpcDefinition.goals` пока не имеет маркировки public/hidden; не передавать цели NPC в AI context до отдельной модели видимости.
 - AI-generated dialogue не проверяется на hallucination; разработать grounding/validation отдельной фазой.
