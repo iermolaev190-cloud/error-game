@@ -499,19 +499,12 @@ class WorldEngine:
         self, result: ActionResult, world_instance_id: WorldInstanceId
     ) -> ActionResult:
         outcome = self._pump_world(world_instance_id)
-        if outcome.limit_reached:
-            # M1: уже применённые последствия остаются применёнными, отката нет.
-            return ActionResult.failure(
-                result.action,
-                DomainError(
-                    ErrorCode.CASCADE_LIMIT,
-                    "consequence cascade limit reached "
-                    f"({self._consequences.max_cascade_steps} steps)",
-                ),
-            )
-        if not outcome.changed:
+        if not outcome.changed and not outcome.limit_reached:
             return result
         payload = dict(result.payload)
+        if outcome.limit_reached:
+            payload["cascade_limit_reached"] = True
+            payload["cascade_steps"] = outcome.steps
         if outcome.scheduled.applied:
             payload["scheduled_events_applied"] = len(outcome.scheduled.applied)
         if outcome.consequences.applied:

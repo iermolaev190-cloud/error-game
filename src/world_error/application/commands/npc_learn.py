@@ -138,6 +138,7 @@ class NpcLearnHandler:
                     payload={
                         "npc_key": npc.key,
                         "information_key": information.key,
+                        "claim": claim,
                         "claim_type": command.claim_type.value,
                         "source": command.source.value,
                         "source_ref": command.source_ref,

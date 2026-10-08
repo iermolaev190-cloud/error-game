@@ -54,7 +54,9 @@ def test_new_character_finds_legacy_document_through_world_not_account_link(
     assert found.ok is True, found.error
     assert found.payload["already_known"] is False
     assert found.payload["content"] == "Маршрут отмечен на обороте карты."
-    assert world_engine.get_events(instance.id)[-1].target == str(document_id)
+    event = world_engine.get_events(instance.id)[-1]
+    assert event.target == str(document_id)
+    assert event.payload["content"] == "Маршрут отмечен на обороте карты."
     assert "predecessor_id" not in {
         field.name for field in dataclasses.fields(world_engine.get_character(instance.id, new_id))
     }

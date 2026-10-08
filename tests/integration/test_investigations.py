@@ -278,6 +278,15 @@ def test_private_and_shared_notes_are_viewer_filtered_and_append_only(
         notes = uow.cases.list_notes(instance.id, case_id)
     assert len(notes) == 2
     assert len({note.id for note in notes}) == 2
+    note_events = [
+        event
+        for event in world_engine.get_events(instance.id)
+        if event.type is EventType.CASE_NOTE_ADDED
+    ]
+    assert [event.payload["text"] for event in note_events] == [
+        "Личная заметка",
+        "Общая заметка",
+    ]
 
 
 def test_case_close_requires_resolution_criteria_and_distinct_contributors(

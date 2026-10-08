@@ -82,6 +82,7 @@ class AddCaseNoteHandler:
                         "case_id": str(case.id),
                         "note_id": str(note.id),
                         "author_id": str(author.id),
+                        "text": note.text,
                         "visibility": note.visibility.value,
                     },
                     result="success",

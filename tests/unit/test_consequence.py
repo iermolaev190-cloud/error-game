@@ -183,6 +183,17 @@ def test_status_transitions_are_idempotent() -> None:
     assert exc_info.value.code is ErrorCode.INVALID_ACTION
 
 
+def test_consequence_cannot_be_applied_without_an_event() -> None:
+    consequence = make_consequence()
+
+    with pytest.raises(DomainError) as exc_info:
+        consequence.mark_applied(event_id=None, now=NOW)
+
+    assert exc_info.value.code is ErrorCode.INVALID_ACTION
+    assert consequence.status is ConsequenceStatus.PENDING
+    assert consequence.applied_event_id is None
+
+
 def test_cancel_and_transform_only_close_pending_consequences() -> None:
     cancelled = make_consequence()
     assert cancelled.cancel(now=NOW) is True

@@ -82,6 +82,7 @@ ACTION_EVENT_TYPES: frozenset[EventType] = frozenset(
         EventType.CASE_CLOSED,
         EventType.RELATIONSHIP_CHANGED,
         EventType.CONSEQUENCE_CREATED,
+        EventType.CONSEQUENCE_APPLIED,
         EventType.CONSEQUENCE_FAILED,
         EventType.CONSEQUENCE_CANCELLED,
         EventType.CONSEQUENCE_TRANSFORMED,

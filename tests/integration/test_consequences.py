@@ -122,9 +122,16 @@ def test_immediate_consequence_applies_at_once(world_engine: WorldEngine) -> Non
     consequence = world_engine.get_consequence(instance.id, ConsequenceId(result.payload["consequence_id"]))
     assert consequence.status is ConsequenceStatus.APPLIED
     assert consequence.applied_event_id is not None
+    applied_event = next(
+        event
+        for event in world_engine.get_events(instance.id)
+        if event.id == consequence.applied_event_id
+    )
+    assert applied_event.type is EventType.NPC_LEARNED
 
     knowledge = list(world_engine.get_npc_knowledge(instance.id, caretaker))
     assert len(knowledge) == 1
+    assert applied_event.payload["claim"] == knowledge[0].claim
     confirmed = events_of_type(world_engine, instance, EventType.NPC_LEARNED)
     assert len(confirmed) == 1
     assert confirmed[0].cause == f"consequence:{consequence.id}"
@@ -533,6 +540,7 @@ def test_duplicate_consequence_created_event_is_rejected(
         payload=informational_payload(caretaker),
     )
     event = events_of_type(world_engine, instance, EventType.CONSEQUENCE_CREATED)[0]
+    assert event.payload["effect_payload"] == informational_payload(caretaker)
     events_before = len(world_engine.get_events(instance.id))
 
     with uow_factory() as uow:
@@ -569,7 +577,7 @@ def test_applied_consequence_is_not_applied_twice(world_engine: WorldEngine) -> 
 def test_effect_without_change_closes_consequence_without_event(
     world_engine: WorldEngine,
 ) -> None:
-    """NPC уже знает: последствие закрывается, второго события нет."""
+    """NPC уже знает: закрытие no-op последствия всё равно записывается."""
     instance = make_world(world_engine)
     caretaker = npc_id_by_key(world_engine, instance, "caretaker")
     cause = last_event(world_engine, instance).id
@@ -582,7 +590,15 @@ def test_effect_without_change_closes_consequence_without_event(
 
     assert second.ok is True
     assert second.payload["consequences_applied"] == 1
-    assert len(world_engine.get_events(instance.id)) == events_before + 1  # только CREATED
+    new_events = world_engine.get_events(instance.id)[events_before:]
+    assert [event.type for event in new_events] == [
+        EventType.CONSEQUENCE_CREATED,
+        EventType.CONSEQUENCE_APPLIED,
+    ]
+    consequence = world_engine.get_consequence(
+        instance.id, ConsequenceId(second.payload["consequence_id"])
+    )
+    assert consequence.applied_event_id == new_events[-1].id
     assert len(events_of_type(world_engine, instance, EventType.NPC_LEARNED)) == 1
 
 
@@ -650,8 +666,10 @@ def test_cascade_limit_stops_without_rollback(tmp_path: Path) -> None:
             instance.id, character_id=character, target_key="radio"
         )
 
-        assert result.ok is False
-        assert result.error is not None and result.error.code is ErrorCode.CASCADE_LIMIT
+        assert result.ok is True, result.error
+        assert result.payload["cascade_limit_reached"] is True
+        assert result.payload["consequences_applied"] == 16
+        assert len(result.event_ids) >= 17  # action event and the applied consequences
         consequences = world_engine.list_consequences(instance.id)
         applied = [item for item in consequences if item.status is ConsequenceStatus.APPLIED]
         pending = [item for item in consequences if item.status is ConsequenceStatus.PENDING]

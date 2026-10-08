@@ -52,6 +52,12 @@ def test_scheduled_event_waits_until_due(world_engine: WorldEngine) -> None:
 
     assert result.ok is True, result.error
     scheduled_id = ScheduledEventId(result.payload["scheduled_event_id"])
+    created_event = next(
+        event
+        for event in world_engine.get_events(instance.id)
+        if event.type is EventType.SCHEDULED_EVENT_CREATED
+    )
+    assert created_event.payload["scheduled_payload"] == {"location_key": "base"}
     assert world_engine.get_scheduled_event(instance.id, scheduled_id).status is (
         ScheduledEventStatus.PENDING
     )

@@ -113,6 +113,7 @@ class ScheduleConsequenceHandler:
                         "visibility": consequence.visibility.value,
                         "trigger": consequence.trigger.as_payload(),
                         "effect": consequence.effect.value,
+                        "effect_payload": dict(consequence.payload),
                         "cause_event_ids": [
                             str(cause.event_id) for cause in consequence.causes
                         ],

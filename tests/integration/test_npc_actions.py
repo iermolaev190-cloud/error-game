@@ -202,7 +202,9 @@ def test_npc_learn_uses_content_by_default(world_engine: WorldEngine, catalog) -
     knowledge = list(world_engine.get_npc_knowledge(instance.id, mechanic.id))
     assert knowledge[0].claim == definition.content
     assert knowledge[0].claim_type is ClaimType.FACT
-    assert world_engine.get_events(instance.id)[-1].type is EventType.NPC_LEARNED
+    event = world_engine.get_events(instance.id)[-1]
+    assert event.type is EventType.NPC_LEARNED
+    assert event.payload["claim"] == definition.content
 
 
 def test_npc_can_hold_false_belief(world_engine: WorldEngine, catalog) -> None:
@@ -226,6 +228,9 @@ def test_npc_can_hold_false_belief(world_engine: WorldEngine, catalog) -> None:
     assert knowledge.claim != definition.content
     assert knowledge.claim != definition.truth
     assert knowledge.claim_type is ClaimType.THEORY
+    event = world_engine.get_events(instance.id)[-1]
+    assert event.type is EventType.NPC_LEARNED
+    assert event.payload["claim"] == wrong_claim
 
 
 def test_repeated_npc_learn_is_noop(world_engine: WorldEngine) -> None:

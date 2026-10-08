@@ -211,10 +211,15 @@ class Consequence:
                 f"consequence {self.id} is already {self.status.value}",
             )
 
-    def mark_applied(self, *, event_id: EventId | None, now: datetime) -> bool:
+    def mark_applied(self, *, event_id: EventId, now: datetime) -> bool:
         """Перевести в APPLIED. Повторный вызов — no-op (идемпотентность)."""
         if not self.can_apply():
             return False
+        if not event_id:
+            raise DomainError(
+                ErrorCode.INVALID_ACTION,
+                "applied consequence requires an event",
+            )
         self.status = ConsequenceStatus.APPLIED
         self.applied_at = now
         self.applied_event_id = event_id

@@ -76,6 +76,7 @@ class LeaveLegacyDocumentHandler:
                     payload={
                         "document_id": str(document_id),
                         "document_key": command.document_key,
+                        "content": command.content,
                         "location_key": str(character.location_key),
                         "created_by_character_id": str(character.id),
                         "death_event_id": str(character.death_event_id),

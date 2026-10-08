@@ -322,14 +322,31 @@ class ConsequenceEngine:
                     uow, instance, consequence, expected_version, now, exc
                 )
 
-            consequence.mark_applied(event_id=None if event is None else event.id, now=now)
-            uow.consequences.save(consequence)
             if event is None:
-                # Эффект не изменил мир (например, NPC уже знает): событие не
-                # пишется, но последствие закрыто.
-                uow.commit()
-                return (None, True)
+                event = Event(
+                    id=self._new_event_id(),
+                    world_instance_id=instance.id,
+                    type=EventType.CONSEQUENCE_APPLIED,
+                    created_at=now,
+                    executed_at=now,
+                    actor=None,
+                    target=str(consequence.id),
+                    cause=consequence_cause_of(consequence.id),
+                    payload={
+                        "consequence_id": str(consequence.id),
+                        "effect": consequence.effect.value,
+                        "effect_payload": dict(consequence.payload),
+                        "cause_event_ids": [
+                            str(cause.event_id) for cause in consequence.causes
+                        ],
+                        "world_changed": False,
+                    },
+                    result="applied_without_world_change",
+                )
+                instance.register_applied_event(event)
 
+            consequence.mark_applied(event_id=event.id, now=now)
+            uow.consequences.save(consequence)
             uow.world_instances.save(instance, expected_state_version=expected_version)
             uow.events.append(event)
             uow.commit()
@@ -425,6 +442,7 @@ class ConsequenceEngine:
             payload={
                 "npc_key": npc.key,
                 "information_key": information.key,
+                "claim": claim,
                 "claim_type": claim_type.value,
                 "source": source.value,
                 "source_ref": cause,

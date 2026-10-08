@@ -111,6 +111,7 @@ class ScheduleEventHandler:
                         "scheduled_event_id": str(scheduled_event_id),
                         "cause_event_id": str(command.cause_event_id),
                         "event_key": command.event_key,
+                        "scheduled_payload": dict(scheduled.payload),
                         "trigger_kind": trigger.kind.value,
                         "due_tick": trigger.due_tick,
                         "due_time": None if trigger.due_time is None else trigger.due_time.isoformat(),
