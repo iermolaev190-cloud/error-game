@@ -1,0 +1,8 @@
+{
+  "key": "base",
+  "name": "Лагерь экспедиции",
+  "type": "BASE",
+  "description": "Палатки, склад и радиостанция экспедиции. Отсюда начинается путь.",
+  "connections": ["forest"],
+  "items": ["credits", "medkit"]
+}

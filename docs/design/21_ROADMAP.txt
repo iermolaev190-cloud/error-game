@@ -1,0 +1,2178 @@
+# 21_ROADMAP.md
+
+# WORLD//ERROR — Roadmap
+
+## 1. Назначение
+
+Roadmap определяет последовательность создания WORLD//ERROR от пустого репозитория до первой устойчивой версии игры.
+
+Главный принцип:
+
+> Не строить следующий слой, пока предыдущий не доказал, что работает.
+
+Roadmap должен минимизировать:
+
+* технический долг;
+* преждевременную сложность;
+* зависимость от AI;
+* переписывание WORLD ENGINE;
+* чрезмерное производство контента;
+* масштабирование слишком рано;
+* создание систем, которые не используются игроками.
+
+---
+
+# 2. ОСНОВНОЙ ПОРЯДОК
+
+```text id="x7m2q9"
+ARCHITECTURE
+↓
+WORLD CORE
+↓
+EVENT ENGINE
+↓
+PERSISTENCE
+↓
+PLAYER
+↓
+WORLD CONTENT
+↓
+MULTIPLAYER
+↓
+KNOWLEDGE
+↓
+INVESTIGATION
+↓
+CONSEQUENCES
+↓
+TIME
+↓
+NPC
+↓
+ECONOMY
+↓
+AI
+↓
+TELEGRAM POLISH
+↓
+PLAYTEST
+↓
+ITERATION
+↓
+SCALE
+```
+
+Это логический порядок.
+
+На практике некоторые этапы могут идти параллельно.
+
+---
+
+# 3. PHASE 0 — ПОДГОТОВКА
+
+## Цель
+
+Подготовить проект до написания сложной игровой логики.
+
+### Сделать
+
+* Git repository;
+* базовую структуру проекта;
+* DEV environment;
+* STAGING environment;
+* базовую database;
+* migrations;
+* configuration;
+* logging;
+* testing framework;
+* environment variables;
+* CI;
+* basic deployment.
+
+### Не делать
+
+* AI;
+* сложный Telegram UI;
+* procedural generation;
+* экономику;
+* тысячи объектов.
+
+---
+
+# 4. CHECKPOINT 0
+
+Нельзя двигаться дальше, пока:
+
+```text id="m8q3v1"
+project starts
+database connects
+migration works
+tests run
+deployment works
+logs work
+```
+
+---
+
+# 5. PHASE 1 — WORLD INSTANCE
+
+## Цель
+
+Создать независимый WORLD INSTANCE.
+
+Минимум:
+
+```text id="q4n7m2"
+createWorldInstance()
+getWorldInstance()
+pauseWorldInstance()
+resumeWorldInstance()
+archiveWorldInstance()
+```
+
+Каждый instance имеет:
+
+```text id="v8m3r5"
+ID
+SEED
+TIME
+TICK
+STATE_VERSION
+CONTENT_VERSION
+STATUS
+```
+
+---
+
+# 6. TEST PHASE 1
+
+Создать:
+
+```text id="c7p2m9"
+INSTANCE A
+INSTANCE B
+```
+
+Изменить A.
+
+Проверить:
+
+```text id="n4q8x1"
+B unchanged
+```
+
+Это первый фундаментальный тест WORLD//ERROR.
+
+---
+
+# 7. CHECKPOINT 1
+
+Запрещено идти дальше, если:
+
+* instance изолированы;
+* состояние сохраняется;
+* два instance можно создать одновременно;
+* restart сервера не уничтожает состояние.
+
+---
+
+# 8. PHASE 2 — WORLD STATE
+
+Создать минимальные сущности:
+
+```text id="m9q4v7"
+Character
+Location
+NPC
+Item
+Event
+Information
+```
+
+Пока без сложных систем.
+
+---
+
+# 9. PHASE 3 — EVENT ENGINE
+
+Это самый важный этап разработки.
+
+Создать:
+
+```text id="r7m2k8"
+Command
+↓
+Validation
+↓
+Event
+↓
+State Transition
+↓
+Event Log
+```
+
+Например:
+
+```text id="x5q9m3"
+Create Character
+Move Character
+Take Item
+Change NPC State
+```
+
+---
+
+# 10. EVENT ENGINE FIRST
+
+До создания красивого интерфейса нужно доказать:
+
+```text id="c3n8v6"
+ACTION
+↓
+EVENT
+↓
+STATE CHANGE
+```
+
+Если это работает плохо, дальше нельзя идти.
+
+---
+
+# 11. CHECKPOINT 2
+
+В тесте:
+
+```text id="m6q2r9"
+Player moves.
+```
+
+После операции:
+
+```text id="k8v3n1"
+Location changed.
+Event created.
+History recorded.
+```
+
+После restart:
+
+```text id="w4m7q2"
+State remains correct.
+```
+
+---
+
+# 12. PHASE 4 — SNAPSHOTS И RECOVERY
+
+Добавить:
+
+```text id="q9m3v7"
+Snapshots
+Event replay
+Recovery
+```
+
+Проверить:
+
+```text id="r2n8x4"
+snapshot
++
+events
+=
+same world state
+```
+
+---
+
+# 13. CHECKPOINT 3
+
+Искусственно:
+
+```text id="a7m4q2"
+stop server
+restart server
+```
+
+После запуска мир должен восстановиться без ручного исправления базы.
+
+---
+
+# 14. PHASE 5 — CHARACTER
+
+Теперь создаётся настоящий игрок.
+
+Flow:
+
+```text id="m8q3n6"
+USER
+↓
+WORLD INSTANCE
+↓
+CHARACTER
+↓
+ACTIVE
+```
+
+Добавить:
+
+* identity;
+* status;
+* location;
+* basic attributes;
+* inventory;
+* history.
+
+---
+
+# 15. PHASE 6 — LOCATIONS
+
+Создать первую карту.
+
+Не больше:
+
+**5–8 локаций.**
+
+Например:
+
+```text id="v3n7q2"
+BASE
+SETTLEMENT
+FOREST
+ROAD
+FACILITY
+RESTRICTED AREA
+```
+
+---
+
+# 16. LOCATION SYSTEM
+
+Добавить:
+
+* connections;
+* access;
+* state;
+* discovery;
+* items;
+* NPCs;
+* events;
+* history.
+
+---
+
+# 17. CHECKPOINT 4
+
+Игрок должен суметь:
+
+```text id="x9m2q7"
+создать персонажа
+↓
+переместиться
+↓
+исследовать
+↓
+получить результат
+↓
+вернуться позже
+```
+
+---
+
+# 18. PHASE 7 — BASIC ACTION SYSTEM
+
+Создать ограниченный набор:
+
+```text id="k4q8m3"
+MOVE
+SEARCH
+INSPECT
+TAKE
+USE
+GIVE
+TALK
+SHARE
+```
+
+Не расширять список бесконечно.
+
+Каждое действие должно проходить через World Engine.
+
+---
+
+# 19. PHASE 8 — INFORMATION
+
+Добавить:
+
+```text id="n7m2q9"
+Information
+Knowledge
+Source
+Discovery
+Confidence
+```
+
+Игрок начинает видеть не мир напрямую, а доступную ему информацию о мире.
+
+---
+
+# 20. ПЕРВЫЙ ВАЖНЫЙ ПРОРЫВ
+
+На этом этапе уже должна появиться разница:
+
+```text id="q8m4v2"
+WORLD TRUTH
+      ≠
+PLAYER KNOWLEDGE
+```
+
+Если её нет, расследовательная модель игры пока не работает.
+
+---
+
+# 21. PHASE 9 — MULTIPLAYER
+
+Подключить несколько игроков.
+
+Тест:
+
+```text id="m5q9r3"
+PLAYER A
+PLAYER B
+PLAYER C
+```
+
+в одном instance.
+
+---
+
+# 22. MULTIPLAYER TEST
+
+Игрок A:
+
+```text id="c7m3x8"
+находит документ
+```
+
+Игрок B:
+
+```text id="n4q8m1"
+не знает о документе
+```
+
+Игрок A может:
+
+```text id="p6r2v9"
+сообщить B
+```
+
+После этого B получает knowledge через игровое действие.
+
+---
+
+# 23. CHECKPOINT 5
+
+Нельзя двигаться дальше, если:
+
+* игроки могут взаимодействовать;
+* знания не протекают автоматически;
+* предметы нельзя дублировать через race condition;
+* один игрок может изменить состояние, которое видит другой.
+
+---
+
+# 24. PHASE 10 — NPC CORE
+
+Теперь появляются NPC.
+
+Начать с:
+
+**5–10 важных NPC.**
+
+Каждый имеет:
+
+```text id="r8m2q4"
+GOALS
+KNOWLEDGE
+LOCATION
+RELATIONSHIPS
+STATUS
+MEMORY
+```
+
+---
+
+# 25. NPC БЕЗ AI
+
+Критически важно:
+
+Сначала NPC должны работать **без LLM**.
+
+Например:
+
+```text id="v7q3m9"
+NPC
+↓
+state machine
+↓
+action
+↓
+event
+```
+
+AI подключается только после того, как поведение NPC имеет технический фундамент.
+
+---
+
+# 26. PHASE 11 — NPC SCHEDULES
+
+Добавить простые:
+
+```text id="m3q8n6"
+MORNING
+WORK
+EVENING
+REST
+```
+
+Но реализовать их через значимые события, а не симуляцию каждой секунды.
+
+---
+
+# 27. PHASE 12 — RELATIONSHIPS
+
+Добавить:
+
+```text id="q9m4v2"
+PLAYER ↔ NPC
+NPC ↔ NPC
+NPC ↔ FACTION
+PLAYER ↔ PLAYER
+```
+
+Минимальные состояния:
+
+```text id="r7n3m8"
+UNKNOWN
+NEUTRAL
+FRIENDLY
+SUSPICIOUS
+HOSTILE
+```
+
+---
+
+# 28. PHASE 13 — CONSEQUENCES
+
+Теперь действие игрока начинает оставлять след.
+
+Пример:
+
+```text id="m8q2v7"
+Player steals item
+↓
+NPC notices
+↓
+relationship changes
+↓
+NPC tells another NPC
+↓
+new information appears
+```
+
+---
+
+# 29. CHECKPOINT 6
+
+Система должна продемонстрировать:
+
+```text id="x3n7q9"
+ACTION
+↓
+IMMEDIATE RESULT
+↓
+DELAYED RESULT
+↓
+SECONDARY RESULT
+```
+
+Хотя бы в одном тестовом сценарии.
+
+---
+
+# 30. PHASE 14 — TIME
+
+Подключить:
+
+* world time;
+* scheduled events;
+* delayed events;
+* event deadlines;
+* lazy simulation.
+
+---
+
+# 31. TIME TEST
+
+Игрок:
+
+```text id="q4m8r2"
+выходит из игры.
+```
+
+Система:
+
+```text id="n7v3m9"
+обрабатывает значимое событие.
+```
+
+Игрок возвращается:
+
+```text id="m2q8x4"
+мир изменился.
+```
+
+---
+
+# 32. PHASE 15 — DEATH
+
+После появления реальных последствий можно вводить смерть.
+
+Добавить:
+
+```text id="r9m3q7"
+ALIVE
+INCAPACITATED
+DEAD
+```
+
+Смерть является event.
+
+---
+
+# 33. PHASE 16 — NEW CHARACTER
+
+После смерти:
+
+```text id="v4q8m2"
+DEAD CHARACTER
+↓
+CREATE NEW CHARACTER
+↓
+ENTER EXISTING WORLD
+```
+
+Новый персонаж не получает автоматически:
+
+* старый inventory;
+* старые знания;
+* старую репутацию.
+
+---
+
+# 34. PHASE 17 — LEGACY
+
+Добавить первый механизм наследия.
+
+Например:
+
+```text id="k7m2n8"
+dead character
+↓
+document
+↓
+new character
+↓
+discovery
+```
+
+---
+
+# 35. PHASE 18 — FACTIONS
+
+Только теперь вводятся первые фракции.
+
+**2–3 фракции.**
+
+У каждой:
+
+* goals;
+* resources;
+* knowledge;
+* relations;
+* territory;
+* state.
+
+---
+
+# 36. PHASE 19 — SIMPLE ECONOMY
+
+Минимальная экономика:
+
+```text id="q8m3v7"
+currency
+items
+trade
+shops
+resources
+```
+
+Не строить полноценную макроэкономику.
+
+---
+
+# 37. ECONOMY TEST
+
+Игроки должны суметь:
+
+```text id="m4q9r2"
+получить ресурс
+↓
+использовать его
+↓
+обменять
+↓
+изменить доступность
+```
+
+---
+
+# 38. PHASE 20 — INVESTIGATION ENGINE
+
+Теперь можно строить полноценное расследование.
+
+Добавить:
+
+```text id="n7q3m8"
+CASE
+QUESTION
+CLUES
+THEORIES
+SUSPECTS
+LOCATIONS
+EVENTS
+CONTRADICTIONS
+NOTES
+```
+
+---
+
+# 39. FIRST REAL INVESTIGATION
+
+Создать одно расследование высокого качества.
+
+Не десять.
+
+Одно.
+
+Оно должно использовать:
+
+* несколько NPC;
+* несколько локаций;
+* документы;
+* knowledge;
+* contradictions;
+* player discussion;
+* consequences.
+
+---
+
+# 40. CHECKPOINT 7
+
+Игроки должны самостоятельно начать обсуждать:
+
+> «А что, если произошло X?»
+
+без необходимости получить от бота:
+
+> «Теперь начните теорию X.»
+
+Если теория возникает естественно — расследовательная система работает.
+
+---
+
+# 41. PHASE 21 — AI INTERPRETER
+
+Теперь подключается AI.
+
+Первоначально только:
+
+```text id="m8q4v1"
+natural language
+↓
+intent
+```
+
+Например:
+
+> «Пойду посмотрю, что находится за зданием.»
+
+AI преобразует это в:
+
+```text id="r3n7q9"
+EXPLORE_AREA
+```
+
+World Engine решает результат.
+
+---
+
+# 42. PHASE 22 — AI NPC DIALOGUE
+
+После Intent Parser:
+
+```text id="q7m3v8"
+NPC state
++
+NPC knowledge
++
+NPC goals
++
+player message
+↓
+AI
+↓
+dialogue
+```
+
+---
+
+# 43. AI НЕ ПОДКЛЮЧАТЬ РАНЬШЕ
+
+До этого момента:
+
+```text id="m9q4v2"
+World Engine
+```
+
+должен работать самостоятельно.
+
+Причина проста:
+
+Если сначала построить игру вокруг LLM, потом будет очень трудно определить:
+
+> где заканчивается игра и начинается импровизация модели.
+
+---
+
+# 44. PHASE 23 — TELEGRAM INTEGRATION
+
+Теперь Telegram становится полноценным интерфейсом.
+
+Добавить:
+
+* group;
+* DM;
+* commands;
+* buttons;
+* notifications;
+* media;
+* private information.
+
+---
+
+# 45. TELEGRAM TEST
+
+Проверить полный путь:
+
+```text id="v3q8m6"
+Telegram message
+↓
+Intent
+↓
+World Engine
+↓
+Event
+↓
+State
+↓
+Knowledge
+↓
+AI / template
+↓
+Telegram response
+```
+
+---
+
+# 46. PHASE 24 — PRIVATE / GROUP LAYERS
+
+Добавить чёткое разделение.
+
+### GROUP
+
+* общие события;
+* обсуждение;
+* совместные действия.
+
+### DM
+
+* private knowledge;
+* inventory;
+* personal actions;
+* private NPC dialogue.
+
+---
+
+# 47. PHASE 25 — ARG PROTOTYPE
+
+Только после работающего основного игрового цикла.
+
+Создать:
+
+**один внешний ARG-объект.**
+
+Он должен:
+
+```text id="n4q7m2"
+быть найден внутри игры
+↓
+привести наружу
+↓
+дать информацию
+↓
+вернуть игрока в игру
+↓
+изменить instance
+```
+
+---
+
+# 48. PHASE 26 — ADMIN TOOLS
+
+Создать минимальную панель:
+
+```text id="r8m3q6"
+World State
+Events
+Players
+NPCs
+Locations
+Knowledge
+Timeline
+Errors
+```
+
+---
+
+# 49. ADMIN MUST-HAVE
+
+Разработчик должен иметь возможность:
+
+```text id="m7q2v9"
+pause instance
+resume instance
+inspect entity
+inspect event
+inspect knowledge
+inspect pending events
+```
+
+---
+
+# 50. PHASE 27 — FIRST INTERNAL PLAYTEST
+
+Состав:
+
+**3–5 человек.**
+
+Не разработчики по возможности.
+
+Дать им минимальные инструкции.
+
+Не объяснять:
+
+* все системы;
+* всю архитектуру;
+* правильные теории.
+
+---
+
+# 51. НАЗНАЧЕНИЕ ПЕРВОГО PLAYTEST
+
+Не спрашивать:
+
+> «Понравилась ли вам игра?»
+
+Наблюдать:
+
+* что они делают;
+* куда идут;
+* что считают важным;
+* какие теории строят;
+* чем делятся;
+* что игнорируют;
+* где ожидают другой реакции.
+
+---
+
+# 52. PLAYTEST QUESTIONS
+
+После игры спросить:
+
+1. Что, по-твоему, произошло?
+2. Что ты считаешь фактом?
+3. Что ты считаешь слухом?
+4. Что тебя удивило?
+5. Что изменилось после твоих действий?
+6. Что происходило без тебя?
+7. Хотелось ли тебе вернуться?
+8. Что ты ожидал от NPC?
+9. Что было непонятно из-за дизайна?
+10. Что было непонятно специально?
+
+Последний вопрос особенно важен.
+
+---
+
+# 53. BUG VS MYSTERY
+
+Если игрок говорит:
+
+> «Я не понял, почему NPC сделал это.»
+
+Нужно определить:
+
+```text id="x8m3q4"
+BUG?
+DESIGN FAILURE?
+INTENTIONAL MYSTERY?
+NPC LACK OF INFORMATION?
+```
+
+Не каждое непонимание является хорошей загадкой.
+
+---
+
+# 54. PHASE 28 — FIX FIRST, EXPAND LATER
+
+После playtest:
+
+**не добавлять 20 новых систем.**
+
+Сначала исправить:
+
+* broken loops;
+* confusing rules;
+* information leaks;
+* dead ends;
+* exploits;
+* poor feedback;
+* bad pacing.
+
+---
+
+# 55. PHASE 29 — CLOSED ALPHA
+
+Размер:
+
+**5–20 игроков.**
+
+Один или несколько WORLD INSTANCE.
+
+Цель:
+
+проверить:
+
+* persistence;
+* multiplayer;
+* concurrency;
+* NPC;
+* knowledge;
+* economy;
+* investigation;
+* inactivity;
+* time.
+
+---
+
+# 56. ALPHA RULE
+
+В alpha разрешены:
+
+* wipe;
+* rollback;
+* изменяющийся контент;
+* поломки;
+* экспериментальные системы.
+
+Игрокам нужно заранее сообщать, что мир экспериментальный.
+
+---
+
+# 57. PHASE 30 — MULTI-INSTANCE TEST
+
+Создать:
+
+```text id="q5m8n2"
+INSTANCE A
+INSTANCE B
+INSTANCE C
+INSTANCE D
+```
+
+Разные игроки играют одновременно.
+
+Проверить:
+
+* изоляцию;
+* database load;
+* queue load;
+* scheduler;
+* AI load;
+* notifications.
+
+---
+
+# 58. PHASE 31 — SCALE TEST
+
+Не нужно сразу тестировать 10 000 игроков.
+
+Сначала:
+
+```text id="m3q7v9"
+10 instances
+↓
+50 instances
+↓
+100 instances
+```
+
+Измерять:
+
+* DB;
+* workers;
+* event processing;
+* queue;
+* memory;
+* AI;
+* Telegram.
+
+---
+
+# 59. PHASE 32 — ECONOMY EXPANSION
+
+После доказательства основной игры можно постепенно добавлять:
+
+* production;
+* logistics;
+* contracts;
+* debt;
+* markets;
+* resource scarcity;
+* organizations.
+
+Но только если они создают реальные игровые решения.
+
+---
+
+# 60. PHASE 33 — FACTION EXPANSION
+
+Затем:
+
+* internal conflicts;
+* faction politics;
+* espionage;
+* alliances;
+* territorial control;
+* player-created organizations.
+
+---
+
+# 61. PHASE 34 — ADVANCED NPC
+
+После базовой системы:
+
+* deeper memory;
+* schedules;
+* goals;
+* relationships;
+* independent actions;
+* faction membership;
+* economic activity.
+
+---
+
+# 62. PHASE 35 — ADVANCED AI
+
+Только после устойчивого engine:
+
+* richer dialogue;
+* document analysis;
+* personalized presentation;
+* investigation assistance;
+* dynamic narration;
+* multilingual presentation;
+* procedural background dialogue.
+
+---
+
+# 63. PHASE 36 — PROCEDURAL CONTENT
+
+Процедурность вводится постепенно.
+
+Сначала:
+
+```text id="n8q2m5"
+background events
+```
+
+Затем:
+
+```text id="q4m7r9"
+minor NPCs
+```
+
+Затем:
+
+```text id="m3v8n2"
+minor locations
+```
+
+И только после этого можно рассматривать более сложную procedural generation.
+
+---
+
+# 64. PROCEDURAL CONTENT MUST NOT REPLACE AUTHORSHIP
+
+Главные:
+
+* mysteries;
+* factions;
+* canonical events;
+* world history;
+* major NPCs;
+* important locations
+
+должны оставаться контролируемыми авторами.
+
+---
+
+# 65. PHASE 37 — COMMUNITY CONTENT
+
+После стабилизации игры:
+
+```text id="r7m3q8"
+COMMUNITY IDEA
+↓
+REVIEW
+↓
+UNVERIFIED
+↓
+SUPPORTED
+↓
+CANON
+```
+
+Игроки могут создавать:
+
+* организации;
+* истории;
+* документы;
+* теории;
+* персонажей;
+* места.
+
+Но canonization остаётся контролируемой.
+
+---
+
+# 66. PHASE 38 — LARGE ARG
+
+После доказательства маленького ARG можно расширять:
+
+* внешние сайты;
+* документы;
+* аудио;
+* видео;
+* социальные следы;
+* временные события;
+* multi-step investigations.
+
+---
+
+# 67. PHASE 39 — LONG-TERM WORLDS
+
+Теперь можно проверять:
+
+```text id="q8m4n7"
+WORLD INSTANCE
+↓
+1 month
+↓
+3 months
+↓
+6 months
+↓
+1 year
+```
+
+И анализировать:
+
+* накопление истории;
+* инфляцию;
+* dead content;
+* NPC drift;
+* player power;
+* faction snowball;
+* information overload.
+
+---
+
+# 68. PHASE 40 — ANTI-SNOWBALL
+
+После появления реальных миров обязательно тестировать:
+
+```text id="m7q3v9"
+wealth concentration
+information monopoly
+faction monopoly
+player monopoly
+resource depletion
+```
+
+Нужно предотвращать ситуацию:
+
+> первые активные игроки навсегда захватили весь мир.
+
+---
+
+# 69. PHASE 41 — LONG-TERM BALANCE
+
+Балансировать:
+
+* resource regeneration;
+* faction power;
+* information accessibility;
+* new-player entry;
+* death;
+* legacy;
+* economy;
+* exploration.
+
+---
+
+# 70. НОВЫЙ ИГРОК В СТАРЫЙ WORLD INSTANCE
+
+Очень важный тест.
+
+Игрок приходит в мир через:
+
+```text id="q5m8r3"
+DAY 1
+```
+
+а мир существует:
+
+```text id="m9q3v7"
+DAY 100
+```
+
+Новый игрок должен иметь:
+
+* точку входа;
+* доступные знания;
+* возможность влиять;
+* причины существовать.
+
+Он не должен ощущать:
+
+> «Все интересное уже закончилось.»
+
+---
+
+# 71. DEATH И LONG-TERM ENTRY
+
+Смерть должна не разрушать долгосрочную игру.
+
+Новый персонаж может:
+
+* исследовать старую историю;
+* найти след старого персонажа;
+* вступить в изменившиеся организации;
+* воспользоваться оставшимися объектами;
+* создать новую историю.
+
+---
+
+# 72. PHASE 42 — WORLD EXPANSION
+
+Только когда начальный регион начинает реально использоваться.
+
+Добавлять:
+
+```text id="r4m8q2"
+NEW REGION
+↓
+NEW LOCATIONS
+↓
+NEW FACTIONS
+↓
+NEW ECONOMY
+↓
+NEW HISTORY
+```
+
+Не расширять карту просто ради размера.
+
+---
+
+# 73. РЕГИОН ДОЛЖЕН ИМЕТЬ ПРИЧИНУ ПОЯВИТЬСЯ
+
+Новая территория может стать доступной через:
+
+* исследование;
+* изменение границы;
+* транспорт;
+* политическое событие;
+* разрушение барьера;
+* получение информации;
+* технологию;
+* экспедицию.
+
+Расширение должно быть частью мира.
+
+---
+
+# 74. PHASE 43 — MULTI-WORLD FEATURES
+
+По умолчанию WORLD INSTANCE остаются изолированными.
+
+Только после зрелости игры можно рассматривать:
+
+* глобальные immutable resources;
+* shared ARG;
+* community canon;
+* cross-instance events;
+* tournaments;
+* external world layers.
+
+Это должно быть отдельным дизайном.
+
+---
+
+# 75. НЕ ДОБАВЛЯТЬ CROSS-INSTANCE GAMEPLAY СЛУЧАЙНО
+
+Если два мира взаимодействуют, это должно быть явно определено.
+
+Например:
+
+```text id="n7m2q4"
+WORLD A
+      ↓
+GLOBAL EVENT
+      ↓
+WORLD B
+```
+
+Но такое событие должно иметь формальный механизм.
+
+---
+
+# 76. RELEASE CANDIDATE
+
+Перед первым публичным запуском:
+
+### Проверить
+
+* persistence;
+* backups;
+* recovery;
+* security;
+* permissions;
+* AI failures;
+* Telegram failures;
+* database failures;
+* race conditions;
+* duplicated events;
+* item duplication;
+* money duplication;
+* hidden information leaks;
+* cross-instance leaks.
+
+---
+
+# 77. PUBLIC RELEASE
+
+Публичный запуск не должен означать:
+
+> «Теперь игра закончена.»
+
+Это означает:
+
+> «Базовая система доказана достаточно хорошо, чтобы начать долгую эксплуатацию.»
+
+---
+
+# 78. POST-RELEASE
+
+После запуска:
+
+```text id="q3m8v7"
+OBSERVE
+↓
+MEASURE
+↓
+FIX
+↓
+TEST
+↓
+DEPLOY
+↓
+OBSERVE
+```
+
+Не:
+
+```text id="m9q4n2"
+ADD FEATURE
+ADD FEATURE
+ADD FEATURE
+```
+
+---
+
+# 79. METRICS ПОСЛЕ ЗАПУСКА
+
+Смотреть:
+
+### Gameplay
+
+* daily active characters;
+* sessions;
+* actions;
+* investigations started;
+* investigations completed;
+* discoveries;
+* deaths;
+* faction joins;
+* trades.
+
+### World
+
+* events;
+* world changes;
+* NPC actions;
+* scheduled events;
+* unresolved investigations.
+
+### Technical
+
+* latency;
+* errors;
+* event failures;
+* queue;
+* DB load;
+* AI failures.
+
+---
+
+# 80. НЕ ИСПОЛЬЗОВАТЬ МЕТРИКИ КАК ЦЕЛЬ
+
+Например:
+
+> «Нужно, чтобы игроки сделали 100 действий в день.»
+
+Это может привести к grind.
+
+Лучше измерять:
+
+> какие действия действительно создают meaningful state changes?
+
+---
+
+# 81. FEATURE GATE
+
+Перед добавлением новой системы задать пять вопросов:
+
+1. Какую проблему она решает?
+2. Какую существующую систему она использует?
+3. Какие новые последствия она создаёт?
+4. Можно ли обойтись существующими механизмами?
+5. Как мы поймём, что она действительно улучшила игру?
+
+Если ответов нет — система откладывается.
+
+---
+
+# 82. СИСТЕМА НЕ ДОБАВЛЯЕТСЯ РАДИ СИСТЕМЫ
+
+Плохая причина:
+
+> «Нам нужна система крафта, потому что в больших играх есть крафт.»
+
+Хорошая причина:
+
+> «Игрокам нужен способ превращать найденные ресурсы в инструменты, которые открывают новые способы взаимодействия с миром.»
+
+---
+
+# 83. CONTENT GATE
+
+Перед добавлением нового контента спросить:
+
+> Как этот контент связан хотя бы с двумя существующими системами?
+
+Например:
+
+```text id="q8m3v1"
+NEW LOCATION
+↓
+NPC
+↓
+CLUE
+↓
+FACTION
+↓
+ECONOMY
+```
+
+Контент, который существует полностью изолированно, подозрителен.
+
+---
+
+# 84. SYSTEM DENSITY
+
+Хороший контент должен использовать несколько систем.
+
+Например:
+
+```text id="m7q2n8"
+ABANDONED FACILITY
+│
+├── NPC
+├── DOCUMENT
+├── RESOURCE
+├── FACTION INTEREST
+├── INVESTIGATION
+├── ECONOMY
+└── HIDDEN AREA
+```
+
+Одна локация может создавать много gameplay.
+
+---
+
+# 85. ROADMAP НЕ ЛИНЕЙНЫЙ НАВСЕГДА
+
+После первой альфы некоторые этапы будут повторяться:
+
+```text id="v3m8q1"
+BUILD
+↓
+PLAYTEST
+↓
+ANALYZE
+↓
+REBUILD
+↓
+PLAYTEST
+```
+
+Это нормально.
+
+---
+
+# 86. ПРАВИЛО ПРОТОТИПА
+
+Если систему можно проверить за несколько дней маленьким прототипом — сначала сделать прототип.
+
+Не строить production architecture на основании предположения.
+
+---
+
+# 87. ПРОТОТИПЫ
+
+Особенно прототипировать:
+
+* NPC behaviour;
+* information propagation;
+* investigation;
+* economy;
+* procedural events;
+* AI dialogue;
+* Telegram UX.
+
+---
+
+# 88. НЕ ПРОТОТИПИРОВАТЬ БЕСКОНЕЧНО
+
+Прототип должен иметь вопрос.
+
+Например:
+
+> Может ли игрок понять противоречивую информацию?
+
+После ответа:
+
+```text id="q9m3v7"
+KEEP
+REWORK
+DROP
+```
+
+---
+
+# 89. SYSTEM RETIREMENT
+
+Система может быть удалена.
+
+Если:
+
+* никто не использует;
+* она не создаёт интересных решений;
+* создаёт слишком много сложности;
+* дублирует другую систему.
+
+Не нужно сохранять механику только потому, что на неё уже потрачено время.
+
+---
+
+# 90. ROADMAP PRIORITY MATRIX
+
+Приоритет:
+
+### P0
+
+Фундамент.
+
+* World Instance;
+* state;
+* events;
+* persistence;
+* player;
+* multiplayer.
+
+### P1
+
+Главная игра.
+
+* knowledge;
+* information;
+* NPC;
+* consequences;
+* investigation;
+* time.
+
+### P2
+
+Расширение.
+
+* factions;
+* economy;
+* death;
+* legacy;
+* AI.
+
+### P3
+
+Масштаб.
+
+* ARG;
+* procedural content;
+* community canon;
+* advanced AI;
+* world expansion.
+
+### P4
+
+Эксперименты.
+
+* cross-instance systems;
+* advanced anomalies;
+* unusual interfaces;
+* experimental mechanics.
+
+---
+
+# 91. ЧТО СТРОИМ ПЕРВЫМ
+
+Самый первый реально программируемый кусок WORLD//ERROR:
+
+```text id="m4q8n2"
+CREATE WORLD INSTANCE
+↓
+CREATE CHARACTER
+↓
+MOVE
+↓
+INSPECT
+↓
+FIND INFORMATION
+↓
+CREATE EVENT
+↓
+CHANGE WORLD STATE
+↓
+SAVE
+↓
+RESTART
+↓
+LOAD
+```
+
+Если это работает — появляется первый настоящий кусок WORLD//ERROR.
+
+---
+
+# 92. ВТОРОЙ VERTICAL SLICE
+
+После первого:
+
+```text id="q7m3v9"
+PLAYER A
+↓
+DISCOVERY
+↓
+PLAYER B
+↓
+DOESN'T KNOW
+↓
+A SHARES INFORMATION
+↓
+B LEARNS
+↓
+B ACTS
+↓
+WORLD CHANGES
+```
+
+Это первый настоящий multiplayer slice.
+
+---
+
+# 93. ТРЕТИЙ VERTICAL SLICE
+
+После него:
+
+```text id="n8q4m2"
+NPC
+↓
+HAS GOAL
+↓
+PLAYER ACTION
+↓
+NPC LEARNS
+↓
+NPC ACTS
+↓
+WORLD CHANGES
+↓
+PLAYER DISCOVERS CONSEQUENCE
+```
+
+Это первый настоящий living-world slice.
+
+---
+
+# 94. ЧЕТВЁРТЫЙ VERTICAL SLICE
+
+Затем:
+
+```text id="r3m7q8"
+CLUES
+↓
+CONTRADICTION
+↓
+THEORY
+↓
+ACTION
+↓
+WRONG INTERPRETATION
+↓
+CONSEQUENCE
+```
+
+Это первый настоящий investigation slice.
+
+---
+
+# 95. ПЯТЫЙ VERTICAL SLICE
+
+И только после этого:
+
+```text id="q8m3v7"
+AI
+↓
+NATURAL LANGUAGE
+↓
+INTENT
+↓
+WORLD ENGINE
+↓
+RESULT
+↓
+NPC DIALOGUE
+```
+
+Это первый AI slice.
+
+---
+
+# 96. КОГДА MVP МОЖНО СЧИТАТЬ ЗАКОНЧЕННЫМ
+
+Не тогда, когда реализован список функций.
+
+А когда один WORLD INSTANCE способен пройти цикл:
+
+```text id="m4q9n2"
+CREATE
+↓
+PLAY
+↓
+CHANGE
+↓
+PERSIST
+↓
+CONTINUE
+↓
+SURPRISE
+```
+
+и этот цикл работает для нескольких игроков.
+
+---
+
+# 97. КОГДА МОЖНО ДОБАВЛЯТЬ НОВУЮ МЕХАНИКУ
+
+Только после того, как:
+
+* текущая система стабильна;
+* её можно протестировать;
+* есть причина её расширять;
+* понятно, какие новые взаимодействия она создаст.
+
+---
+
+# 98. КОГДА НЕЛЬЗЯ ДОБАВЛЯТЬ НОВУЮ МЕХАНИКУ
+
+Если текущая проблема заключается в:
+
+* плохой архитектуре;
+* отсутствии persistence;
+* неработающих последствиях;
+* плохом UX;
+* информационных утечках;
+* сломанной multiplayer-синхронизации;
+* отсутствии интересного контента.
+
+Новая механика не исправит фундаментальную проблему.
+
+---
+
+# 99. ГЛАВНЫЙ РИСК ROADMAP
+
+Самый опасный сценарий:
+
+```text id="v7q2m9"
+идея
+↓
+архитектура
+↓
+ещё архитектура
+↓
+ещё документация
+↓
+ещё механики
+↓
+ещё lore
+↓
+ещё AI
+↓
+...
+↓
+нет игры
+```
+
+Поэтому после этих документов необходимо перейти к реализации маленького vertical slice.
+
+---
+
+# 100. СЛЕДУЮЩИЙ ПРАКТИЧЕСКИЙ ШАГ
+
+Не писать:
+
+```text id="q3m8v1"
+22_VERY_BIG_SYSTEM.md
+```
+
+а создать:
+
+```text id="m7q4n2"
+WORLD//ERROR
+        ↓
+FIRST PLAYABLE
+```
+
+с минимальным:
+
+```text id="r8m3q7"
+1 WORLD INSTANCE
+6 LOCATIONS
+3 NPC
+3 PLAYERS
+10 ITEMS
+1 INVESTIGATION
+20 EVENTS
+1 FACTION
+1 RESOURCE
+1 CURRENCY
+```
+
+---
+
+# 101. FIRST PLAYABLE
+
+Первый playable должен позволять:
+
+```text id="x4m9q2"
+join
+↓
+create character
+↓
+explore
+↓
+talk
+↓
+find clue
+↓
+share clue
+↓
+form theory
+↓
+act
+↓
+cause consequence
+↓
+return later
+↓
+discover changed world
+```
+
+---
+
+# 102. STOP CONDITION
+
+Если игрок после первого playable говорит:
+
+> «Ну да, это просто бот с командами.»
+
+Разработка останавливается.
+
+Нужно исправлять core experience.
+
+Если игрок говорит:
+
+> «Я хочу понять, что здесь произошло.»
+
+Тогда можно двигаться дальше.
+
+---
+
+# 103. ГЛАВНЫЙ КРИТЕРИЙ
+
+Не:
+
+```text id="w8m3q2"
+сколько механик
+```
+
+а:
+
+```text id="n4q7m9"
+сколько значимых взаимодействий
+```
+
+---
+
+# 104. ФИНАЛЬНАЯ ПОСЛЕДОВАТЕЛЬНОСТЬ
+
+```text id="m3q8v1"
+FOUNDATION
+    ↓
+WORLD INSTANCE
+    ↓
+WORLD STATE
+    ↓
+EVENT ENGINE
+    ↓
+PERSISTENCE
+    ↓
+CHARACTER
+    ↓
+LOCATIONS
+    ↓
+ACTIONS
+    ↓
+INFORMATION
+    ↓
+MULTIPLAYER
+    ↓
+NPC
+    ↓
+CONSEQUENCES
+    ↓
+TIME
+    ↓
+INVESTIGATION
+    ↓
+FACTIONS
+    ↓
+ECONOMY
+    ↓
+AI
+    ↓
+TELEGRAM
+    ↓
+PLAYTEST
+    ↓
+ITERATION
+    ↓
+ALPHA
+    ↓
+SCALE
+    ↓
+LONG-TERM WORLD
+    ↓
+EXPANSION
+```
+
+---
+
+# 105. ФИНАЛЬНЫЙ ПРИНЦИП ROADMAP
+
+> **Сначала создаём мир, который умеет существовать.
+> Потом персонажей, которые умеют в нём действовать.
+> Потом информацию, которая позволяет его понимать.
+> Потом последствия, которые делают действия значимыми.
+> Потом AI, который делает взаимодействие естественным.
+> И только после этого начинаем строить огромную вселенную.**
+
+---
+
+# 106. КОНЕЧНАЯ ЦЕЛЬ
+
+Не построить огромную игру сразу.
+
+Построить систему, которая способна **становиться огромной без разрушения собственного фундамента**.
+
+```text id="q8m4n7"
+SMALL ENGINE
+      ↓
+SMALL WORLD
+      ↓
+REAL PLAYERS
+      ↓
+REAL CONSEQUENCES
+      ↓
+REAL HISTORY
+      ↓
+MORE SYSTEMS
+      ↓
+MORE WORLDS
+      ↓
+MORE HISTORY
+      ↓
+WORLD//ERROR
+```
+
+Именно так должен начинаться WORLD//ERROR.
