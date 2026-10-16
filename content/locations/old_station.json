@@ -1,8 +1,0 @@
-{
-  "key": "old_station",
-  "name": "Старая станция",
-  "type": "ABANDONED_FACILITY",
-  "description": "Заброшенная станция связи. Внутри темно и пахнет сыростью.",
-  "connections": ["forest"],
-  "items": ["flashlight", "credits"]
-}

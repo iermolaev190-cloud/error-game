@@ -1,7 +1,0 @@
-{
-  "key": "mechanic",
-  "name": "Механик",
-  "description": "Ремонтирует то, что осталось от старой станции, и держится в стороне.",
-  "initial_location": "old_station",
-  "goals": ["REPAIR_THE_STATION", "HIDE_THE_DAMAGE"]
-}

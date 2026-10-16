@@ -1,7 +1,0 @@
-{
-  "key": "scout",
-  "name": "Разведчик",
-  "description": "Ходит по лесу и знает тропы лучше всех в экспедиции.",
-  "initial_location": "forest",
-  "goals": ["FIND_MISSING_RESEARCHER", "MAP_THE_FOREST"]
-}
