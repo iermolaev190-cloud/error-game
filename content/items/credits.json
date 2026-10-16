@@ -1,0 +1,10 @@
+{
+  "key": "credits",
+  "name": "Кредиты",
+  "description": "Местная валюта экспедиции.",
+  "weight": 0,
+  "type": "TOKEN",
+  "stackable": true,
+  "unique": false,
+  "visibility": "PUBLIC"
+}

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "world-error"
+version = "0.1.0"
+description = "WORLD//ERROR — persistent multiplayer world engine"
+requires-python = ">=3.12"
+dependencies = [
+    "sqlalchemy>=2.0,<2.2",
+    "alembic>=1.13",
+    "pydantic>=2",
+    "pydantic-settings>=2",
+    "aiogram>=3.13,<4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/world_error"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+# Свой basetemp внутри проекта: прогон не зависит от состояния %TEMP%,
+# а временные БД тестов остаются в рабочей папке (см. .gitignore).
+addopts = "--basetemp=.pytest_tmp"

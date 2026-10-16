@@ -1,0 +1,7 @@
+{
+  "key": "caretaker",
+  "name": "Смотритель",
+  "description": "Держит лагерь в порядке и не любит лишних вопросов.",
+  "initial_location": "base",
+  "goals": ["KEEP_BASE_RUNNING", "HIDE_OLD_MISTAKE"]
+}

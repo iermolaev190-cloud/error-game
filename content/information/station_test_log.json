@@ -1,0 +1,10 @@
+{
+  "key": "station_test_log",
+  "location_key": "old_station",
+  "type": "DOCUMENT",
+  "source": "MAINTENANCE_LOG",
+  "authenticity": "UNVERIFIED",
+  "access": "OPEN",
+  "content": "В журнале обслуживания указано, что радиосвязь проверили и признали исправной в 19:10.",
+  "truth": "Запись о проверке появилась в журнале после исчезновения исследователя."
+}

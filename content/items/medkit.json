@@ -1,0 +1,10 @@
+{
+  "key": "medkit",
+  "name": "Аптечка",
+  "description": "Комплект для оказания первой помощи.",
+  "weight": 250,
+  "type": "CONSUMABLE",
+  "stackable": true,
+  "unique": false,
+  "visibility": "PUBLIC"
+}
